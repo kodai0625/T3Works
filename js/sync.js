@@ -1,0 +1,259 @@
+/* ============================================================
+ *  共有同期（Google スプレッドシート＋Apps Script）
+ *
+ *  考え方
+ *    ・チェックはこれまでどおり「まず端末内に即保存」。画面はすぐ反応します
+ *    ・変更内容は送信箱にためて、裏でまとめてサーバーへ送ります
+ *    ・電波が悪い／オフラインでも作業は続けられ、つながったら自動で送信されます
+ *
+ *  APP.syncUrl が空のあいだは、この機能は丸ごと無効（今までどおり端末内だけ）です。
+ * ============================================================ */
+
+const Sync = {
+  _outboxKey: APP.storageKey + ':outbox',
+  _sinceKey: APP.storageKey + ':syncSince',
+  _pinKey: APP.storageKey + ':pin',
+
+  timer: null,
+  running: false,
+  lastError: '',
+  onChange: null, // 状態が変わったら呼ばれる（画面更新用）
+
+  /* -------- 有効かどうか -------- */
+  enabled() {
+    return !!(APP.syncUrl && APP.syncUrl.trim());
+  },
+  pin() {
+    return localStorage.getItem(this._pinKey) || '';
+  },
+  setPin(pin) {
+    localStorage.setItem(this._pinKey, String(pin).trim());
+  },
+  clearPin() {
+    localStorage.removeItem(this._pinKey);
+  },
+
+  /* -------- 送信箱 -------- */
+  outbox() {
+    try {
+      const v = JSON.parse(localStorage.getItem(this._outboxKey) || '[]');
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  },
+  _saveOutbox(list) {
+    localStorage.setItem(this._outboxKey, JSON.stringify(list));
+  },
+
+  /** 変更を送信箱に入れる（送信は少し待ってからまとめて） */
+  enqueue(op) {
+    if (!this.enabled()) return;
+    const list = this.outbox();
+    op.at = new Date().toISOString();
+    list.push(op);
+    this._saveOutbox(list);
+    this._notify();
+    this.scheduleFlush(1500);
+  },
+
+  scheduleFlush(delay) {
+    if (!this.enabled()) return;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.flush(), delay);
+  },
+
+  /* -------- 送受信 -------- */
+  async flush() {
+    if (!this.enabled() || this.running) return;
+    if (!this.pin()) return; // PIN未入力のあいだは送らない
+
+    this.running = true;
+    this._notify();
+
+    const sending = this.outbox();
+    const ops = this._withSummaries(sending);
+
+    try {
+      const res = await fetch(APP.syncUrl, {
+        method: 'POST',
+        // text/plain にしないと CORS の事前確認が入り、Apps Script が応答できません
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          pin: this.pin(),
+          action: 'sync',
+          since: localStorage.getItem(this._sinceKey) || '',
+          ops,
+        }),
+      });
+      const json = await res.json();
+
+      if (!json.ok) {
+        this.lastError = json.error || '同期に失敗しました';
+        // ロック中はPINを消さない（正しいPINを持っている人まで締め出さないため）
+        if (json.code === 'bad_pin' || json.code === 'no_pin') this.clearPin();
+        return;
+      }
+
+      // 送れた分だけ送信箱から取り除く（送信中に増えた分は残す）
+      const rest = this.outbox().slice(sending.length);
+      this._saveOutbox(rest);
+
+      this._applyPulled(json.records || [], json.settings);
+      localStorage.setItem(this._sinceKey, json.now || '');
+      this.lastError = '';
+      if (typeof render === 'function') render();
+    } catch (e) {
+      this.lastError = 'オフライン、または通信できません';
+    } finally {
+      this.running = false;
+      this._notify();
+      if (this.outbox().length) this.scheduleFlush(15000); // 残っていれば後で再送
+    }
+  },
+
+  /** 送る操作に、提出記録シート用のまとめを添える */
+  _withSummaries(ops) {
+    const keys = [...new Set(ops.filter((o) => o.k).map((o) => o.k))];
+    const extra = keys.map((k) => ({ t: 'summary', k, v: summaryFor(k) })).filter((o) => o.v);
+    return ops.concat(extra);
+  },
+
+  /** サーバーから届いた内容を端末に取り込む */
+  _applyPulled(records, settings) {
+    if (records.length) {
+      const all = LocalAdapter.dump();
+      records.forEach((row) => {
+        all[row.k] = row.r;
+      });
+      LocalAdapter.load(all);
+
+      // まだ送っていない自分の変更は、取り込んだ内容の上に貼り直す
+      this.outbox().forEach((op) => {
+        if (!op.k) return;
+        const rec = Store.getDay(...op.k.split('/'));
+        if (op.t === 'item') rec.items[op.i] = op.v;
+        else if (op.t === 'staff') rec.staff = op.v;
+        else if (op.t === 'note') rec.note = op.v;
+        else if (op.t === 'submit') { rec.submittedAt = op.v.submittedAt; rec.submittedBy = op.v.submittedBy; }
+        else if (op.t === 'unsubmit') { rec.submittedAt = null; rec.submittedBy = ''; }
+        LocalAdapter.set(op.k, rec);
+      });
+    }
+    if (settings) {
+      if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
+      if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
+      if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
+    }
+  },
+
+  /** 画面に出す状態 */
+  status() {
+    if (!this.enabled()) return { kind: 'off', text: '' };
+    if (!this.pin()) return { kind: 'error', text: 'PIN未入力' };
+    if (this.running) return { kind: 'busy', text: '同期中…' };
+    const n = this.outbox().length;
+    if (this.lastError) return { kind: 'error', text: n ? `未送信 ${n}件` : '同期エラー' };
+    if (n) return { kind: 'pending', text: `未送信 ${n}件` };
+    return { kind: 'ok', text: '同期済み' };
+  },
+
+  _notify() {
+    if (typeof this.onChange === 'function') this.onChange();
+  },
+
+  /* -------- 起動 -------- */
+  start() {
+    if (!this.enabled() || this._started) return;
+    this._started = true;
+    window.addEventListener('online', () => this.scheduleFlush(500));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.scheduleFlush(500);
+    });
+    setInterval(() => this.flush(), 60000); // 1分おきに他店舗の更新を取りに行く
+    this.scheduleFlush(300);
+  },
+};
+
+/** 提出記録シートに書くためのまとめ（キーは 'storeId/YYYY-MM-DD'） */
+function summaryFor(key) {
+  const [storeId, dateStr] = key.split('/');
+  const store = getStore(storeId);
+  if (!store || !dateStr) return null;
+
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const rec = Store.getDay(storeId, dateStr);
+  const base = { date: dateStr, storeName: store.name };
+
+  if (Closed.isClosed(storeId, y, m, d)) return { ...base, closed: true };
+
+  const items = getChecklist(storeId)
+    .flatMap((sec) => sec.items)
+    .filter((it) => appliesTo(it, store, y, m, d));
+  const missing = items.filter((it) => !rec.items?.[it.id]?.done).map((it) => it.label);
+
+  return { ...base, closed: false, total: items.length, done: items.length - missing.length, missing };
+}
+
+/* ============================================================
+ *  Store / 設定の変更を横取りして送信箱に積む
+ *  （app.js 側は今までどおり呼ぶだけでよくなります）
+ * ============================================================ */
+(function hookStore() {
+  const key = (s, d) => `${s}/${d}`;
+
+  const _setItem = Store.setItem.bind(Store);
+  Store.setItem = function (storeId, dateStr, itemId, patch) {
+    const next = _setItem(storeId, dateStr, itemId, patch);
+    Sync.enqueue({ t: 'item', k: key(storeId, dateStr), i: itemId, v: next });
+    return next;
+  };
+
+  const _setStaff = Store.setStaff.bind(Store);
+  Store.setStaff = function (storeId, dateStr, name) {
+    _setStaff(storeId, dateStr, name);
+    Sync.enqueue({ t: 'staff', k: key(storeId, dateStr), v: name, by: name });
+  };
+
+  const _setNote = Store.setNote.bind(Store);
+  Store.setNote = function (storeId, dateStr, note) {
+    _setNote(storeId, dateStr, note);
+    Sync.enqueue({ t: 'note', k: key(storeId, dateStr), v: note });
+  };
+
+  const _submit = Store.submit.bind(Store);
+  Store.submit = function (storeId, dateStr) {
+    const rec = _submit(storeId, dateStr);
+    Sync.enqueue({
+      t: 'submit', k: key(storeId, dateStr),
+      v: { submittedAt: rec.submittedAt, submittedBy: rec.submittedBy }, by: rec.submittedBy,
+    });
+    return rec;
+  };
+
+  const _unsubmit = Store.unsubmit.bind(Store);
+  Store.unsubmit = function (storeId, dateStr) {
+    const rec = _unsubmit(storeId, dateStr);
+    Sync.enqueue({ t: 'unsubmit', k: key(storeId, dateStr) });
+    return rec;
+  };
+
+  const _saveStaff = Staff.saveFromText.bind(Staff);
+  Staff.saveFromText = function (text) {
+    const names = _saveStaff(text);
+    Sync.enqueue({ t: 'setting', n: 'staffList', v: names });
+    return names;
+  };
+
+  const _setDows = Closed.setDows.bind(Closed);
+  Closed.setDows = function (storeId, dows) {
+    _setDows(storeId, dows);
+    Sync.enqueue({ t: 'setting', n: 'closedDows', v: Closed._read(Closed._dowsKey) });
+  };
+
+  const _setException = Closed.setException.bind(Closed);
+  Closed.setException = function (storeId, dateStr, kind) {
+    _setException(storeId, dateStr, kind);
+    Sync.enqueue({ t: 'setting', n: 'closedExceptions', v: Closed._read(Closed._exKey) });
+  };
+})();

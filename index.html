@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="確認チェック">
+<meta name="theme-color" content="#1c1f26">
+<title>毎日の確認作業チェック｜T3Dining(株)</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== ヘッダー ===== -->
+<header class="app-header">
+  <div class="app-header__inner">
+    <div class="app-title">
+      <span class="logo-chip logo-chip--app"><img id="appLogo" alt="T3Dining"></span>
+      <span class="app-title__text">
+        <span class="app-title__main" id="appTitle">毎日の確認作業チェック</span>
+        <span class="app-title__sub" id="appCompany">T3Dining(株)</span>
+      </span>
+    </div>
+    <div class="header-actions">
+      <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ同期"></button>
+      <button class="settings-btn" id="reportBtn" type="button">
+        <span aria-hidden="true">📋</span><span>提出記録</span>
+      </button>
+      <button class="settings-btn" id="settingsBtn" type="button">
+        <span aria-hidden="true">⚙</span><span>設定</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 店舗タブ（1店舗＝1ページ） -->
+  <nav class="store-tabs" id="storeTabs" aria-label="店舗"></nav>
+</header>
+
+<main class="page">
+
+  <!-- ===== 店舗見出し＋月タブ ===== -->
+  <section class="store-head" id="storeHead">
+    <div class="store-head__row">
+      <div class="store-head__id">
+        <span class="logo-chip logo-chip--store" id="storeLogo"></span>
+        <h1 class="store-head__name" id="storeNameLabel">店舗名</h1>
+        <span class="closed-badge is-hidden" id="storeClosedBadge"></span>
+      </div>
+      <!-- 月間表は config.js の APP.showMonthView で表示／非表示を切り替えます -->
+      <div class="view-switch" id="viewSwitch" role="tablist" aria-label="表示切替">
+        <button type="button" class="view-switch__btn is-active" data-view="day" role="tab">日別</button>
+        <button type="button" class="view-switch__btn" data-view="month" role="tab">月間表</button>
+      </div>
+    </div>
+
+    <div class="year-row">
+      <button class="year-btn" id="prevYear" type="button" aria-label="前の年">‹</button>
+      <span class="year-label" id="yearLabel">2026年</span>
+      <button class="year-btn" id="nextYear" type="button" aria-label="次の年">›</button>
+      <button class="today-btn" id="todayBtn" type="button">今日へ</button>
+    </div>
+
+    <nav class="month-tabs" id="monthTabs" aria-label="月"></nav>
+  </section>
+
+  <!-- ===== 日別ビュー ===== -->
+  <section class="view view--day" id="viewDay">
+    <div class="day-head">
+      <div class="day-head__left">
+        <div class="day-head__date">
+          <span class="day-head__num" id="dayNum">1</span>
+          <span class="day-head__unit">日</span>
+          <span class="day-head__dow" id="dayDow">（金）</span>
+        </div>
+        <!-- 日付の下：その日の担当者 -->
+        <div class="staff-row" id="staffRow">
+          <label class="staff-row__label" for="dayStaff">担当者</label>
+          <select class="staff-row__select" id="dayStaff"></select>
+        </div>
+
+        <!-- この日だけ営業／休業に切り替える -->
+        <div class="day-flags">
+          <span class="override-tag is-hidden" id="overrideTag"></span>
+          <button type="button" class="linkbtn" id="closedToggle">休業にする</button>
+          <button type="button" class="linkbtn is-hidden" id="overrideReset">通常に戻す</button>
+        </div>
+      </div>
+
+      <div class="day-head__progress">
+        <div class="progress"><div class="progress__bar" id="dayProgressBar"></div></div>
+        <span class="progress__text" id="dayProgressText">0 / 0</span>
+      </div>
+    </div>
+
+    <p class="closed-notice is-hidden" id="closedNotice"></p>
+
+    <div id="checklistArea"></div>
+
+    <div class="note-card" id="noteCard">
+      <label class="note-card__label" for="dayNote">申し送り・気付き</label>
+      <textarea id="dayNote" class="note-card__input" rows="3"
+        placeholder="翌日への引継ぎ、トラブル、気付いたことなど"></textarea>
+    </div>
+
+    <!-- 提出（全項目チェックで押せるようになります） -->
+    <div class="submit-card" id="submitCard">
+      <div class="submit-card__status" id="submitStatus"></div>
+      <button type="button" class="submit-btn" id="submitBtn">提出する</button>
+      <button type="button" class="linkbtn is-hidden" id="unsubmitBtn">提出を取り消す</button>
+    </div>
+
+    <p class="updated" id="dayUpdated"></p>
+  </section>
+
+  <!-- ===== 全店舗提出記録 ===== -->
+  <section class="view view--report is-hidden" id="viewReport">
+    <div class="report-head">
+      <div class="report-head__row">
+        <h2 class="report-head__title">全店舗提出記録</h2>
+        <button type="button" class="btn" id="reportBack">日別に戻る</button>
+      </div>
+      <div class="report-nav">
+        <button type="button" class="year-btn" id="reportPrev" aria-label="前の日">‹</button>
+        <span class="report-nav__date" id="reportDate">2026年8月9日（日）</span>
+        <button type="button" class="year-btn" id="reportNext" aria-label="次の日">›</button>
+        <button type="button" class="today-btn" id="reportToday">今日</button>
+      </div>
+      <p class="report-summary" id="reportSummary"></p>
+    </div>
+
+    <ul class="report-list" id="reportList"></ul>
+  </section>
+
+  <!-- ===== 月間表ビュー ===== -->
+  <section class="view view--month is-hidden" id="viewMonth">
+    <div class="month-summary" id="monthSummary"></div>
+    <div class="table-scroll">
+      <table class="month-table" id="monthTable"></table>
+    </div>
+    <p class="legend">
+      <span class="legend__item"><i class="cell-mark cell-mark--ok">✓</i>完了</span>
+      <span class="legend__item"><i class="cell-mark cell-mark--ng">×</i>確認漏れ（前日まで）</span>
+      <span class="legend__item"><i class="cell-mark cell-mark--wait">未</i>本日の未実施</span>
+      <span class="legend__item"><i class="cell-mark cell-mark--none">–</i>対象外（未来日・運用開始前）</span>
+      <span class="legend__item"><i class="cell-mark cell-mark--closed">休</i>定休日（確認漏れに数えません）</span>
+      <span class="legend__item"><i class="legend__hatch"></i>その日は対象外の項目（肉の日POP、翌日が休みのランチメニューなど）</span>
+    </p>
+  </section>
+
+</main>
+
+<!-- ===== 日タブ（画面下に固定・スプレッドシートのシートタブ相当） ===== -->
+<nav class="day-tabs" id="dayTabs" aria-label="日付"></nav>
+
+<!-- ===== 誤チェック防止の確認ダイアログ ===== -->
+<div class="modal is-hidden" id="confirmDialog">
+  <div class="modal__backdrop" data-confirm-cancel></div>
+  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 class="modal__title" id="confirmTitle">確認</h2>
+    <p class="confirm__item" id="confirmItem"></p>
+    <p class="confirm__message" id="confirmMessage"></p>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-confirm-cancel>キャンセル</button>
+      <button type="button" class="btn btn--primary" id="confirmOk">はい</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PIN入力（共有版のみ） ===== -->
+<div class="modal is-hidden" id="pinModal">
+  <div class="modal__backdrop"></div>
+  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+    <h2 class="modal__title" id="pinTitle">合言葉（PIN）を入力してください</h2>
+    <p class="confirm__message">全店舗で共有しているデータを開くために必要です。<br>一度入力すれば、この端末では次回から不要です。</p>
+    <input type="password" id="pinInput" class="field__input" inputmode="numeric" autocomplete="off" placeholder="PIN">
+    <p class="pin-error" id="pinError"></p>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn btn--primary" id="pinOk">開く</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 設定モーダル ===== -->
+<div class="modal is-hidden" id="modal">
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 class="modal__title" id="modalTitle">設定</h2>
+
+    <label class="field">
+      <span class="field__label">担当者リスト（1行に1人。日付の下のプルダウンに並びます）</span>
+      <textarea id="staffInput" class="field__input field__input--area" rows="12"
+        placeholder="河上&#10;熊谷&#10;木村"></textarea>
+    </label>
+
+    <div class="modal__actions">
+      <button type="button" class="btn btn--primary" id="saveStaff">保存</button>
+      <button type="button" class="btn" data-close>閉じる</button>
+    </div>
+
+    <hr class="modal__hr">
+
+    <div class="field">
+      <span class="field__label">定休日 ― <b id="closedStoreName">店舗名</b>（曜日をタップでON／OFF）</span>
+      <div class="dow-toggles" id="dowToggles"></div>
+    </div>
+
+    <div class="field">
+      <span class="field__label">臨時の休業・営業（年末年始など。曜日の設定より優先されます）</span>
+      <div class="ex-add">
+        <input type="date" id="exFrom" class="ex-date" aria-label="開始日">
+        <span class="ex-tilde">〜</span>
+        <input type="date" id="exTo" class="ex-date" aria-label="終了日">
+        <select id="exKind" class="ex-kind">
+          <option value="closed">休業にする</option>
+          <option value="open">営業する</option>
+        </select>
+        <button type="button" class="btn" id="exAdd">追加</button>
+      </div>
+      <p class="ex-hint" id="exHint"></p>
+      <ul class="ex-list" id="exList"></ul>
+    </div>
+
+    <hr class="modal__hr">
+
+    <div class="field" id="syncField">
+      <span class="field__label">共有の状態</span>
+      <p class="sync-info" id="syncInfo"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="syncNow">今すぐ同期</button>
+        <button type="button" class="btn" id="pinChange">PINを入れ直す</button>
+      </div>
+    </div>
+
+    <p class="modal__note" id="localNote">
+      現在このアプリのデータは<strong>この端末の中だけ</strong>に保存されます。<br>
+      端末をまたいで共有する場合は、下のバックアップで受け渡しできます。
+    </p>
+    <div class="modal__actions">
+      <button type="button" class="btn" id="exportBtn">バックアップを書き出す</button>
+      <label class="btn">
+        取り込む<input type="file" id="importFile" accept="application/json" hidden>
+      </label>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
