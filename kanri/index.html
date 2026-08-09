@@ -6,26 +6,27 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="T3クローズ管理">
-<meta name="theme-color" content="#1c1f26">
+<meta name="theme-color" content="#1b4f86">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="../img/app-icon-180.png?v=041e5fbb">
-<link rel="icon" type="image/png" sizes="64x64" href="../img/app-icon-64.png?v=aaf709ad">
+<!-- 現場アプリと見分けが付くよう、青い「管理」のアイコンを使います -->
+<link rel="apple-touch-icon" href="../img/admin-icon-180.png?v=9351d6f8">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/admin-icon-64.png?v=e3ec8a6a">
 <title>T3クローズ 管理｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=fed8e094">
-<link rel="stylesheet" href="css/admin.css?v=2d03d9fb">
-<meta name="app-version" content="de8797c9">
+<link rel="stylesheet" href="css/admin.css?v=544fb523">
+<meta name="app-version" content="ed49a8c8">
 </head>
 <body class="no-daytabs">
 
 <header class="app-header">
   <div class="app-header__inner">
-    <div class="app-title">
+    <button type="button" class="app-title" id="homeBtn" title="店舗一覧に戻る">
       <span class="logo-chip logo-chip--app"><img id="appLogo" alt="T3Dining"></span>
       <span class="app-title__text">
         <span class="app-title__main">T3クローズ 管理</span>
         <span class="app-title__sub">項目・担当者・定休日の設定</span>
       </span>
-    </div>
+    </button>
     <div class="header-actions">
       <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ保存"></button>
       <a class="settings-btn settings-btn--label" href="../">
@@ -38,10 +39,49 @@
 
 <main class="page page--admin">
 
+<!-- ===== 店舗選択（管理アプリを開いて最初の画面） ===== -->
+<section class="view view--stores is-hidden" id="viewStores">
+  <div class="stores-head">
+    <h1 class="stores-head__title">店舗を選んでください</h1>
+    <p class="stores-head__date">チェック項目と定休日を設定します</p>
+  </div>
+  <ul class="store-grid" id="storeGrid"></ul>
+
   <p class="admin-lead">
     ここでの変更は、保存した時点で<b>全店舗の端末に配られます</b>。
     現場のアプリからは変更できません。
   </p>
+
+  <!-- ===== 担当者（全店舗で共通） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">担当者</h2>
+      <span class="admin-count" id="staffCount"></span>
+    </div>
+    <p class="admin-note">1行に1人。日付の下のプルダウンに、この順番で並びます。全店舗で共通です。</p>
+    <textarea id="staffInput" class="field__input field__input--area" rows="12"
+      placeholder="河上&#10;熊谷&#10;木村"></textarea>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveStaff">担当者を保存</button>
+      <span class="admin-saved is-hidden" id="staffSaved">保存しました</span>
+    </div>
+  </section>
+
+  <!-- ===== バックアップ ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">バックアップ</h2>
+    </div>
+    <p class="admin-note">記録をまとめてファイルに書き出します。取り込むと、いまの内容に上書きされます。</p>
+    <div class="admin-actions">
+      <button type="button" class="btn" id="exportBtn">書き出す</button>
+      <label class="btn">取り込む<input type="file" id="importFile" accept="application/json" hidden></label>
+    </div>
+  </section>
+</section>
+
+<!-- ===== 店舗ごとの設定 ===== -->
+<section class="view is-hidden" id="viewStore">
 
   <!-- ===== チェック項目 ===== -->
   <section class="admin-block">
@@ -57,21 +97,6 @@
     <div id="checklistEditor"></div>
 
     <button type="button" class="btn btn--wide" id="addSection">＋ 区分を追加</button>
-  </section>
-
-  <!-- ===== 担当者 ===== -->
-  <section class="admin-block">
-    <div class="admin-block__head">
-      <h2 class="admin-block__title">担当者</h2>
-      <span class="admin-count" id="staffCount"></span>
-    </div>
-    <p class="admin-note">1行に1人。日付の下のプルダウンに、この順番で並びます。全店舗で共通です。</p>
-    <textarea id="staffInput" class="field__input field__input--area" rows="12"
-      placeholder="河上&#10;熊谷&#10;木村"></textarea>
-    <div class="admin-actions">
-      <button type="button" class="btn btn--primary" id="saveStaff">担当者を保存</button>
-      <span class="admin-saved is-hidden" id="staffSaved">保存しました</span>
-    </div>
   </section>
 
   <!-- ===== 定休日 ===== -->
@@ -98,17 +123,8 @@
     <ul class="ex-list" id="exList"></ul>
   </section>
 
-  <!-- ===== バックアップ ===== -->
-  <section class="admin-block">
-    <div class="admin-block__head">
-      <h2 class="admin-block__title">バックアップ</h2>
-    </div>
-    <p class="admin-note">記録をまとめてファイルに書き出します。取り込むと、いまの内容に上書きされます。</p>
-    <div class="admin-actions">
-      <button type="button" class="btn" id="exportBtn">書き出す</button>
-      <label class="btn">取り込む<input type="file" id="importFile" accept="application/json" hidden></label>
-    </div>
-  </section>
+  <button type="button" class="btn btn--wide" id="backToStores">← 店舗一覧に戻る</button>
+</section>
 
 </main>
 
@@ -157,6 +173,6 @@
 <script src="../js/storage.js?v=8a5c2523"></script>
 <script src="../js/sync.js?v=14192895"></script>
 <script src="../js/update.js?v=317fbca6"></script>
-<script src="js/admin.js?v=401acb85"></script>
+<script src="js/admin.js?v=55cbf142"></script>
 </body>
 </html>

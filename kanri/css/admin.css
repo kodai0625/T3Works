@@ -4,6 +4,20 @@
  *  ここでは編集画面に必要な部品だけ足しています。
  * ============================================================ */
 
+/* ---- 現場アプリと見分けが付くよう、ヘッダーを青にする ----
+   style.css より後に読み込まれるので、同じ強さの指定で上書きできます */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] { --header-bg: #1b4f86; }
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  :root[data-theme="light"],
+  :root[data-theme="dark"] { --header-bg: #15406e; }
+}
+/* 濃い青の上でも読めるように、副題を少し明るく */
+.app-title__sub { color: #b9cbe0; }
+
 .page--admin { padding-bottom: 40px; }
 
 .admin-lead {
@@ -120,6 +134,15 @@
 .admin-empty {
   padding: 18px 12px; text-align: center;
   color: var(--text-sub); font-size: 13px;
+}
+
+/* ---- 店舗選択のカード（現場アプリの提出状況の代わりに、項目数と定休日を出す） ---- */
+.store-card--admin .store-card__status {
+  background: var(--line-2); color: var(--text-sub);
+}
+.store-card__sub {
+  margin-top: 4px;
+  font-size: 11.5px; color: var(--text-weak); font-weight: 600;
 }
 
 /* スマホ幅では、項目名に使える幅をできるだけ広く取る */

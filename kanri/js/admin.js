@@ -18,12 +18,14 @@ Sync._pinKey = APP.storageKey + ':adminPin';
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
 const state = {
+  view: 'stores',            // 'stores'（店舗選択）か 'store'（店舗ごとの設定）
   storeId: STORES[0].id,
 };
 
 const el = {};
 [
-  'appLogo', 'storeTabs', 'syncChip',
+  'appLogo', 'homeBtn', 'storeTabs', 'syncChip',
+  'viewStores', 'viewStore', 'storeGrid', 'backToStores',
   'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
@@ -412,6 +414,89 @@ function addClosedException() {
 }
 
 /* ============================================================
+ *  店舗選択（最初の画面）
+ * ============================================================ */
+/** その店舗の「◯区分 / ◯項目」を数える */
+function countOf(storeId) {
+  const secs = Checklists.sections(storeId).filter(alive);
+  return {
+    sections: secs.length,
+    items: secs.reduce((n, s) => n + s.items.filter(alive).length, 0),
+  };
+}
+
+function renderStorePicker() {
+  el.storeGrid.innerHTML = '';
+  STORES.forEach((store) => {
+    const n = countOf(store.id);
+    const dows = Closed.dows(store.id);
+
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'store-card store-card--admin';
+    b.style.setProperty('--card-color', store.color);
+
+    const chip = document.createElement('span');
+    chip.className = 'logo-chip logo-chip--card';
+    if (store.logo) {
+      const img = document.createElement('img');
+      img.src = '../' + store.logo;
+      img.alt = '';
+      chip.appendChild(img);
+    } else {
+      chip.classList.add('is-fallback');
+      chip.style.setProperty('--chip-color', store.color);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'store-card__name';
+    name.textContent = store.name;
+
+    const status = document.createElement('span');
+    status.className = 'store-card__status';
+    status.textContent = `${n.sections}区分 / ${n.items}項目`;
+
+    const sub = document.createElement('span');
+    sub.className = 'store-card__sub';
+    sub.textContent = dows.length ? `毎週${dows.map((d) => DOW[d]).join('・')}曜定休` : '定休日なし';
+
+    b.append(chip, name, status, sub);
+    b.addEventListener('click', () => openStore(store.id));
+    li.appendChild(b);
+    el.storeGrid.appendChild(li);
+  });
+}
+
+function openStore(storeId) {
+  state.storeId = storeId;
+  state.view = 'store';
+  writeHash();
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  state.view = 'stores';
+  writeHash();
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+/* -------- URLと画面を合わせる（端末の「戻る」で一覧へ戻れます） -------- */
+function writeHash() {
+  const want = state.view === 'stores' ? '#/stores' : `#/${state.storeId}`;
+  if (location.hash !== want) location.hash = want;
+}
+
+function readHash() {
+  const id = location.hash.replace(/^#\/?/, '').trim();
+  if (!id || id === 'stores') { state.view = 'stores'; return; }
+  if (STORES.some((s) => s.id === id)) { state.view = 'store'; state.storeId = id; return; }
+  state.view = 'stores';
+}
+
+/* ============================================================
  *  店舗タブ
  * ============================================================ */
 function renderStoreTabs() {
@@ -438,19 +523,32 @@ function renderStoreTabs() {
     b.appendChild(chip);
     b.appendChild(label);
 
-    b.addEventListener('click', () => {
-      state.storeId = store.id;
-      renderAll();
-    });
+    b.addEventListener('click', () => openStore(store.id));
     el.storeTabs.appendChild(b);
   });
 }
 
 function renderAll() {
-  document.documentElement.style.setProperty('--store', getStore(state.storeId).color);
+  const isStores = state.view === 'stores';
+
+  el.viewStores.classList.toggle('is-hidden', !isStores);
+  el.viewStore.classList.toggle('is-hidden', isStores);
+  el.storeTabs.classList.toggle('is-hidden', isStores);
+
+  if (isStores) {
+    document.documentElement.style.setProperty('--store', '#2b7fd4');
+    document.title = 'T3クローズ 管理';
+    renderStorePicker();
+    renderStaff();
+    renderSyncStatus();
+    return;
+  }
+
+  const store = getStore(state.storeId);
+  document.documentElement.style.setProperty('--store', store.color);
+  document.title = `${store.name}｜T3クローズ 管理`;
   renderStoreTabs();
   renderChecklistEditor();
-  renderStaff();
   renderClosed();
   renderSyncStatus();
 }
@@ -532,6 +630,10 @@ function importJson(file) {
  *  起動
  * ============================================================ */
 function bindEvents() {
+  el.homeBtn.addEventListener('click', goHome);
+  el.backToStores.addEventListener('click', goHome);
+  window.addEventListener('hashchange', () => { readHash(); renderAll(); });
+
   el.addSection.addEventListener('click', addSection);
   el.saveStaff.addEventListener('click', saveStaff);
   el.exAdd.addEventListener('click', addClosedException);
@@ -553,6 +655,8 @@ function bindEvents() {
 
 function init() {
   if (APP.logo) el.appLogo.src = '../' + APP.logo;
+  readHash();
+  writeHash();
   bindEvents();
   renderAll();
   Updater.start();
