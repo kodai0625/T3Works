@@ -17,6 +17,10 @@ const Sync = {
   timer: null,
   running: false,
   lastError: '',
+  lastSyncAt: null,
+  // アプリを開いた最初の1回は、設定（項目・担当者・定休日）を丸ごと取り直す。
+  // 受け取り位置がずれていても、必ず最新の内容から始められるようにするため。
+  _settingsPulled: false,
   onChange: null, // 状態が変わったら呼ばれる（画面更新用）
 
   /* -------- 有効かどうか -------- */
@@ -83,6 +87,7 @@ const Sync = {
           pin: this.pin(),
           action: 'sync',
           since: localStorage.getItem(this._sinceKey) || '',
+          settingsAll: !this._settingsPulled,
           ops,
         }),
       });
@@ -92,6 +97,9 @@ const Sync = {
         this.lastError = json.error || '同期に失敗しました';
         // ロック中はPINを消さない（正しいPINを持っている人まで締め出さないため）
         if (json.code === 'bad_pin' || json.code === 'no_pin') this.clearPin();
+        // 管理用PINが要る操作が現場アプリの送信箱に紛れ込んだ場合、
+        // 何度送っても通らず、以降の同期が止まってしまう。捨てて先へ進む。
+        if (json.code === 'need_admin') this._dropAdminOps();
         return;
       }
 
@@ -101,6 +109,8 @@ const Sync = {
 
       this._applyPulled(json.records || [], json.settings);
       localStorage.setItem(this._sinceKey, json.now || '');
+      this._settingsPulled = true;
+      this.lastSyncAt = new Date();
       this.lastError = '';
       if (typeof render === 'function') render();
     } catch (e) {
@@ -110,6 +120,13 @@ const Sync = {
       this._notify();
       if (this.outbox().length) this.scheduleFlush(15000); // 残っていれば後で再送
     }
+  },
+
+  /** 管理用PINが要る操作を送信箱から取り除く（現場アプリが詰まらないように） */
+  _dropAdminOps() {
+    const admin = ['checklists', 'staffList', 'closedDows'];
+    const rest = this.outbox().filter((op) => !(op.t === 'setting' && admin.includes(op.n)));
+    this._saveOutbox(rest);
   },
 
   /** いま覚えているPINが管理用かどうかを確かめる（管理アプリで使います） */

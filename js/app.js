@@ -1031,11 +1031,14 @@ function renderSyncStatus() {
   el.syncField.classList.toggle('is-hidden', !Sync.enabled());
   if (Sync.enabled()) {
     const n = Sync.outbox().length;
+    // 最終同期の時刻も出しておく。届かないときの切り分けに使えます
+    const t = Sync.lastSyncAt;
+    const at = t ? `（最終同期 ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}）` : '';
     el.syncInfo.textContent = Sync.lastError
       ? `${Sync.lastError}（未送信 ${n}件。つながり次第、自動で送られます）`
       : n
-        ? `未送信 ${n}件。まもなく送信されます。`
-        : '全店舗と同期できています。';
+        ? `未送信 ${n}件。まもなく送信されます。${at}`
+        : `全店舗と同期できています。${at}`;
   }
 }
 
