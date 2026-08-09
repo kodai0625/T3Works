@@ -103,10 +103,12 @@ body {
   .app-title__sub { display: none; }
   .app-title__main { font-size: 13.5px; }
   .settings-btn { padding: 6px 10px; }
-  .settings-btn > span + span { display: none; } /* ラベルを隠してアイコンだけに */
+  /* ラベルを隠してアイコンだけに。ただし settings-btn--label が付いたものは文字を残す */
+  .settings-btn:not(.settings-btn--label) > span + span { display: none; }
+  .settings-btn--label { padding: 6px 11px; gap: 4px; }
   .sync-chip { padding: 5px 9px; font-size: 11px; }
 }
-@media (max-width: 380px) {
+@media (max-width: 360px) {
   .app-title__text { display: none; } /* さらに狭ければロゴだけ残す */
 }
 
