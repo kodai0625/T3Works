@@ -16,11 +16,11 @@ const TODAY_STR = ymd(TODAY.y, TODAY.m, TODAY.d);
 
 /* ---------- 画面の状態 ---------- */
 const state = {
-  storeId: STORES[0].id,
+  storeId: '', // 空 = まだ店舗を選んでいない（店舗選択画面を出す）
   y: TODAY.y,
   m: TODAY.m,
   d: TODAY.d,
-  view: 'day',
+  view: 'stores',
 };
 
 /* ---------- 要素 ---------- */
@@ -31,6 +31,7 @@ const el = {
   storeClosedBadge: $('storeClosedBadge'),
   yearLabel: $('yearLabel'), monthTabs: $('monthTabs'), dayTabs: $('dayTabs'),
   viewDay: $('viewDay'), viewMonth: $('viewMonth'), viewSwitch: $('viewSwitch'),
+  viewStores: $('viewStores'), storeGrid: $('storeGrid'), storesDate: $('storesDate'),
   viewReport: $('viewReport'), storeHead: $('storeHead'),
   submitCard: $('submitCard'), submitStatus: $('submitStatus'),
   submitBtn: $('submitBtn'), unsubmitBtn: $('unsubmitBtn'),
@@ -57,7 +58,8 @@ const el = {
 function readHash() {
   const parts = (location.hash || '').replace(/^#\/?/, '').split('/');
   const [storeId, dateStr, view] = parts;
-  if (STORES.some((s) => s.id === storeId)) state.storeId = storeId;
+  // 店舗が指定されていなければ店舗選択画面
+  state.storeId = STORES.some((s) => s.id === storeId) ? storeId : '';
 
   const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '');
   if (md) {
@@ -71,6 +73,9 @@ function readHash() {
   if (view === 'day' || view === 'month' || view === 'report') state.view = view;
   // 月間表をオフにしているときは、古いURLで来ても日別に戻す
   if (state.view === 'month' && !monthViewEnabled()) state.view = 'day';
+  // 店舗未選択なら必ず店舗選択画面（提出記録は店舗に属さないので例外）
+  if (!state.storeId && state.view !== 'report') state.view = 'stores';
+  if (state.storeId && state.view === 'stores') state.view = 'day';
 }
 
 /** 月間表を使う設定か（config.js の APP.showMonthView） */
@@ -79,7 +84,9 @@ function monthViewEnabled() {
 }
 
 function writeHash(replace = false) {
-  const hash = `#/${state.storeId}/${ymd(state.y, state.m, state.d)}/${state.view}`;
+  const hash = state.storeId
+    ? `#/${state.storeId}/${ymd(state.y, state.m, state.d)}/${state.view}`
+    : `#/`;
   if (location.hash === hash) return;
   if (replace) history.replaceState(null, '', hash);
   else location.hash = hash;
@@ -396,6 +403,65 @@ function unsubmitDay() {
     Store.unsubmit(state.storeId, dateStr);
     render();
   });
+}
+
+/* ------------------------------------------------------------
+ *  店舗選択（アプリを開いて最初の画面）
+ * ---------------------------------------------------------- */
+function renderStorePicker() {
+  const dateStr = ymd(state.y, state.m, state.d);
+  const dow = new Date(state.y, state.m - 1, state.d).getDay();
+  el.storesDate.textContent = `${state.m}月${state.d}日（${DOW[dow]}）の確認作業`;
+
+  el.storeGrid.innerHTML = '';
+  STORES.forEach((s) => {
+    const closed = Closed.isClosed(s.id, state.y, state.m, state.d);
+    const rec = Store.getDay(s.id, dateStr);
+
+    let kind = 'todo', text = '未提出';
+    if (closed) { kind = 'closed'; text = '定休日'; }
+    else if (rec.submittedAt) { kind = 'done'; text = '提出済み'; }
+
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'store-card store-card--' + kind;
+    b.style.setProperty('--card-color', s.color);
+
+    const chip = document.createElement('span');
+    chip.className = 'logo-chip logo-chip--card';
+    fillLogo(chip, s);
+
+    const name = document.createElement('span');
+    name.className = 'store-card__name';
+    name.textContent = s.name;
+
+    const status = document.createElement('span');
+    status.className = 'store-card__status';
+    status.textContent = text;
+
+    b.appendChild(chip);
+    b.appendChild(name);
+    b.appendChild(status);
+    b.addEventListener('click', () => {
+      state.storeId = s.id;
+      state.view = 'day';
+      writeHash();
+      render();
+      window.scrollTo(0, 0);
+    });
+    li.appendChild(b);
+    el.storeGrid.appendChild(li);
+  });
+}
+
+/** 店舗選択画面に戻る */
+function goHome() {
+  state.storeId = '';
+  state.view = 'stores';
+  writeHash();
+  render();
+  window.scrollTo(0, 0);
 }
 
 /* ------------------------------------------------------------
@@ -829,18 +895,43 @@ function renderMonthView() {
  *  全体描画
  * ============================================================ */
 function render() {
-  const store = getStore(state.storeId);
-  document.documentElement.style.setProperty('--store', store.color);
-  document.title = `${store.name}｜${APP.title}`;
   el.appTitle.textContent = APP.title;
   el.appCompany.textContent = APP.company;
-  el.storeName.textContent = store.name;
 
   // 会社ロゴ（読めなければ枠ごと隠す）
   if (APP.logo && el.appLogo.getAttribute('src') !== APP.logo) {
     el.appLogo.addEventListener('error', () => el.appLogo.parentElement.classList.add('is-hidden'), { once: true });
     el.appLogo.src = APP.logo;
   }
+
+  const isStores = state.view === 'stores';
+  const isReport = state.view === 'report';
+  const isDay = state.view === 'day';
+
+  /* ---- 店舗選択画面：店舗に属する部品はすべて隠す ---- */
+  if (isStores) {
+    document.documentElement.style.setProperty('--store', APP.accent || '#2b7fd4');
+    document.title = APP.title;
+    el.storeTabs.classList.add('is-hidden');
+    el.storeHead.classList.add('is-hidden');
+    el.dayTabs.classList.add('is-hidden');
+    el.viewDay.classList.add('is-hidden');
+    el.viewMonth.classList.add('is-hidden');
+    el.viewReport.classList.add('is-hidden');
+    el.viewStores.classList.remove('is-hidden');
+    renderStorePicker();
+    renderSyncStatus();
+    return;
+  }
+
+  el.viewStores.classList.add('is-hidden');
+  el.storeTabs.classList.remove('is-hidden');
+  el.dayTabs.classList.toggle('is-hidden', isReport);
+
+  const store = getStore(state.storeId);
+  document.documentElement.style.setProperty('--store', store.color);
+  document.title = `${store.name}｜${APP.title}`;
+  el.storeName.textContent = store.name;
   fillLogo(el.storeLogo, store);
 
   // 定休日をいつでも見えるように、店舗名の横に出しておく
@@ -860,8 +951,6 @@ function render() {
   el.viewSwitch.classList.toggle('is-hidden', !monthOn);
 
   // 全店舗提出記録は店舗に属さない画面なので、店舗見出しごと隠す
-  const isReport = state.view === 'report';
-  const isDay = state.view === 'day';
   el.storeHead.classList.toggle('is-hidden', isReport);
   el.viewDay.classList.toggle('is-hidden', !isDay);
   el.viewMonth.classList.toggle('is-hidden', state.view !== 'month');
@@ -1144,7 +1233,14 @@ function bindEvents() {
     writeHash(); render();
   });
   $('reportBack').addEventListener('click', () => {
+    // 店舗を選ばずに提出記録へ来た場合は店舗選択に戻す
+    if (!state.storeId) { goHome(); return; }
     state.view = 'day';
+    writeHash(); render();
+  });
+  $('homeBtn').addEventListener('click', goHome);
+  $('storesReportBtn').addEventListener('click', () => {
+    state.view = 'report';
     writeHash(); render();
   });
   $('reportPrev').addEventListener('click', () => shiftDay(-1));

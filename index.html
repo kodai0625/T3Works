@@ -4,9 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="確認チェック">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="T3クローズ">
 <meta name="theme-color" content="#1c1f26">
-<title>毎日の確認作業チェック｜T3Dining(株)</title>
+<!-- ホーム画面に追加したときのアイコン／ブラウザのタブのアイコン -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="img/app-icon-180.png">
+<link rel="icon" type="image/png" sizes="512x512" href="img/app-icon-512.png">
+<link rel="icon" type="image/png" sizes="64x64" href="img/app-icon-64.png">
+<title>T3クローズ｜T3Dining株式会社</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -14,13 +20,13 @@
 <!-- ===== ヘッダー ===== -->
 <header class="app-header">
   <div class="app-header__inner">
-    <div class="app-title">
+    <button type="button" class="app-title" id="homeBtn" title="店舗一覧に戻る">
       <span class="logo-chip logo-chip--app"><img id="appLogo" alt="T3Dining"></span>
       <span class="app-title__text">
-        <span class="app-title__main" id="appTitle">毎日の確認作業チェック</span>
-        <span class="app-title__sub" id="appCompany">T3Dining(株)</span>
+        <span class="app-title__main" id="appTitle">T3クローズ</span>
+        <span class="app-title__sub" id="appCompany">T3Dining株式会社</span>
       </span>
-    </div>
+    </button>
     <div class="header-actions">
       <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ同期"></button>
       <button class="settings-btn" id="reportBtn" type="button">
@@ -37,6 +43,16 @@
 </header>
 
 <main class="page">
+
+  <!-- ===== 店舗選択（アプリを開いて最初の画面） ===== -->
+  <section class="view view--stores is-hidden" id="viewStores">
+    <div class="stores-head">
+      <h1 class="stores-head__title">店舗を選んでください</h1>
+      <p class="stores-head__date" id="storesDate"></p>
+    </div>
+    <ul class="store-grid" id="storeGrid"></ul>
+    <button type="button" class="stores-report-btn" id="storesReportBtn">全店舗の提出記録を見る</button>
+  </section>
 
   <!-- ===== 店舗見出し＋月タブ ===== -->
   <section class="store-head" id="storeHead">
@@ -117,7 +133,7 @@
     <div class="report-head">
       <div class="report-head__row">
         <h2 class="report-head__title">全店舗提出記録</h2>
-        <button type="button" class="btn" id="reportBack">日別に戻る</button>
+        <button type="button" class="btn" id="reportBack">チェックリストに戻る</button>
       </div>
       <div class="report-nav">
         <button type="button" class="year-btn" id="reportPrev" aria-label="前の日">‹</button>

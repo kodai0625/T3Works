@@ -90,10 +90,25 @@ body {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 10px 14px 8px;
 }
-.app-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.app-title { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1 1 auto; }
 .app-title__text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
-.app-title__main { font-size: 15px; font-weight: 700; letter-spacing: .01em; }
-.app-title__sub  { font-size: 11px; color: #9aa4b2; }
+.app-title__main {
+  font-size: 15px; font-weight: 700; letter-spacing: .01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.app-title__sub  { font-size: 11px; color: #9aa4b2; white-space: nowrap; }
+
+/* スマホ幅ではヘッダーが窮屈になるので、文字を削ってボタンを優先する */
+@media (max-width: 520px) {
+  .app-title__sub { display: none; }
+  .app-title__main { font-size: 13.5px; }
+  .settings-btn { padding: 6px 10px; }
+  .settings-btn > span + span { display: none; } /* ラベルを隠してアイコンだけに */
+  .sync-chip { padding: 5px 9px; font-size: 11px; }
+}
+@media (max-width: 380px) {
+  .app-title__text { display: none; } /* さらに狭ければロゴだけ残す */
+}
 
 /* ---- ロゴ枠 ----
    ロゴは白背景の作品が多いので、白い角丸の台紙に載せて
@@ -426,6 +441,56 @@ body {
 .report-item__sub { font-size: 11.5px; color: var(--text-weak); font-variant-numeric: tabular-nums; }
 
 .header-actions { display: flex; gap: 6px; flex: 0 0 auto; align-items: center; }
+
+/* ===================== 店舗選択画面 ===================== */
+.stores-head { text-align: center; margin: 18px 0 20px; }
+.stores-head__title { margin: 0 0 6px; font-size: 21px; font-weight: 800; letter-spacing: .02em; }
+.stores-head__date  { margin: 0; font-size: 13.5px; color: var(--text-sub); font-weight: 600; }
+
+.store-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+@media (min-width: 720px) { .store-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.store-card {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-top: 4px solid var(--card-color);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px 12px 14px; font: inherit; cursor: pointer;
+}
+.store-card:active { transform: scale(.98); }
+.logo-chip--card {
+  width: 74px; height: 74px; padding: 5px;
+  border: 1px solid var(--line-2);
+}
+.store-card__name { font-size: 15.5px; font-weight: 700; text-align: center; line-height: 1.3; }
+.store-card__status {
+  font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 11px;
+}
+.store-card--todo   .store-card__status { background: color-mix(in srgb, var(--ng) 13%, transparent); color: var(--ng); }
+.store-card--done   .store-card__status { background: color-mix(in srgb, var(--ok) 13%, transparent); color: var(--ok); }
+.store-card--closed .store-card__status { background: var(--line-2); color: var(--text-sub); }
+.store-card--closed { opacity: .78; }
+
+.stores-report-btn {
+  display: block; width: 100%; margin: 18px 0 4px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 14px; font: inherit; font-size: 14px; font-weight: 700;
+  color: var(--text-sub); cursor: pointer;
+}
+
+.store-tabs.is-hidden, .day-tabs.is-hidden { display: none; }
+/* 日タブが無い画面では、下部に空けていた余白を詰める */
+body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
+/* 店舗選択画面では下部の日タブが無いので余白を詰める */
+.view--stores { padding-bottom: 8px; }
+
+/* ヘッダーのタイトルはボタン化してある（タップで店舗選択へ戻る） */
+.app-title { border: 0; background: none; padding: 0; color: inherit; text-align: left; cursor: pointer; }
 
 /* ---- 同期の状態 ---- */
 .sync-chip {

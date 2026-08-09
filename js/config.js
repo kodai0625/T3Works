@@ -5,8 +5,8 @@
  * ============================================================ */
 
 const APP = {
-  title: '毎日の確認作業チェック',
-  company: 'T3Dining(株)',
+  title: 'T3クローズ',
+  company: 'T3Dining株式会社',
   logo: 'img/t3dining.png', // ヘッダーに出る会社ロゴ
 
   // ★月間表（縦=確認項目／横=1〜31日のマトリクス）を使うかどうか
@@ -35,7 +35,7 @@ const STORES = [
   //          その曜日は確認チェック不要になり、確認漏れにも数えません。
   //          省略すれば定休日なし。複数なら [2, 3] のように並べます。
   //          ★アプリの「⚙ 設定 → 定休日」で変更でき、そちらが優先されます
-  { id: 'kojare',   name: '炭焼こじゃれ',   short: 'こじゃれ', color: '#c0392b', logo: 'img/kojare.png' },
+  { id: 'kojare',   name: 'こじゃれ',       short: 'こじゃれ', color: '#c0392b', logo: 'img/kojare.png' },
   { id: 'sumimaro', name: '炭まろ',         short: '炭まろ',   color: '#a9453c', logo: 'img/sumimaro.png' },
   { id: 'chacoru',  name: 'ちゃこる',       short: 'ちゃこる', color: '#c14a1e', logo: 'img/chacoru.png', closedDays: [0] },
   { id: 'baguru',   name: 'バグる',         short: 'バグる',   color: '#bf5480', logo: 'img/baguru.png', closedDays: [2] },
