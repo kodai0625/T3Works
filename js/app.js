@@ -915,6 +915,7 @@ function render() {
     el.storeTabs.classList.add('is-hidden');
     el.storeHead.classList.add('is-hidden');
     el.dayTabs.classList.add('is-hidden');
+    document.body.classList.add('no-daytabs'); // お知らせバーの位置を下げるため
     el.viewDay.classList.add('is-hidden');
     el.viewMonth.classList.add('is-hidden');
     el.viewReport.classList.add('is-hidden');
@@ -927,6 +928,7 @@ function render() {
   el.viewStores.classList.add('is-hidden');
   el.storeTabs.classList.remove('is-hidden');
   el.dayTabs.classList.toggle('is-hidden', isReport);
+  document.body.classList.toggle('no-daytabs', isReport);
 
   const store = getStore(state.storeId);
   document.documentElement.style.setProperty('--store', store.color);
@@ -1328,6 +1330,9 @@ function init() {
   writeHash(true);
   bindEvents();
   render();
+
+  // 新しい版が公開されたら画面下で知らせる（PINの有無に関係なく動かす）
+  Updater.start();
 
   // 共有版のとき：PIN未入力なら先に聞く。入力済みならすぐ同期を始める
   if (Sync.enabled()) {

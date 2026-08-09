@@ -13,7 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/app-icon-512.png?v=886a155a">
 <link rel="icon" type="image/png" sizes="64x64" href="img/app-icon-64.png?v=aaf709ad">
 <title>T3クローズ｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=39083f51">
+<link rel="stylesheet" href="css/style.css?v=fed8e094">
+<meta name="app-version" content="24ae6619">
 </head>
 <body>
 
@@ -169,6 +170,12 @@
 <!-- ===== 日タブ（画面下に固定・スプレッドシートのシートタブ相当） ===== -->
 <nav class="day-tabs" id="dayTabs" aria-label="日付"></nav>
 
+<!-- ===== 新しい版のお知らせ（公開版でのみ出ます） ===== -->
+<div class="update-bar is-hidden" id="updateBar" role="status">
+  <span class="update-bar__text">新しい版があります</span>
+  <button type="button" class="update-bar__btn">更新する</button>
+</div>
+
 <!-- ===== 誤チェック防止の確認ダイアログ ===== -->
 <div class="modal is-hidden" id="confirmDialog">
   <div class="modal__backdrop" data-confirm-cancel></div>
@@ -269,6 +276,7 @@
 <script src="js/config.js?v=b9eab002"></script>
 <script src="js/storage.js?v=653de50d"></script>
 <script src="js/sync.js?v=3d2dd75e"></script>
-<script src="js/app.js?v=8686b6bf"></script>
+<script src="js/update.js?v=317fbca6"></script>
+<script src="js/app.js?v=180fcf5e"></script>
 </body>
 </html>
