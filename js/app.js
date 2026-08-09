@@ -1263,6 +1263,12 @@ function bindEvents() {
   $('pinChange').addEventListener('click', () => { closeModal(); openPinModal(); });
   $('pinOk').addEventListener('click', submitPin);
   el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  // 貼り付けた内容が正しいか目で確かめられるようにする
+  $('pinReveal').addEventListener('click', () => {
+    const show = el.pinInput.type === 'password';
+    el.pinInput.type = show ? 'text' : 'password';
+    $('pinReveal').textContent = show ? '隠す' : '表示';
+  });
 
   /* 設定 */
   el.settingsBtn.addEventListener('click', () => openModal());

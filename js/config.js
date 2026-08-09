@@ -17,7 +17,7 @@ const APP = {
   // ★全店舗で共有するための接続先（Apps Script のウェブアプリURL）
   //   空のあいだは今までどおり「この端末の中だけ」で動きます。
   //   SETUP.md の手順で取得したURLをここに貼ると共有版になります。
-  syncUrl: 'https://script.google.com/macros/s/AKfycbzad4AcTYtDDxFyBmfeuGCNrhg8JiAxaqy0kz6bgyj60KMnWlZ0bsvPLcWB8mriB9tDww/exec',
+  syncUrl: 'https://script.google.com/macros/s/AKfycbzzLm89vm45kaMHcAMPb9DsrYxFeZwW-Q6UDo2NITHEPBUK3hSslVWiLONEPGxpPCVW/exec',
 
   storageKey: 't3d-check-v1', // ← 変更するとデータが分かれるので通常は触らない
 };
