@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="img/app-icon-64.png?v=aaf709ad">
 <title>T3クローズ｜T3Dining株式会社</title>
 <link rel="stylesheet" href="css/style.css?v=fed8e094">
-<meta name="app-version" content="24ae6619">
+<meta name="app-version" content="de8797c9">
 </head>
 <body>
 
@@ -213,43 +213,7 @@
 <div class="modal is-hidden" id="modal">
   <div class="modal__backdrop" data-close></div>
   <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <h2 class="modal__title" id="modalTitle">設定</h2>
-
-    <label class="field">
-      <span class="field__label">担当者リスト（1行に1人。日付の下のプルダウンに並びます）</span>
-      <textarea id="staffInput" class="field__input field__input--area" rows="12"
-        placeholder="河上&#10;熊谷&#10;木村"></textarea>
-    </label>
-
-    <div class="modal__actions">
-      <button type="button" class="btn btn--primary" id="saveStaff">保存</button>
-      <button type="button" class="btn" data-close>閉じる</button>
-    </div>
-
-    <hr class="modal__hr">
-
-    <div class="field">
-      <span class="field__label">定休日 ― <b id="closedStoreName">店舗名</b>（曜日をタップでON／OFF）</span>
-      <div class="dow-toggles" id="dowToggles"></div>
-    </div>
-
-    <div class="field">
-      <span class="field__label">臨時の休業・営業（年末年始など。曜日の設定より優先されます）</span>
-      <div class="ex-add">
-        <input type="date" id="exFrom" class="ex-date" aria-label="開始日">
-        <span class="ex-tilde">〜</span>
-        <input type="date" id="exTo" class="ex-date" aria-label="終了日">
-        <select id="exKind" class="ex-kind">
-          <option value="closed">休業にする</option>
-          <option value="open">営業する</option>
-        </select>
-        <button type="button" class="btn" id="exAdd">追加</button>
-      </div>
-      <p class="ex-hint" id="exHint"></p>
-      <ul class="ex-list" id="exList"></ul>
-    </div>
-
-    <hr class="modal__hr">
+    <h2 class="modal__title" id="modalTitle">この端末の設定</h2>
 
     <div class="field" id="syncField">
       <span class="field__label">共有の状態</span>
@@ -260,23 +224,22 @@
       </div>
     </div>
 
-    <p class="modal__note" id="localNote">
-      現在このアプリのデータは<strong>この端末の中だけ</strong>に保存されます。<br>
-      端末をまたいで共有する場合は、下のバックアップで受け渡しできます。
+    <p class="modal__note">
+      チェック項目・担当者・定休日は<strong>管理アプリ</strong>で設定します。<br>
+      変更すると、この端末にも自動で届きます。<br>
+      <a href="kanri/">管理アプリを開く</a>（管理用PINが必要です）
     </p>
+
     <div class="modal__actions">
-      <button type="button" class="btn" id="exportBtn">バックアップを書き出す</button>
-      <label class="btn">
-        取り込む<input type="file" id="importFile" accept="application/json" hidden>
-      </label>
+      <button type="button" class="btn" data-close>閉じる</button>
     </div>
   </div>
 </div>
 
-<script src="js/config.js?v=b9eab002"></script>
-<script src="js/storage.js?v=653de50d"></script>
-<script src="js/sync.js?v=3d2dd75e"></script>
+<script src="js/config.js?v=2b7d4a7d"></script>
+<script src="js/storage.js?v=8a5c2523"></script>
+<script src="js/sync.js?v=14192895"></script>
 <script src="js/update.js?v=317fbca6"></script>
-<script src="js/app.js?v=180fcf5e"></script>
+<script src="js/app.js?v=2a3848db"></script>
 </body>
 </html>

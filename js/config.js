@@ -270,15 +270,25 @@ function notifyTimeFor(storeId, dow) {
   return v || null;
 }
 
-/** 店舗の確認項目を取得 */
-function getChecklist(storeId) {
+/** このファイルに書いてある初期値。管理アプリで一度も編集していない店舗で使われます */
+function defaultChecklist(storeId) {
   return CHECKLIST_OVERRIDES[storeId] || CHECKLIST;
 }
 
-/* 定休日の判定は storage.js の Closed（設定画面の内容を反映）が持っています */
+/** 店舗の確認項目を取得（管理アプリで変更された内容が優先されます） */
+function getChecklist(storeId) {
+  return typeof Checklists !== 'undefined' ? Checklists.sections(storeId) : defaultChecklist(storeId);
+}
+
+/* 定休日の判定は storage.js の Closed（管理アプリの内容を反映）が持っています */
 
 /** その項目がその日の対象かどうか */
 function appliesTo(item, store, y, m, d) {
+  const p2 = (n) => String(n).padStart(2, '0');
+  const dateStr = `${y}-${p2(m)}-${p2(d)}`;
+  // 追加した日より前にはさかのぼらせない／やめた日以降は出さない
+  if (item.addedAt && dateStr < item.addedAt) return false;
+  if (item.retiredAt && dateStr >= item.retiredAt) return false;
   if (item.onlyDays && !item.onlyDays.includes(d)) return false;
   if (item.hideOnDows && item.hideOnDows.includes(new Date(y, m - 1, d).getDay())) return false;
   return true;

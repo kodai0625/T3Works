@@ -112,6 +112,22 @@ const Sync = {
     }
   },
 
+  /** いま覚えているPINが管理用かどうかを確かめる（管理アプリで使います） */
+  async probeAdmin() {
+    try {
+      const res = await fetch(APP.syncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ pin: this.pin(), action: 'ping' }),
+      });
+      const json = await res.json();
+      if (!json.ok) return { admin: false, error: json.error || '' };
+      return { admin: !!json.admin, error: '' };
+    } catch (e) {
+      return { admin: false, error: '通信できませんでした。電波の良いところでもう一度お試しください。' };
+    }
+  },
+
   /** 送る操作に、提出記録シート用のまとめを添える */
   _withSummaries(ops) {
     const keys = [...new Set(ops.filter((o) => o.k).map((o) => o.k))];
@@ -141,6 +157,7 @@ const Sync = {
       });
     }
     if (settings) {
+      if (settings.checklists) localStorage.setItem(Checklists._key, JSON.stringify(settings.checklists));
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
@@ -236,6 +253,13 @@ function summaryFor(key) {
     const rec = _unsubmit(storeId, dateStr);
     Sync.enqueue({ t: 'unsubmit', k: key(storeId, dateStr) });
     return rec;
+  };
+
+  const _saveChecklist = Checklists.save.bind(Checklists);
+  Checklists.save = function (storeId, sections) {
+    const all = _saveChecklist(storeId, sections);
+    Sync.enqueue({ t: 'setting', n: 'checklists', v: all });
+    return all;
   };
 
   const _saveStaff = Staff.saveFromText.bind(Staff);

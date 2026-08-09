@@ -36,18 +36,16 @@ const el = {
   submitCard: $('submitCard'), submitStatus: $('submitStatus'),
   submitBtn: $('submitBtn'), unsubmitBtn: $('unsubmitBtn'),
   reportDate: $('reportDate'), reportSummary: $('reportSummary'), reportList: $('reportList'),
-  syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncField: $('syncField'), localNote: $('localNote'),
+  syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncField: $('syncField'),
   pinModal: $('pinModal'), pinInput: $('pinInput'), pinError: $('pinError'),
   dayNum: $('dayNum'), dayDow: $('dayDow'),
   progressBar: $('dayProgressBar'), progressText: $('dayProgressText'),
   checklist: $('checklistArea'), note: $('dayNote'), updated: $('dayUpdated'),
   closedNotice: $('closedNotice'), noteCard: $('noteCard'), staffRow: $('staffRow'),
   overrideTag: $('overrideTag'), closedToggle: $('closedToggle'), overrideReset: $('overrideReset'),
-  closedStoreName: $('closedStoreName'), dowToggles: $('dowToggles'),
-  exFrom: $('exFrom'), exTo: $('exTo'), exKind: $('exKind'), exList: $('exList'), exHint: $('exHint'),
   staffSelect: $('dayStaff'),
   monthSummary: $('monthSummary'), monthTable: $('monthTable'),
-  settingsBtn: $('settingsBtn'), modal: $('modal'), staffInput: $('staffInput'),
+  settingsBtn: $('settingsBtn'), modal: $('modal'),
   confirmDialog: $('confirmDialog'), confirmItem: $('confirmItem'),
   confirmMessage: $('confirmMessage'), confirmOk: $('confirmOk'),
 };
@@ -1031,7 +1029,6 @@ function renderSyncStatus() {
 
   // 設定画面の説明も、共有版かどうかで出し分ける
   el.syncField.classList.toggle('is-hidden', !Sync.enabled());
-  el.localNote.classList.toggle('is-hidden', Sync.enabled());
   if (Sync.enabled()) {
     const n = Sync.outbox().length;
     el.syncInfo.textContent = Sync.lastError
@@ -1068,98 +1065,11 @@ async function submitPin() {
  *  設定モーダル
  * ============================================================ */
 function openModal() {
-  el.staffInput.value = Staff.list().join('\n');
-  el.staffInput.scrollTop = 0; // リストの先頭から見せる
-  renderClosedSettings();
   renderSyncStatus();
   el.modal.classList.remove('is-hidden');
   // スマホでいきなりキーボードが出ないよう、自動フォーカスはしない
 }
 
-/* ---- 設定画面の「定休日」セクション（表示中の店舗が対象） ---- */
-function renderClosedSettings() {
-  const storeId = state.storeId;
-  el.closedStoreName.textContent = getStore(storeId).name;
-
-  /* 曜日トグル */
-  const dows = Closed.dows(storeId);
-  el.dowToggles.innerHTML = '';
-  DOW.forEach((name, dow) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'dow-toggle' + (dows.includes(dow) ? ' is-on' : '')
-      + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '');
-    b.textContent = name;
-    b.setAttribute('aria-pressed', dows.includes(dow) ? 'true' : 'false');
-    b.addEventListener('click', () => {
-      const now = Closed.dows(storeId);
-      Closed.setDows(storeId, now.includes(dow) ? now.filter((n) => n !== dow) : [...now, dow]);
-      renderClosedSettings();
-      render();
-    });
-    el.dowToggles.appendChild(b);
-  });
-
-  /* 臨時の休業・営業 */
-  const ex = Closed.exceptions(storeId);
-  const dates = Object.keys(ex).sort();
-  el.exList.innerHTML = '';
-  if (!dates.length) {
-    const li = document.createElement('li');
-    li.className = 'ex-list__empty';
-    li.textContent = '登録なし';
-    el.exList.appendChild(li);
-  }
-  dates.forEach((dateStr) => {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const dow = DOW[new Date(y, m - 1, d).getDay()];
-    const li = document.createElement('li');
-    li.className = 'ex-list__item';
-    li.innerHTML =
-      `<span class="ex-list__date">${y}/${m}/${d}（${dow}）</span>` +
-      `<span class="ex-list__kind ex-list__kind--${ex[dateStr]}">${ex[dateStr] === 'closed' ? '休業' : '営業'}</span>`;
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'ex-list__del';
-    del.textContent = '削除';
-    del.addEventListener('click', () => {
-      Closed.setException(storeId, dateStr, null);
-      renderClosedSettings();
-      render();
-    });
-    li.appendChild(del);
-    el.exList.appendChild(li);
-  });
-}
-
-/** 期間をまとめて休業／営業に登録 */
-function addClosedException() {
-  const from = el.exFrom.value;
-  const to = el.exTo.value || from;
-  el.exHint.textContent = '';
-
-  if (!from) { el.exHint.textContent = '開始日を選んでください。'; return; }
-  if (to < from) { el.exHint.textContent = '終了日は開始日より後にしてください。'; return; }
-
-  const start = new Date(from + 'T00:00:00');
-  const end = new Date(to + 'T00:00:00');
-  const days = Math.round((end - start) / 86400000) + 1;
-  if (days > 60) { el.exHint.textContent = '一度に登録できるのは60日までです。'; return; }
-
-  for (let i = 0; i < days; i++) {
-    const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-    Closed.setException(
-      state.storeId,
-      ymd(dt.getFullYear(), dt.getMonth() + 1, dt.getDate()),
-      el.exKind.value
-    );
-  }
-  el.exHint.textContent = `${days}日分を「${el.exKind.value === 'closed' ? '休業' : '営業'}」で登録しました。`;
-  el.exFrom.value = '';
-  el.exTo.value = '';
-  renderClosedSettings();
-  render();
-}
 function closeModal() {
   el.modal.classList.add('is-hidden');
 }
@@ -1272,46 +1182,13 @@ function bindEvents() {
     $('pinReveal').textContent = show ? '隠す' : '表示';
   });
 
-  /* 設定 */
+  /* 設定（この端末の設定のみ。項目・担当者・定休日は管理アプリで） */
   el.settingsBtn.addEventListener('click', () => openModal());
-  $('exAdd').addEventListener('click', addClosedException);
-  $('saveStaff').addEventListener('click', () => {
-    Staff.saveFromText(el.staffInput.value);
-    closeModal();
-    render();
-  });
   el.modal.querySelectorAll('[data-close]').forEach((n) => n.addEventListener('click', closeModal));
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!el.confirmDialog.classList.contains('is-hidden')) closeConfirm(false);
     else closeModal();
-  });
-
-  /* バックアップ */
-  $('exportBtn').addEventListener('click', () => {
-    const blob = new Blob([Store.exportJson()], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `確認作業チェック_バックアップ_${ymd(TODAY.y, TODAY.m, TODAY.d)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-  $('importFile').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        Store.importJson(String(reader.result));
-        closeModal();
-        render();
-        alert('取り込みました。');
-      } catch (err) {
-        alert('取り込めませんでした：' + err.message);
-      }
-      e.target.value = '';
-    };
-    reader.readAsText(file);
   });
 
   /* 戻る／進むボタン、直接URL入力 */

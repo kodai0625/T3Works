@@ -1,0 +1,569 @@
+/* ============================================================
+ *  T3クローズ 管理
+ *
+ *  現場アプリ（../index.html）と同じ config.js / storage.js / sync.js を
+ *  そのまま使います。違うのは次の2点だけです。
+ *
+ *    ・管理用PINで開く（現場用PINとは別に覚えます）
+ *    ・チェック項目・担当者・定休日を「書き換える」側になる
+ *
+ *  項目の追加・削除は、過去の記録を壊さないよう次のように扱います。
+ *    追加 … その項目に addedAt（今日）を付ける   → 過去の日には出ません
+ *    削除 … その項目に retiredAt（明日）を付ける → 過去の日には残ります
+ * ============================================================ */
+
+/* 管理用PINは現場用と別の場所に覚える（同じ端末で両方使えるように） */
+Sync._pinKey = APP.storageKey + ':adminPin';
+
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
+const state = {
+  storeId: STORES[0].id,
+};
+
+const el = {};
+[
+  'appLogo', 'storeTabs', 'syncChip',
+  'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection',
+  'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
+  'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
+  'exportBtn', 'importFile',
+  'confirmDialog', 'confirmItem', 'confirmMessage', 'confirmOk',
+  'pinModal', 'pinInput', 'pinReveal', 'pinError', 'pinOk',
+].forEach((id) => { el[id] = document.getElementById(id); });
+
+/* ============================================================
+ *  小さな道具
+ * ============================================================ */
+const p2 = (n) => String(n).padStart(2, '0');
+const ymd = (y, m, d) => `${y}-${p2(m)}-${p2(d)}`;
+
+function todayStr() {
+  const t = new Date();
+  return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate());
+}
+function tomorrowStr() {
+  const t = new Date();
+  t.setDate(t.getDate() + 1);
+  return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate());
+}
+/** 重複しない項目ID。過去の記録と紐づくので、一度作ったら変えません */
+function newId(prefix) {
+  return `${prefix}-${Date.now().toString(36)}${Math.floor(Math.random() * 46656).toString(36)}`;
+}
+
+/** 誤操作を防ぐための確認。OKなら true が返ります */
+function askConfirm(itemText, message) {
+  return new Promise((resolve) => {
+    el.confirmItem.textContent = itemText;
+    el.confirmMessage.textContent = message;
+    el.confirmDialog.classList.remove('is-hidden');
+
+    const close = (answer) => {
+      el.confirmDialog.classList.add('is-hidden');
+      el.confirmOk.removeEventListener('click', onOk);
+      cancels.forEach((c) => c.removeEventListener('click', onCancel));
+      resolve(answer);
+    };
+    const onOk = () => close(true);
+    const onCancel = () => close(false);
+    const cancels = [...el.confirmDialog.querySelectorAll('[data-confirm-cancel]')];
+
+    el.confirmOk.addEventListener('click', onOk);
+    cancels.forEach((c) => c.addEventListener('click', onCancel));
+  });
+}
+
+/* ============================================================
+ *  チェック項目の編集
+ * ============================================================ */
+
+/** いま編集中の店舗の区分一覧（保存されていなければ config.js の初期値を複製） */
+function currentSections() {
+  return JSON.parse(JSON.stringify(Checklists.sections(state.storeId)));
+}
+
+/** 書き換えた内容を保存して、全端末へ送る */
+function saveSections(sections) {
+  // 追加した当日に削除された項目は、どの日にも出ないので残さない
+  const cleaned = sections.map((sec) => ({
+    ...sec,
+    items: sec.items.filter((it) => !(it.addedAt && it.retiredAt && it.addedAt >= it.retiredAt)),
+  }));
+  Checklists.save(state.storeId, cleaned);
+  renderChecklistEditor();
+}
+
+/** 表示するもの＝まだやめていない区分・項目 */
+const alive = (x) => !x.retiredAt;
+
+function renderChecklistEditor() {
+  const sections = currentSections();
+  el.itemsStoreName.textContent = getStore(state.storeId).name;
+
+  const liveSections = sections.filter(alive);
+  const total = liveSections.reduce((n, sec) => n + sec.items.filter(alive).length, 0);
+  el.itemsCount.textContent = `${liveSections.length}区分 / ${total}項目`;
+
+  el.checklistEditor.innerHTML = '';
+
+  if (!liveSections.length) {
+    const p = document.createElement('p');
+    p.className = 'admin-empty';
+    p.textContent = '区分がありません。下の「＋ 区分を追加」から作ってください。';
+    el.checklistEditor.appendChild(p);
+    return;
+  }
+
+  liveSections.forEach((sec) => {
+    el.checklistEditor.appendChild(buildSectionCard(sec, sections, liveSections));
+  });
+}
+
+function buildSectionCard(sec, sections, liveSections) {
+  const card = document.createElement('div');
+  card.className = 'sec-card';
+
+  /* --- 区分の見出し --- */
+  const head = document.createElement('div');
+  head.className = 'sec-card__head';
+
+  const name = document.createElement('input');
+  name.type = 'text';
+  name.className = 'sec-card__name';
+  name.value = sec.title;
+  name.setAttribute('aria-label', '区分の名前');
+  name.addEventListener('change', () => {
+    const text = name.value.trim();
+    if (!text || text === sec.title) { name.value = sec.title; return; }
+    const next = currentSections();
+    next.find((s) => s.id === sec.id).title = text;
+    saveSections(next);
+  });
+  head.appendChild(name);
+
+  const secPos = liveSections.indexOf(sec);
+  head.appendChild(moveButton('↑', secPos > 0, () => moveSection(sec.id, -1)));
+  head.appendChild(moveButton('↓', secPos < liveSections.length - 1, () => moveSection(sec.id, 1)));
+
+  const delSec = document.createElement('button');
+  delSec.type = 'button';
+  delSec.className = 'icon-btn icon-btn--danger';
+  delSec.textContent = '×';
+  delSec.title = '区分ごと削除';
+  delSec.addEventListener('click', () => removeSection(sec));
+  head.appendChild(delSec);
+
+  card.appendChild(head);
+
+  /* --- 項目 --- */
+  const liveItems = sec.items.filter(alive);
+  if (!liveItems.length) {
+    const p = document.createElement('p');
+    p.className = 'admin-empty';
+    p.textContent = '項目がありません';
+    card.appendChild(p);
+  }
+  liveItems.forEach((item, i) => {
+    card.appendChild(buildItemRow(sec, item, i, liveItems.length));
+  });
+
+  /* --- 項目を追加 --- */
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'sec-card__add';
+  add.textContent = '＋ 項目を追加';
+  add.addEventListener('click', () => addItem(sec.id));
+  card.appendChild(add);
+
+  return card;
+}
+
+function buildItemRow(sec, item, index, count) {
+  const row = document.createElement('div');
+  row.className = 'item-row';
+
+  const name = document.createElement('input');
+  name.type = 'text';
+  name.className = 'item-row__name';
+  name.value = item.label;
+  name.setAttribute('aria-label', '項目の名前');
+  name.addEventListener('change', () => {
+    const text = name.value.trim();
+    if (!text || text === item.label) { name.value = item.label; return; }
+    const next = currentSections();
+    const target = next.find((s) => s.id === sec.id).items.find((it) => it.id === item.id);
+    target.label = text;
+    saveSections(next);
+  });
+  row.appendChild(name);
+
+  /* 特殊な条件が付いている項目は、それと分かるようにしておく */
+  const tag = specialTag(item);
+  if (tag) {
+    const span = document.createElement('span');
+    span.className = 'item-row__tag';
+    span.textContent = tag;
+    row.appendChild(span);
+  }
+
+  row.appendChild(moveButton('↑', index > 0, () => moveItem(sec.id, item.id, -1)));
+  row.appendChild(moveButton('↓', index < count - 1, () => moveItem(sec.id, item.id, 1)));
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'icon-btn icon-btn--danger';
+  del.textContent = '×';
+  del.title = '削除';
+  del.addEventListener('click', () => removeItem(sec, item));
+  row.appendChild(del);
+
+  return row;
+}
+
+/** 「28日だけ」「金土は出さない」など、こちらで設定してある条件の表示 */
+function specialTag(item) {
+  if (item.onlyDays) return item.onlyDays.join('・') + '日だけ';
+  if (item.hideOnDows) return item.hideOnDows.map((d) => DOW[d]).join('') + 'は非表示';
+  if (item.type === 'number') return '数値' + (item.unit ? `（${item.unit}）` : '');
+  return '';
+}
+
+function moveButton(label, enabled, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'icon-btn';
+  b.textContent = label;
+  b.disabled = !enabled;
+  if (enabled) b.addEventListener('click', onClick);
+  return b;
+}
+
+/* -------- 追加・削除・並べ替え -------- */
+
+function addItem(secId) {
+  const next = currentSections();
+  const sec = next.find((s) => s.id === secId);
+  sec.items.push({
+    id: newId('it'),
+    label: '新しい項目',
+    type: 'check',
+    addedAt: todayStr(), // 今日から出す（過去の日にはさかのぼらせない）
+  });
+  saveSections(next);
+
+  // 追加した項目にすぐ名前を入れられるようにしておく
+  const boxes = el.checklistEditor.querySelectorAll('.item-row__name');
+  const last = [...boxes].reverse().find((b) => b.value === '新しい項目');
+  if (last) { last.focus(); last.select(); }
+}
+
+async function removeItem(sec, item) {
+  const ok = await askConfirm(
+    item.label,
+    'この項目を明日から出さないようにします。過去の記録はそのまま残ります。'
+  );
+  if (!ok) return;
+  const next = currentSections();
+  const target = next.find((s) => s.id === sec.id).items.find((it) => it.id === item.id);
+  target.retiredAt = tomorrowStr();
+  saveSections(next);
+}
+
+function addSection() {
+  const next = currentSections();
+  next.push({ id: newId('sec'), title: '新しい区分', items: [] });
+  saveSections(next);
+
+  const boxes = el.checklistEditor.querySelectorAll('.sec-card__name');
+  const last = [...boxes].reverse().find((b) => b.value === '新しい区分');
+  if (last) { last.focus(); last.select(); }
+}
+
+async function removeSection(sec) {
+  const n = sec.items.filter(alive).length;
+  const ok = await askConfirm(
+    sec.title,
+    `この区分と、中の${n}項目をまとめて明日から出さないようにします。過去の記録はそのまま残ります。`
+  );
+  if (!ok) return;
+  const next = currentSections();
+  const target = next.find((s) => s.id === sec.id);
+  const at = tomorrowStr();
+  target.retiredAt = at;
+  target.items.forEach((it) => { if (!it.retiredAt) it.retiredAt = at; });
+  saveSections(next);
+}
+
+/** 表示されている並びの中で、上下を入れ替える */
+function swapWithin(list, isLive, id, dir) {
+  const liveIdx = list.map((x, i) => (isLive(x) ? i : -1)).filter((i) => i >= 0);
+  const at = liveIdx.findIndex((i) => list[i].id === id);
+  const to = at + dir;
+  if (at < 0 || to < 0 || to >= liveIdx.length) return false;
+  const a = liveIdx[at];
+  const b = liveIdx[to];
+  [list[a], list[b]] = [list[b], list[a]];
+  return true;
+}
+
+function moveSection(secId, dir) {
+  const next = currentSections();
+  if (swapWithin(next, alive, secId, dir)) saveSections(next);
+}
+
+function moveItem(secId, itemId, dir) {
+  const next = currentSections();
+  const items = next.find((s) => s.id === secId).items;
+  if (swapWithin(items, alive, itemId, dir)) saveSections(next);
+}
+
+/* ============================================================
+ *  担当者
+ * ============================================================ */
+function renderStaff() {
+  const names = Staff.list();
+  el.staffInput.value = names.join('\n');
+  el.staffCount.textContent = `${names.length}人`;
+}
+
+function saveStaff() {
+  const names = Staff.saveFromText(el.staffInput.value);
+  renderStaff();
+  el.staffSaved.classList.remove('is-hidden');
+  setTimeout(() => el.staffSaved.classList.add('is-hidden'), 2500);
+  return names;
+}
+
+/* ============================================================
+ *  定休日
+ * ============================================================ */
+function renderClosed() {
+  const storeId = state.storeId;
+  el.closedStoreName.textContent = getStore(storeId).name;
+
+  const dows = Closed.dows(storeId);
+  el.dowToggles.innerHTML = '';
+  DOW.forEach((name, dow) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dow-toggle' + (dows.includes(dow) ? ' is-on' : '')
+      + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '');
+    b.textContent = name;
+    b.setAttribute('aria-pressed', dows.includes(dow) ? 'true' : 'false');
+    b.addEventListener('click', () => {
+      const now = Closed.dows(storeId);
+      Closed.setDows(storeId, now.includes(dow) ? now.filter((n) => n !== dow) : [...now, dow]);
+      renderClosed();
+    });
+    el.dowToggles.appendChild(b);
+  });
+
+  const ex = Closed.exceptions(storeId);
+  const dates = Object.keys(ex).sort();
+  el.exList.innerHTML = '';
+  if (!dates.length) {
+    const li = document.createElement('li');
+    li.className = 'ex-list__empty';
+    li.textContent = '登録なし';
+    el.exList.appendChild(li);
+  }
+  dates.forEach((dateStr) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const li = document.createElement('li');
+    li.className = 'ex-list__item';
+    li.innerHTML =
+      `<span class="ex-list__date">${y}/${m}/${d}（${DOW[new Date(y, m - 1, d).getDay()]}）</span>` +
+      `<span class="ex-list__kind ex-list__kind--${ex[dateStr]}">${ex[dateStr] === 'closed' ? '休業' : '営業'}</span>`;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'ex-list__del';
+    del.textContent = '削除';
+    del.addEventListener('click', () => {
+      Closed.setException(storeId, dateStr, null);
+      renderClosed();
+    });
+    li.appendChild(del);
+    el.exList.appendChild(li);
+  });
+}
+
+function addClosedException() {
+  const from = el.exFrom.value;
+  const to = el.exTo.value || from;
+  el.exHint.textContent = '';
+
+  if (!from) { el.exHint.textContent = '開始日を選んでください。'; return; }
+  if (to < from) { el.exHint.textContent = '終了日は開始日より後にしてください。'; return; }
+
+  const start = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  const days = Math.round((end - start) / 86400000) + 1;
+  if (days > 60) { el.exHint.textContent = '一度に登録できるのは60日までです。'; return; }
+
+  for (let i = 0; i < days; i++) {
+    const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    Closed.setException(state.storeId, ymd(dt.getFullYear(), dt.getMonth() + 1, dt.getDate()), el.exKind.value);
+  }
+  el.exHint.textContent = `${days}日分を「${el.exKind.value === 'closed' ? '休業' : '営業'}」で登録しました。`;
+  el.exFrom.value = '';
+  el.exTo.value = '';
+  renderClosed();
+}
+
+/* ============================================================
+ *  店舗タブ
+ * ============================================================ */
+function renderStoreTabs() {
+  el.storeTabs.innerHTML = '';
+  STORES.forEach((store) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'store-tab' + (store.id === state.storeId ? ' is-active' : '');
+    b.style.setProperty('--tab-color', store.color);
+
+    const chip = document.createElement('span');
+    chip.className = 'logo-chip logo-chip--tab';
+    if (store.logo) {
+      const img = document.createElement('img');
+      img.src = '../' + store.logo;
+      img.alt = '';
+      chip.appendChild(img);
+    } else {
+      chip.classList.add('is-fallback');
+      chip.style.setProperty('--chip-color', store.color);
+    }
+    const label = document.createElement('span');
+    label.textContent = store.short;
+    b.appendChild(chip);
+    b.appendChild(label);
+
+    b.addEventListener('click', () => {
+      state.storeId = store.id;
+      renderAll();
+    });
+    el.storeTabs.appendChild(b);
+  });
+}
+
+function renderAll() {
+  document.documentElement.style.setProperty('--store', getStore(state.storeId).color);
+  renderStoreTabs();
+  renderChecklistEditor();
+  renderStaff();
+  renderClosed();
+  renderSyncStatus();
+}
+
+/* ============================================================
+ *  共有の状態（ヘッダーのチップ）
+ * ============================================================ */
+function renderSyncStatus() {
+  const s = Sync.status();
+  if (s.kind === 'off') { el.syncChip.classList.add('is-hidden'); return; }
+  el.syncChip.classList.remove('is-hidden');
+  el.syncChip.className = `sync-chip sync-chip--${s.kind}`;
+  el.syncChip.textContent = s.text === '同期済み' ? '保存済み' : s.text;
+}
+
+/* ============================================================
+ *  管理用PIN
+ * ============================================================ */
+function openPinModal() {
+  el.pinModal.classList.remove('is-hidden');
+  el.pinError.textContent = '';
+  el.pinInput.value = '';
+  setTimeout(() => el.pinInput.focus(), 50);
+}
+
+async function submitPin() {
+  const pin = el.pinInput.value.trim();
+  if (!pin) { el.pinError.textContent = 'PINを入力してください。'; return; }
+
+  el.pinError.textContent = '確認しています…';
+  Sync.setPin(pin);
+  await Sync.flush();
+
+  if (!Sync.pin()) {
+    el.pinError.textContent = Sync.lastError || 'PINが違います。もう一度入力してください。';
+    return;
+  }
+  // 現場用PINで入られると設定を変えられないので、ここで弾いておく
+  const check = await Sync.probeAdmin();
+  if (!check.admin) {
+    Sync.clearPin();
+    el.pinError.textContent = check.error || 'これは現場用のPINです。管理用PINを入力してください。';
+    return;
+  }
+
+  el.pinModal.classList.add('is-hidden');
+  Sync.start();
+  renderAll();
+}
+
+/* ============================================================
+ *  バックアップ
+ * ============================================================ */
+function exportJson() {
+  const blob = new Blob([Store.exportJson()], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `T3クローズ_バックアップ_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importJson(file) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const ok = await askConfirm(file.name, 'いまの内容に上書きします。よろしいですか？');
+    if (!ok) return;
+    try {
+      Store.importJson(String(reader.result));
+      renderAll();
+    } catch (e) {
+      alert('読み込めませんでした。書き出したファイルを選んでください。');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================================================
+ *  起動
+ * ============================================================ */
+function bindEvents() {
+  el.addSection.addEventListener('click', addSection);
+  el.saveStaff.addEventListener('click', saveStaff);
+  el.exAdd.addEventListener('click', addClosedException);
+  el.exportBtn.addEventListener('click', exportJson);
+  el.importFile.addEventListener('change', (e) => {
+    if (e.target.files[0]) importJson(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  el.syncChip.addEventListener('click', () => Sync.flush());
+  el.pinOk.addEventListener('click', submitPin);
+  el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  el.pinReveal.addEventListener('click', () => {
+    const shown = el.pinInput.type === 'text';
+    el.pinInput.type = shown ? 'password' : 'text';
+    el.pinReveal.textContent = shown ? '表示' : '隠す';
+  });
+}
+
+function init() {
+  if (APP.logo) el.appLogo.src = '../' + APP.logo;
+  bindEvents();
+  renderAll();
+  Updater.start();
+
+  if (!Sync.enabled()) {
+    // 共有先が未設定のときは、この端末の中だけで編集できます
+    return;
+  }
+  Sync.onChange = renderSyncStatus;
+  if (!Sync.pin()) openPinModal();
+  else Sync.start();
+}
+
+init();

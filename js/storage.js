@@ -231,6 +231,52 @@ const Closed = {
   },
 };
 
+/* -------- チェック項目（管理アプリで変更し、全端末へ配られます） --------
+ *
+ *  項目には「いつから」「いつまで」を持たせています。
+ *    addedAt   … この日から出す（過去の日にはさかのぼって出しません）
+ *    retiredAt … この日から出さない（それより前の日には残ります）
+ *  こうすることで、項目を足しても過去が確認漏れ扱いにならず、
+ *  項目を消しても過去の記録は当時のまま残ります。
+ */
+const Checklists = {
+  _key: APP.storageKey + ':checklists',
+
+  _read() {
+    try {
+      const v = JSON.parse(localStorage.getItem(this._key) || 'null');
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    } catch (e) {
+      return {};
+    }
+  },
+
+  /** 保存されている全店舗分。管理アプリの一括保存で使います */
+  all() {
+    return this._read();
+  },
+
+  /** その店舗の区分と項目。未設定なら config.js の初期値を使う */
+  sections(storeId) {
+    const saved = this._read()[storeId];
+    if (Array.isArray(saved) && saved.length) return saved;
+    return defaultChecklist(storeId);
+  },
+
+  /** まだ一度も編集されていない（config.js の初期値のまま）かどうか */
+  isDefault(storeId) {
+    const saved = this._read()[storeId];
+    return !(Array.isArray(saved) && saved.length);
+  },
+
+  save(storeId, sections) {
+    const all = this._read();
+    all[storeId] = sections;
+    localStorage.setItem(this._key, JSON.stringify(all));
+    return all;
+  },
+};
+
 /* -------- 担当者リスト（プルダウンの選択肢） -------- */
 const Staff = {
   _key: APP.storageKey + ':staffList',
