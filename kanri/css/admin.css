@@ -103,14 +103,25 @@
 /* つまんでいる行の文字は選択できないようにする */
 .item-row.is-drag .item-row__name { pointer-events: none; user-select: none; }
 body.is-dragging { cursor: grabbing; user-select: none; }
+/* 普段はただの文字（長押しで並べ替えできるよう、選択もメニューも出させない）。
+   タップすると入力欄に差し替わります */
 .item-row__name {
   flex: 1 1 auto; min-width: 0;
   border: 1px solid transparent; border-radius: 6px;
   background: transparent; color: var(--text);
   font: inherit; font-size: 14px;
   padding: 6px 7px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: text;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
 }
-.item-row__name:focus {
+.item-row__name--edit {
+  -webkit-user-select: text; user-select: text;
+  border-color: var(--accent); background: var(--surface-2);
+}
+.item-row__name:focus,
+.item-row__name--edit:focus {
   outline: none; border-color: var(--accent); background: var(--surface-2);
 }
 .item-row__tag {

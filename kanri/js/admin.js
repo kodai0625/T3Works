@@ -203,20 +203,7 @@ function buildItemRow(sec, item, index, count) {
   row.dataset.itemId = item.id;
   row.addEventListener('pointerdown', (e) => startLongPress(e, row));
 
-  const name = document.createElement('input');
-  name.type = 'text';
-  name.className = 'item-row__name';
-  name.value = item.label;
-  name.setAttribute('aria-label', '項目の名前');
-  name.addEventListener('change', () => {
-    const text = name.value.trim();
-    if (!text || text === item.label) { name.value = item.label; return; }
-    const next = currentSections();
-    const target = next.find((s) => s.id === sec.id).items.find((it) => it.id === item.id);
-    target.label = text;
-    saveSections(next);
-  });
-  row.appendChild(name);
+  row.appendChild(buildNameCell(sec, item));
 
   /* 特殊な条件が付いている項目は、それと分かるようにしておく */
   specialTags(item).forEach((text) => {
@@ -246,6 +233,67 @@ function buildItemRow(sec, item, index, count) {
   row.appendChild(del);
 
   return row;
+}
+
+/* ---- 項目名 ----
+ *
+ *  iPhone では入力欄を長押しすると文字選択が始まってしまい、
+ *  長押しでの並べ替えができません。そこで普段はただの文字として置き、
+ *  タップしたときだけ入力欄に差し替えます。
+ */
+function buildNameCell(sec, item) {
+  const cell = document.createElement('div');
+  cell.className = 'item-row__name';
+  cell.textContent = item.label;
+  cell.dataset.secId = sec.id;
+  cell.dataset.itemId = item.id;
+  cell.setAttribute('role', 'button');
+  cell.setAttribute('tabindex', '0');
+  cell.setAttribute('aria-label', `${item.label}（タップで名前を変更）`);
+
+  cell.addEventListener('click', () => {
+    if (justDragged) return; // 並べ替えた直後は編集に入らない
+    startNameEdit(cell);
+  });
+  cell.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startNameEdit(cell); }
+  });
+  return cell;
+}
+
+/** 名前のところをタップしたとき、その場を入力欄に差し替える */
+function startNameEdit(cell) {
+  const before = cell.textContent;
+  const { secId, itemId } = cell.dataset;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'item-row__name item-row__name--edit';
+  input.value = before;
+  input.setAttribute('aria-label', '項目の名前');
+  cell.replaceWith(input);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  let closed = false;
+  const finish = (keep) => {
+    if (closed) return;
+    closed = true;
+    const text = input.value.trim();
+    if (keep && text && text !== before) {
+      const next = currentSections();
+      next.find((s) => s.id === secId).items.find((it) => it.id === itemId).label = text;
+      saveSections(next); // 画面はまるごと描き直されます
+      return;
+    }
+    input.replaceWith(cell);
+  };
+
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = before; input.blur(); }
+  });
 }
 
 /** 「28日だけ」「金土のみ」「休止中」など、その項目に付いている条件をすべて返す */
@@ -285,9 +333,9 @@ function addItem(secId) {
   saveSections(next);
 
   // 追加した項目にすぐ名前を入れられるようにしておく
-  const boxes = el.checklistEditor.querySelectorAll('.item-row__name');
-  const last = [...boxes].reverse().find((b) => b.value === '新しい項目');
-  if (last) { last.focus(); last.select(); }
+  const cells = [...el.checklistEditor.querySelectorAll('.item-row__name')];
+  const last = cells.reverse().find((c) => c.textContent === '新しい項目');
+  if (last) startNameEdit(last);
 }
 
 async function removeItem(sec, item) {
@@ -337,10 +385,12 @@ async function removeSection(sec) {
  *  矢印ボタンでの移動も今までどおり使えます。
  * ============================================================ */
 const drag = { row: null, card: null, timer: null, y: 0, active: false, raf: 0 };
+let justDragged = false; // 並べ替え直後の click で編集に入らないようにする
 
 function startLongPress(e, row) {
-  // ボタンを押したときは並べ替えを始めない
+  // ボタンを押したとき、名前を編集中のときは並べ替えを始めない
   if (e.target.closest('.icon-btn')) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
 
   cancelLongPress();
@@ -418,6 +468,8 @@ function endDrag() {
 
   row.classList.remove('is-drag');
   document.body.classList.remove('is-dragging');
+  justDragged = true;
+  setTimeout(() => { justDragged = false; }, 400);
 
   // 画面の並びをそのまま保存する
   const order = [...card.querySelectorAll('.item-row')].map((r) => r.dataset.itemId);
