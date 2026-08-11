@@ -106,14 +106,16 @@ function closedOn(storeId, d) {
 function itemsForDay(storeId, d, ignoreClosed = false) {
   const store = getStore(storeId);
   if (!ignoreClosed && closedOn(storeId, d)) return [];
-  return allItems(storeId).filter((it) => appliesTo(it, store, state.y, state.m, d));
+  // 区分に付いた曜日の指定も効かせるため、区分ごとに絞り込む
+  return getChecklist(storeId).flatMap((sec) =>
+    sec.items.filter((it) => appliesTo(it, store, state.y, state.m, d, sec)));
 }
 
 /** セクション内で、その日に確認すべき項目だけ */
 function sectionItemsForDay(sec, storeId, d, ignoreClosed = false) {
   const store = getStore(storeId);
   if (!ignoreClosed && closedOn(storeId, d)) return [];
-  return sec.items.filter((it) => appliesTo(it, store, state.y, state.m, d));
+  return sec.items.filter((it) => appliesTo(it, store, state.y, state.m, d, sec));
 }
 
 /** その日に何か入力されているか（定休日でもデータがあれば隠さない） */

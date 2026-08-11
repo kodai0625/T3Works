@@ -222,8 +222,7 @@ function summaryFor(key) {
   if (Closed.isClosed(storeId, y, m, d)) return { ...base, closed: true };
 
   const items = getChecklist(storeId)
-    .flatMap((sec) => sec.items)
-    .filter((it) => appliesTo(it, store, y, m, d));
+    .flatMap((sec) => sec.items.filter((it) => appliesTo(it, store, y, m, d, sec)));
   const missing = items.filter((it) => !rec.items?.[it.id]?.done).map((it) => it.label);
 
   return { ...base, closed: false, total: items.length, done: items.length - missing.length, missing };

@@ -233,6 +233,180 @@ const CHECKLIST_OVERRIDES = {
     },
   ],
 
+  /* ===== こじゃれ ===== */
+  kojare: [
+    {
+      id: 'kj-kitchen',
+      title: 'キッチン',
+      items: [
+        { id: 'kj-k01', label: '電気' },
+        { id: 'kj-k02', label: 'エアコン' },
+        { id: 'kj-k03', label: 'まな板漂白' },
+        { id: 'kj-k04', label: '賄い後シンク、ゴミ受けカゴ' },
+        { id: 'kj-k05', label: '裏口の鍵' },
+        { id: 'kj-k06', label: '水道から水垂れていないか' },
+        { id: 'kj-k07', label: '冷蔵、冷凍扉チェック' },
+        { id: 'kj-k08', label: 'ガスの元栓' },
+        { id: 'kj-k09', label: 'ドリンクサーバー電源' },
+        { id: 'kj-k10', label: 'お湯ポット' },
+        { id: 'kj-k11', label: 'ビール締め' },
+        { id: 'kj-k12', label: 'ゴミ袋縛っているか' },
+        { id: 'kj-k13', label: '炊飯器米移し' },
+        { id: 'kj-k14', label: '保温切られているか' },
+        { id: 'kj-k15', label: '台上食材' },
+        { id: 'kj-k16', label: 'おしぼり出す' },
+      ],
+    },
+    {
+      // 曜日は項目ごとに持たせています。
+      // 通常の6項目は金土だけ、製氷機は木（ON）と土（OFF）だけ。
+      // その日に出る項目が1つも無ければ、この区分自体が出ません。
+      id: 'kj-2f',
+      title: '二階',
+      items: [
+        { id: 'kj-f01', label: '電気', onlyDows: [5, 6] },
+        { id: 'kj-f02', label: 'エアコン', onlyDows: [5, 6] },
+        { id: 'kj-f03', label: '有線', onlyDows: [5, 6] },
+        { id: 'kj-f04', label: '洗浄機', onlyDows: [5, 6] },
+        { id: 'kj-f05', label: 'ビール締め', onlyDows: [5, 6] },
+        { id: 'kj-f06', label: 'ドリンクサーバー締め', onlyDows: [5, 6] },
+        { id: 'kj-f07', label: '製氷機電源ON', onlyDows: [4] },
+        { id: 'kj-f08', label: '製氷機電源OFF', onlyDows: [6] },
+      ],
+    },
+    {
+      id: 'kj-irregular',
+      title: 'イレギュラー',
+      items: [
+        { id: 'kj-i01', label: '仕込み移し後二階ストッカー出しっ放し' },
+      ],
+    },
+    {
+      id: 'kj-hall',
+      title: 'ホール',
+      items: [
+        { id: 'kj-h01', label: '外看板、灰皿' },
+        { id: 'kj-h02', label: '電気' },
+        { id: 'kj-h03', label: '各部屋と全体エアコン' },
+        { id: 'kj-h04', label: '喫煙所' },
+        { id: 'kj-h05', label: 'セット' },
+        { id: 'kj-h06', label: 'トイレ' },
+        { id: 'kj-h07', label: '賄い後テーブル' },
+      ],
+    },
+    {
+      id: 'kj-all',
+      title: '全体',
+      items: [
+        { id: 'kj-z01', label: '発注（FAX流し忘れないか）' },
+        { id: 'kj-z02', label: '売上金チェック' },
+        { id: 'kj-z03', label: '入金帳・封筒チェック' },
+        { id: 'kj-z04', label: '両替金チェック' },
+        { id: 'kj-z05', label: '日報入力' },
+        { id: 'kj-z06', label: 'ジャーナルLINE' },
+        { id: 'kj-z07', label: 'ファックス転送' },
+        { id: 'kj-z08', label: '各タブレット、決済端末' },
+        { id: 'kj-z09', label: '玄関鍵' },
+      ],
+    },
+  ],
+
+  /* ===== ちゃこる ===== */
+  chacoru: [
+    {
+      id: 'ch-1f',
+      title: '1F',
+      items: [
+        { id: 'ch-a01', label: '冷蔵庫扉確認' },
+        { id: 'ch-a02', label: '裏の戸締り' },
+        { id: 'ch-a03', label: 'エアコン確認業務用2つ' },
+        { id: 'ch-a04', label: 'エアコン確認F1' },
+        { id: 'ch-a05', label: '台上確認' },
+        { id: 'ch-a06', label: 'ガスの元栓' },
+        { id: 'ch-a07', label: '炭壺閉まってるか' },
+        { id: 'ch-a08', label: '水道閉まってるか' },
+        { id: 'ch-a09', label: 'ゴミ袋しばってあるか' },
+        { id: 'ch-a10', label: 'プリンター電源' },
+        { id: 'ch-a11', label: '掃除機ゴミ捨て' },
+        { id: 'ch-a12', label: '米移し' },
+        { id: 'ch-a13', label: 'ドリバショーケース水受け' },
+        { id: 'ch-a14', label: 'ビールサーバー締め' },
+        { id: 'ch-a15', label: 'セットの確認' },
+        { id: 'ch-a16', label: 'フライヤー元栓' },
+        { id: 'ch-a17', label: '納品されたおしぼり中に入れてあるか' },
+        { id: 'ch-a18', label: 'ディスペンサー補充、しまってあるか' },
+        { id: 'ch-a19', label: '乾物補充' },
+        { id: 'ch-a20', label: '外灰皿' },
+        { id: 'ch-a21', label: '揚場補充' },
+        { id: 'ch-a22', label: '賄い片付け' },
+        { id: 'ch-a23', label: 'シンクゴミ' },
+        { id: 'ch-a24', label: 'アルコール類少ないの新品に買える' },
+        { id: 'ch-a25', label: 'ユーセン確認' },
+        { id: 'ch-a26', label: '油補充' },
+        { id: 'ch-a27', label: 'まな板漂白' },
+        { id: 'ch-a28', label: 'おしぼりいっぱいなら外に出してあるか' },
+        { id: 'ch-a29', label: 'レンジ拭き' },
+        { id: 'ch-a30', label: 'コンロ掃除' },
+      ],
+    },
+    {
+      id: 'ch-2f',
+      title: '2F',
+      items: [
+        { id: 'ch-b01', label: 'エアコン確認業務用1つ' },
+        { id: 'ch-b02', label: 'エアコン確認家庭用4台' },
+        { id: 'ch-b03', label: '窓戸締り' },
+        { id: 'ch-b04', label: '冷蔵庫扉確認' },
+        { id: 'ch-b05', label: 'トイレ電気' },
+        { id: 'ch-b06', label: '外照明' },
+        { id: 'ch-b07', label: 'セットの確認' },
+        { id: 'ch-b08', label: 'ドリンク少ないの新品に変える' },
+      ],
+    },
+    {
+      id: 'ch-3f',
+      title: '3F',
+      items: [
+        { id: 'ch-c01', label: '電気' },
+        { id: 'ch-c02', label: '窓戸締り' },
+        { id: 'ch-c03', label: 'ストッカー扉' },
+        { id: 'ch-c04', label: '掃除機ゴミ捨て' },
+        { id: 'ch-c05', label: '更衣室　扇風機、エアコン確認' },
+      ],
+    },
+    {
+      // 項目ごとに曜日を持たせてあるので、該当曜日以外はこの区分が出ません
+      id: 'ch-kitchen',
+      title: 'キッチン',
+      items: [
+        { id: 'ch-d01', label: '氷寄せ', onlyDows: [4, 5] },
+        { id: 'ch-d02', label: 'by準備されてるか', onlyDows: [4, 5] },
+        { id: 'ch-d03', label: 'フライヤー締めてあるか', onlyDows: [5, 6] },
+        { id: 'ch-d04', label: 'by解凍の再冷凍', onlyDows: [6] },
+        { id: 'ch-d05', label: 'ゴミ箱洗ってあるか', onlyDows: [6] },
+        { id: 'ch-d06', label: '余り米、冷凍or他店舗に渡す', onlyDows: [6] },
+        { id: 'ch-d07', label: '２階の開きかけの生樽おろす', onlyDows: [6] },
+      ],
+    },
+  ],
+
+  /* ===== おいでんテラス ===== */
+  oiden: [
+    {
+      id: 'od-all',
+      title: '全体',
+      items: [
+        { id: 'od-z01', label: '電気6箇所全て切ったか' },
+        { id: 'od-z02', label: 'ドリバ窓、扉閉まってるか' },
+        { id: 'od-z03', label: 'キッチン窓、扉閉まってるか' },
+        { id: 'od-z04', label: 'ガスの元栓2箇所閉めたか' },
+        { id: 'od-z05', label: '冷蔵庫冷凍庫11箇所異常ないか' },
+        { id: 'od-z06', label: 'エアコン2箇所切ったか' },
+        { id: 'od-z07', label: 'フライヤー切ったか' },
+      ],
+    },
+  ],
+
 };
 
 /* ------------------------------------------------------------
@@ -282,15 +456,33 @@ function getChecklist(storeId) {
 
 /* 定休日の判定は storage.js の Closed（管理アプリの内容を反映）が持っています */
 
-/** その項目がその日の対象かどうか */
-function appliesTo(item, store, y, m, d) {
+/**
+ * その項目がその日の対象かどうか
+ *
+ *   onlyDays   … その日付だけ出す（肉の日POPの [28] など）
+ *   onlyDows   … その曜日だけ出す（0=日 … 6=土）
+ *   hideOnDows … その曜日は出さない
+ *   addedAt / retiredAt … 管理アプリで追加・削除した日（過去の記録を守るため）
+ *
+ * section を渡すと、区分に付いた曜日の指定も一緒に効きます
+ * （「二階（金土のみ）」のように、区分ごと曜日で出し分けるため）。
+ */
+function appliesTo(item, store, y, m, d, section) {
   const p2 = (n) => String(n).padStart(2, '0');
   const dateStr = `${y}-${p2(m)}-${p2(d)}`;
+  const dow = new Date(y, m - 1, d).getDay();
+
+  if (section) {
+    if (section.onlyDows && !section.onlyDows.includes(dow)) return false;
+    if (section.addedAt && dateStr < section.addedAt) return false;
+    if (section.retiredAt && dateStr >= section.retiredAt) return false;
+  }
   // 追加した日より前にはさかのぼらせない／やめた日以降は出さない
   if (item.addedAt && dateStr < item.addedAt) return false;
   if (item.retiredAt && dateStr >= item.retiredAt) return false;
   if (item.onlyDays && !item.onlyDays.includes(d)) return false;
-  if (item.hideOnDows && item.hideOnDows.includes(new Date(y, m - 1, d).getDay())) return false;
+  if (item.onlyDows && !item.onlyDows.includes(dow)) return false;
+  if (item.hideOnDows && item.hideOnDows.includes(dow)) return false;
   return true;
 }
 

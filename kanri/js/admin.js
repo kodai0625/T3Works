@@ -150,6 +150,14 @@ function buildSectionCard(sec, sections, liveSections) {
   });
   head.appendChild(name);
 
+  // 区分ごと曜日で出し分けている場合は、それが分かるようにしておく
+  if (sec.onlyDows) {
+    const tag = document.createElement('span');
+    tag.className = 'item-row__tag';
+    tag.textContent = sec.onlyDows.map((d) => DOW[d]).join('') + 'のみ';
+    head.appendChild(tag);
+  }
+
   const secPos = liveSections.indexOf(sec);
   head.appendChild(moveButton('↑', secPos > 0, () => moveSection(sec.id, -1)));
   head.appendChild(moveButton('↓', secPos < liveSections.length - 1, () => moveSection(sec.id, 1)));
@@ -229,9 +237,10 @@ function buildItemRow(sec, item, index, count) {
   return row;
 }
 
-/** 「28日だけ」「金土は出さない」など、こちらで設定してある条件の表示 */
+/** 「28日だけ」「金土のみ」など、こちらで設定してある条件の表示 */
 function specialTag(item) {
   if (item.onlyDays) return item.onlyDays.join('・') + '日だけ';
+  if (item.onlyDows) return item.onlyDows.map((d) => DOW[d]).join('') + 'のみ';
   if (item.hideOnDows) return item.hideOnDows.map((d) => DOW[d]).join('') + 'は非表示';
   if (item.type === 'number') return '数値' + (item.unit ? `（${item.unit}）` : '');
   return '';
