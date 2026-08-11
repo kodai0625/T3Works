@@ -132,6 +132,7 @@ function renderChecklistEditor() {
 function buildSectionCard(sec, sections, liveSections) {
   const card = document.createElement('div');
   card.className = 'sec-card';
+  card.dataset.secId = sec.id;
 
   /* --- 区分の見出し --- */
   const head = document.createElement('div');
@@ -199,6 +200,8 @@ function buildSectionCard(sec, sections, liveSections) {
 function buildItemRow(sec, item, index, count) {
   const row = document.createElement('div');
   row.className = 'item-row';
+  row.dataset.itemId = item.id;
+  row.addEventListener('pointerdown', (e) => startLongPress(e, row));
 
   const name = document.createElement('input');
   name.type = 'text';
@@ -321,6 +324,136 @@ async function removeSection(sec) {
   const at = tomorrowStr();
   target.retiredAt = at;
   target.items.forEach((it) => { if (!it.retiredAt) it.retiredAt = at; });
+  saveSections(next);
+}
+
+/* ============================================================
+ *  長押しして並べ替え
+ *
+ *  ・0.35秒押し続けると持ち上がります（すぐ動かした場合は画面のスクロール）
+ *  ・指を動かすと、その位置に行が移動します
+ *  ・離した時点の並びで保存します
+ *  ・同じ区分の中だけで動かせます（別の区分へは移せません）
+ *  矢印ボタンでの移動も今までどおり使えます。
+ * ============================================================ */
+const drag = { row: null, card: null, timer: null, y: 0, active: false, raf: 0 };
+
+function startLongPress(e, row) {
+  // ボタンを押したときは並べ替えを始めない
+  if (e.target.closest('.icon-btn')) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+  cancelLongPress();
+  drag.row = row;
+  drag.card = row.closest('.sec-card');
+  drag.y = e.clientY;
+  drag.timer = setTimeout(() => beginDrag(e), 350);
+
+  document.addEventListener('pointermove', onPointerMove, { passive: false });
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+  document.addEventListener('touchmove', blockScroll, { passive: false });
+}
+
+function beginDrag(e) {
+  drag.active = true;
+  drag.timer = null;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  drag.row.classList.add('is-drag');
+  document.body.classList.add('is-dragging');
+  if (navigator.vibrate) navigator.vibrate(15); // 持ち上がったことを指に伝える
+}
+
+/** 並べ替え中は画面が動かないようにする */
+function blockScroll(e) {
+  if (drag.active) e.preventDefault();
+}
+
+function onPointerMove(e) {
+  if (!drag.active) {
+    // 持ち上がる前に動かしたときは、スクロールとみなして中止
+    if (Math.abs(e.clientY - drag.y) > 8) cancelLongPress();
+    return;
+  }
+  e.preventDefault();
+  moveRowTo(e.clientY);
+  autoScroll(e.clientY);
+}
+
+/** 指の位置に合わせて、行を差し込む場所を決める */
+function moveRowTo(y) {
+  const others = [...drag.card.querySelectorAll('.item-row')].filter((r) => r !== drag.row);
+  const after = others.find((r) => {
+    const box = r.getBoundingClientRect();
+    return y < box.top + box.height / 2;
+  });
+  if (after) {
+    if (after.previousElementSibling !== drag.row) drag.card.insertBefore(drag.row, after);
+  } else {
+    const addBtn = drag.card.querySelector('.sec-card__add');
+    if (addBtn && addBtn.previousElementSibling !== drag.row) drag.card.insertBefore(drag.row, addBtn);
+  }
+}
+
+/** 画面の端まで持っていったら、ゆっくりスクロールする */
+function autoScroll(y) {
+  cancelAnimationFrame(drag.raf);
+  const margin = 70;
+  const step = y < margin ? -9 : y > window.innerHeight - margin ? 9 : 0;
+  if (!step) return;
+  const tick = () => {
+    if (!drag.active) return;
+    window.scrollBy(0, step);
+    drag.raf = requestAnimationFrame(tick);
+  };
+  drag.raf = requestAnimationFrame(tick);
+}
+
+function endDrag() {
+  const wasActive = drag.active;
+  const card = drag.card;
+  const row = drag.row;
+  cancelLongPress();
+  if (!wasActive || !card) return;
+
+  row.classList.remove('is-drag');
+  document.body.classList.remove('is-dragging');
+
+  // 画面の並びをそのまま保存する
+  const order = [...card.querySelectorAll('.item-row')].map((r) => r.dataset.itemId);
+  applyItemOrder(card.dataset.secId, order);
+}
+
+function cancelLongPress() {
+  clearTimeout(drag.timer);
+  cancelAnimationFrame(drag.raf);
+  if (drag.row) drag.row.classList.remove('is-drag');
+  document.body.classList.remove('is-dragging');
+  drag.timer = null;
+  drag.active = false;
+  drag.row = null;
+  drag.card = null;
+  document.removeEventListener('pointermove', onPointerMove);
+  document.removeEventListener('pointerup', endDrag);
+  document.removeEventListener('pointercancel', endDrag);
+  document.removeEventListener('touchmove', blockScroll);
+}
+
+/** 画面の並び（表示中の項目のID順）を保存する。やめた項目は後ろにまとめます */
+function applyItemOrder(secId, orderedIds) {
+  const next = currentSections();
+  const sec = next.find((s) => s.id === secId);
+  if (!sec) return;
+
+  const byId = {};
+  sec.items.forEach((it) => { byId[it.id] = it; });
+  const live = orderedIds.map((id) => byId[id]).filter(Boolean);
+  const rest = sec.items.filter((it) => !orderedIds.includes(it.id));
+
+  const before = sec.items.map((it) => it.id).join(',');
+  sec.items = live.concat(rest);
+  if (sec.items.map((it) => it.id).join(',') === before) return; // 並びが変わっていなければ保存しない
+
   saveSections(next);
 }
 

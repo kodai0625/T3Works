@@ -91,6 +91,18 @@
   border-bottom: 1px solid var(--line-2);
 }
 .item-row:last-of-type { border-bottom: 0; }
+/* 長押しでの並べ替え。長押ししてもiOSのメニューが出ないようにする */
+.item-row { -webkit-touch-callout: none; touch-action: pan-y; }
+.item-row.is-drag {
+  position: relative; z-index: 5;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(18, 22, 30, .22);
+  transform: scale(1.02);
+}
+/* つまんでいる行の文字は選択できないようにする */
+.item-row.is-drag .item-row__name { pointer-events: none; user-select: none; }
+body.is-dragging { cursor: grabbing; user-select: none; }
 .item-row__name {
   flex: 1 1 auto; min-width: 0;
   border: 1px solid transparent; border-radius: 6px;
