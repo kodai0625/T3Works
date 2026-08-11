@@ -311,42 +311,80 @@ const CHECKLIST_OVERRIDES = {
     },
   ],
 
+  /* ===== 炭まろ =====
+     区分だけ先に作ってあります。項目は管理アプリから追加してください。
+     項目が1つも無い区分は、現場アプリには出ません（管理アプリには出ます）。 */
+  sumimaro: [
+    { id: 'sm-kitchen', title: 'キッチン',  items: [] },
+    { id: 'sm-1f-hall', title: '１階ホール', items: [] },
+    { id: 'sm-2f',      title: '２階',      items: [] },
+    {
+      id: 'sm-all',
+      title: '全体',
+      items: [
+        { id: 'sm-z01', label: '発注（FAX流し忘れないか）' },
+        { id: 'sm-z02', label: '売上金チェック' },
+        { id: 'sm-z03', label: '入金帳・封筒チェック' },
+        { id: 'sm-z04', label: '両替金チェック' },
+        { id: 'sm-z05', label: '日報入力' },
+        { id: 'sm-z06', label: 'ジャーナルLINE' },
+        { id: 'sm-z07', label: 'ファックス転送' },
+        { id: 'sm-z08', label: '各タブレット、決済端末' },
+        { id: 'sm-z09', label: '玄関鍵' },
+      ],
+    },
+  ],
+
   /* ===== ちゃこる ===== */
   chacoru: [
     {
-      id: 'ch-1f',
-      title: '1F',
+      // 曜日指定のある7項目は、下のほうにまとめてあります
+      id: 'ch-kitchen',
+      title: 'キッチン',
       items: [
         { id: 'ch-a01', label: '冷蔵庫扉確認' },
         { id: 'ch-a02', label: '裏の戸締り' },
-        { id: 'ch-a03', label: 'エアコン確認業務用2つ' },
-        { id: 'ch-a04', label: 'エアコン確認F1' },
         { id: 'ch-a05', label: '台上確認' },
         { id: 'ch-a06', label: 'ガスの元栓' },
         { id: 'ch-a07', label: '炭壺閉まってるか' },
         { id: 'ch-a08', label: '水道閉まってるか' },
         { id: 'ch-a09', label: 'ゴミ袋しばってあるか' },
         { id: 'ch-a10', label: 'プリンター電源' },
-        { id: 'ch-a11', label: '掃除機ゴミ捨て' },
         { id: 'ch-a12', label: '米移し' },
         { id: 'ch-a13', label: 'ドリバショーケース水受け' },
         { id: 'ch-a14', label: 'ビールサーバー締め' },
-        { id: 'ch-a15', label: 'セットの確認' },
         { id: 'ch-a16', label: 'フライヤー元栓' },
-        { id: 'ch-a17', label: '納品されたおしぼり中に入れてあるか' },
         { id: 'ch-a18', label: 'ディスペンサー補充、しまってあるか' },
         { id: 'ch-a19', label: '乾物補充' },
-        { id: 'ch-a20', label: '外灰皿' },
         { id: 'ch-a21', label: '揚場補充' },
-        { id: 'ch-a22', label: '賄い片付け' },
         { id: 'ch-a23', label: 'シンクゴミ' },
         { id: 'ch-a24', label: 'アルコール類少ないの新品に買える' },
-        { id: 'ch-a25', label: 'ユーセン確認' },
         { id: 'ch-a26', label: '油補充' },
         { id: 'ch-a27', label: 'まな板漂白' },
-        { id: 'ch-a28', label: 'おしぼりいっぱいなら外に出してあるか' },
         { id: 'ch-a29', label: 'レンジ拭き' },
         { id: 'ch-a30', label: 'コンロ掃除' },
+        { id: 'ch-d01', label: '氷寄せ', onlyDows: [4, 5] },
+        { id: 'ch-d02', label: 'by準備されてるか', onlyDows: [4, 5] },
+        { id: 'ch-d03', label: 'フライヤー締めてあるか', onlyDows: [5, 6] },
+        { id: 'ch-d04', label: 'by解凍の再冷凍', onlyDows: [6] },
+        { id: 'ch-d05', label: 'ゴミ箱洗ってあるか', onlyDows: [6] },
+        { id: 'ch-d06', label: '余り米、冷凍or他店舗に渡す', onlyDows: [6] },
+        { id: 'ch-d07', label: '２階の開きかけの生樽おろす', onlyDows: [6] },
+      ],
+    },
+    {
+      id: 'ch-1f-hall',
+      title: '1Fホール',
+      items: [
+        { id: 'ch-a03', label: 'エアコン確認業務用2つ' },
+        { id: 'ch-a04', label: 'エアコン確認F1' },
+        { id: 'ch-a11', label: '掃除機ゴミ捨て' },
+        { id: 'ch-a15', label: 'セットの確認' },
+        { id: 'ch-a17', label: '納品されたおしぼり中に入れてあるか' },
+        { id: 'ch-a20', label: '外灰皿' },
+        { id: 'ch-a22', label: '賄い片付け' },
+        { id: 'ch-a25', label: 'ユーセン確認' },
+        { id: 'ch-a28', label: 'おしぼりいっぱいなら外に出してあるか' },
       ],
     },
     {
@@ -375,17 +413,91 @@ const CHECKLIST_OVERRIDES = {
       ],
     },
     {
-      // 項目ごとに曜日を持たせてあるので、該当曜日以外はこの区分が出ません
-      id: 'ch-kitchen',
+      id: 'ch-all',
+      title: '全体',
+      items: [
+        { id: 'ch-z01', label: '発注（FAX流し忘れないか）' },
+        { id: 'ch-z02', label: '売上金チェック' },
+        { id: 'ch-z03', label: '入金帳・封筒チェック' },
+        { id: 'ch-z04', label: '両替金チェック' },
+        { id: 'ch-z05', label: '日報入力' },
+        { id: 'ch-z06', label: 'ジャーナルLINE' },
+        { id: 'ch-z07', label: 'ファックス転送' },
+        { id: 'ch-z08', label: '各タブレット、決済端末' },
+        { id: 'ch-z09', label: '玄関鍵' },
+      ],
+    },
+  ],
+
+  /* ===== popo ===== */
+  popo: [
+    {
+      id: 'pp-kitchen',
       title: 'キッチン',
       items: [
-        { id: 'ch-d01', label: '氷寄せ', onlyDows: [4, 5] },
-        { id: 'ch-d02', label: 'by準備されてるか', onlyDows: [4, 5] },
-        { id: 'ch-d03', label: 'フライヤー締めてあるか', onlyDows: [5, 6] },
-        { id: 'ch-d04', label: 'by解凍の再冷凍', onlyDows: [6] },
-        { id: 'ch-d05', label: 'ゴミ箱洗ってあるか', onlyDows: [6] },
-        { id: 'ch-d06', label: '余り米、冷凍or他店舗に渡す', onlyDows: [6] },
-        { id: 'ch-d07', label: '２階の開きかけの生樽おろす', onlyDows: [6] },
+        { id: 'pp-k01', label: '水が出しっぱになってないか' },
+        { id: 'pp-k02', label: 'IH電源' },
+        { id: 'pp-k03', label: '炊飯器洗えてるか' },
+        { id: 'pp-k04', label: '炊飯器保温切れてるか' },
+        { id: 'pp-k05', label: 'コンロのガス確認' },
+        { id: 'pp-k06', label: 'ボイラー電源' },
+        { id: 'pp-k07', label: 'プリンター電源' },
+        { id: 'pp-k08', label: 'スチコン' },
+        { id: 'pp-k09', label: 'パンケーキグリドル電源' },
+        { id: 'pp-k10', label: 'ソフトマシン確認' },
+        { id: 'pp-k11', label: 'クロッフルマシンとかき氷器コンセント抜く' },
+        { id: 'pp-k12', label: 'ホットプレートコンセント抜く' },
+        { id: 'pp-k13', label: '野菜、乾物、デザートトッピング系補充確認' },
+        { id: 'pp-k14', label: 'モナン系とグラノラ補充確認' },
+        { id: 'pp-k15', label: '冷蔵冷凍庫、ストッカー扉確認' },
+        { id: 'pp-k16', label: 'パティとランチ確認' },
+        { id: 'pp-k17', label: 'エアコン確認' },
+        { id: 'pp-k18', label: 'ドリ場ショーケース下の水捨て' },
+        { id: 'pp-k19', label: 'レンジ拭けてるか' },
+        { id: 'pp-k20', label: '計りが拭けてるか' },
+        { id: 'pp-k21', label: 'パスタ場、パティ等しっかりラップされてるか' },
+        { id: 'pp-k22', label: 'フライヤー電源' },
+        { id: 'pp-k23', label: 'コーヒーマシン電源' },
+        { id: 'pp-k24', label: '洗浄機確認' },
+        { id: 'pp-k25', label: 'ビールサーバ確認' },
+        { id: 'pp-k26', label: '残飯残ってないか' },
+        { id: 'pp-k27', label: 'ゴミ袋縛ってあるか' },
+        { id: 'pp-k28', label: 'コースがあれば盛り込み等確認' },
+        { id: 'pp-k29', label: '仕込み表確認' },
+        { id: 'pp-k30', label: 'ランチとパティ回収するか確認' },
+        { id: 'pp-k31', label: '電気' },
+      ],
+    },
+    {
+      id: 'pp-hall',
+      title: 'ホール',
+      items: [
+        { id: 'pp-h01', label: 'リザーブ表確認' },
+        { id: 'pp-h02', label: 'セット確認' },
+        { id: 'pp-h03', label: '更衣室扉施錠' },
+        { id: 'pp-h04', label: '更衣室のショーケース確認' },
+        { id: 'pp-h05', label: 'デシャップ下、更衣室ショーケース下の水捨て' },
+        { id: 'pp-h06', label: 'トイレ確認' },
+        { id: 'pp-h07', label: '灰皿確認' },
+        { id: 'pp-h08', label: 'レジiPad系電源' },
+        { id: 'pp-h09', label: 'ウーバーPad画面暗くする' },
+        { id: 'pp-h10', label: '食べログとインスタ確認' },
+      ],
+    },
+    {
+      id: 'pp-all',
+      title: '全体',
+      items: [
+        { id: 'pp-z01', label: '発注（FAX流し忘れないか）' },
+        { id: 'pp-z02', label: '売上金チェック' },
+        { id: 'pp-z03', label: '入金帳・封筒チェック' },
+        { id: 'pp-z04', label: '両替金チェック' },
+        { id: 'pp-z05', label: '日報入力' },
+        { id: 'pp-z06', label: 'ジャーナルLINE' },
+        { id: 'pp-z07', label: '入り口、レジ小窓、大扉施錠' },
+        { id: 'pp-z08', label: '翌日の事前オーダー確認' },
+        { id: 'pp-z09', label: '電気' },
+        { id: 'pp-z10', label: 'ガス元栓' },
       ],
     },
   ],
@@ -457,6 +569,20 @@ function getChecklist(storeId) {
 /* 定休日の判定は storage.js の Closed（管理アプリの内容を反映）が持っています */
 
 /**
+ * 休止期間の判定
+ *
+ *   pauses: [{ from: '2026-12-29', to: '2027-01-03' }, ...]
+ *
+ * 年末年始などで一時的に外したいときに使います。
+ * 「やめる（retiredAt）」と違い、期間が過ぎれば自動で戻ります。
+ */
+function isPaused(target, dateStr) {
+  const list = target && target.pauses;
+  if (!Array.isArray(list) || !list.length) return false;
+  return list.some((p) => p && p.from && p.to && dateStr >= p.from && dateStr <= p.to);
+}
+
+/**
  * その項目がその日の対象かどうか
  *
  *   onlyDays   … その日付だけ出す（肉の日POPの [28] など）
@@ -476,7 +602,10 @@ function appliesTo(item, store, y, m, d, section) {
     if (section.onlyDows && !section.onlyDows.includes(dow)) return false;
     if (section.addedAt && dateStr < section.addedAt) return false;
     if (section.retiredAt && dateStr >= section.retiredAt) return false;
+    if (isPaused(section, dateStr)) return false;
   }
+  // 長期休みなど、期間を決めて一時的に外している項目
+  if (isPaused(item, dateStr)) return false;
   // 追加した日より前にはさかのぼらせない／やめた日以降は出さない
   if (item.addedAt && dateStr < item.addedAt) return false;
   if (item.retiredAt && dateStr >= item.retiredAt) return false;

@@ -36,6 +36,7 @@ const el = {};
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
+  'pauseModal', 'pauseItem', 'pauseFrom', 'pauseTo', 'pauseAdd', 'pauseHint', 'pauseList',
   'confirmDialog', 'confirmItem', 'confirmMessage', 'confirmOk',
   'pinModal', 'pinInput', 'pinReveal', 'pinError', 'pinOk',
 ].forEach((id) => { el[id] = document.getElementById(id); });
@@ -215,13 +216,20 @@ function buildItemRow(sec, item, index, count) {
   row.appendChild(name);
 
   /* 特殊な条件が付いている項目は、それと分かるようにしておく */
-  const tag = specialTag(item);
-  if (tag) {
+  specialTags(item).forEach((text) => {
     const span = document.createElement('span');
-    span.className = 'item-row__tag';
-    span.textContent = tag;
+    span.className = 'item-row__tag' + (text.startsWith('休止') ? ' item-row__tag--pause' : '');
+    span.textContent = text;
     row.appendChild(span);
-  }
+  });
+
+  const pause = document.createElement('button');
+  pause.type = 'button';
+  pause.className = 'icon-btn' + (item.pauses && item.pauses.length ? ' icon-btn--on' : '');
+  pause.textContent = '休';
+  pause.title = '休止期間の設定';
+  pause.addEventListener('click', () => openPause(sec.id, item.id));
+  row.appendChild(pause);
 
   row.appendChild(moveButton('↑', index > 0, () => moveItem(sec.id, item.id, -1)));
   row.appendChild(moveButton('↓', index < count - 1, () => moveItem(sec.id, item.id, 1)));
@@ -237,13 +245,17 @@ function buildItemRow(sec, item, index, count) {
   return row;
 }
 
-/** 「28日だけ」「金土のみ」など、こちらで設定してある条件の表示 */
-function specialTag(item) {
-  if (item.onlyDays) return item.onlyDays.join('・') + '日だけ';
-  if (item.onlyDows) return item.onlyDows.map((d) => DOW[d]).join('') + 'のみ';
-  if (item.hideOnDows) return item.hideOnDows.map((d) => DOW[d]).join('') + 'は非表示';
-  if (item.type === 'number') return '数値' + (item.unit ? `（${item.unit}）` : '');
-  return '';
+/** 「28日だけ」「金土のみ」「休止中」など、その項目に付いている条件をすべて返す */
+function specialTags(item) {
+  const tags = [];
+  if (item.onlyDays) tags.push(item.onlyDays.join('・') + '日だけ');
+  if (item.onlyDows) tags.push(item.onlyDows.map((d) => DOW[d]).join('') + 'のみ');
+  if (item.hideOnDows) tags.push(item.hideOnDows.map((d) => DOW[d]).join('') + 'は非表示');
+  if (item.type === 'number') tags.push('数値' + (item.unit ? `（${item.unit}）` : ''));
+  if (item.pauses && item.pauses.length) {
+    tags.push(isPaused(item, todayStr()) ? '休止中' : `休止${item.pauses.length}件`);
+  }
+  return tags;
 }
 
 function moveButton(label, enabled, onClick) {
@@ -333,6 +345,94 @@ function moveItem(secId, itemId, dir) {
   const next = currentSections();
   const items = next.find((s) => s.id === secId).items;
   if (swapWithin(items, alive, itemId, dir)) saveSections(next);
+}
+
+/* ============================================================
+ *  休止期間（長期休みなどで一時的に外す）
+ * ============================================================ */
+const pauseTarget = { secId: null, itemId: null };
+
+function pauseItemOf() {
+  return currentSections()
+    .find((s) => s.id === pauseTarget.secId)
+    .items.find((i) => i.id === pauseTarget.itemId);
+}
+
+function openPause(secId, itemId) {
+  pauseTarget.secId = secId;
+  pauseTarget.itemId = itemId;
+  el.pauseItem.textContent = pauseItemOf().label;
+  el.pauseFrom.value = '';
+  el.pauseTo.value = '';
+  el.pauseHint.textContent = '';
+  renderPauseList();
+  el.pauseModal.classList.remove('is-hidden');
+}
+
+function renderPauseList() {
+  const item = pauseItemOf();
+  const list = (item.pauses || []).slice().sort((a, b) => (a.from < b.from ? -1 : 1));
+  el.pauseList.innerHTML = '';
+
+  if (!list.length) {
+    const li = document.createElement('li');
+    li.className = 'ex-list__empty';
+    li.textContent = '登録なし';
+    el.pauseList.appendChild(li);
+    return;
+  }
+
+  const today = todayStr();
+  list.forEach((p) => {
+    const li = document.createElement('li');
+    li.className = 'ex-list__item';
+    const now = today >= p.from && today <= p.to;
+    const done = today > p.to;
+    li.innerHTML =
+      `<span class="ex-list__date">${p.from.replace(/-/g, '/')} 〜 ${p.to.replace(/-/g, '/')}</span>` +
+      `<span class="ex-list__kind ${now ? 'ex-list__kind--closed' : ''}">` +
+      `${now ? '休止中' : done ? '終了' : 'この先'}</span>`;
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'ex-list__del';
+    del.textContent = '削除';
+    del.addEventListener('click', () => {
+      updatePauses((cur) => cur.filter((x) => !(x.from === p.from && x.to === p.to)));
+    });
+    li.appendChild(del);
+    el.pauseList.appendChild(li);
+  });
+}
+
+/** 休止期間を書き換えて保存する */
+function updatePauses(fn) {
+  const next = currentSections();
+  const item = next.find((s) => s.id === pauseTarget.secId).items.find((i) => i.id === pauseTarget.itemId);
+  const list = fn((item.pauses || []).slice());
+  if (list.length) item.pauses = list;
+  else delete item.pauses;
+  saveSections(next);
+  renderPauseList();
+}
+
+function addPause() {
+  const from = el.pauseFrom.value;
+  const to = el.pauseTo.value || from;
+  el.pauseHint.textContent = '';
+
+  if (!from) { el.pauseHint.textContent = '開始日を選んでください。'; return; }
+  if (to < from) { el.pauseHint.textContent = '終了日は開始日より後にしてください。'; return; }
+
+  updatePauses((cur) => {
+    if (cur.some((p) => p.from === from && p.to === to)) return cur;
+    return cur.concat([{ from, to }]);
+  });
+
+  const days = Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000) + 1;
+  el.pauseHint.textContent = `${days}日分を休止にしました。`;
+  el.pauseFrom.value = '';
+  el.pauseTo.value = '';
 }
 
 /* ============================================================
@@ -650,6 +750,9 @@ function bindEvents() {
   window.addEventListener('hashchange', () => { readHash(); renderAll(); });
 
   el.addSection.addEventListener('click', addSection);
+  el.pauseAdd.addEventListener('click', addPause);
+  el.pauseModal.querySelectorAll('[data-pause-close]').forEach((n) =>
+    n.addEventListener('click', () => el.pauseModal.classList.add('is-hidden')));
   el.saveStaff.addEventListener('click', saveStaff);
   el.exAdd.addEventListener('click', addClosedException);
   el.exportBtn.addEventListener('click', exportJson);
