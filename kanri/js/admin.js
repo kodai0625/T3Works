@@ -33,6 +33,7 @@ const el = {};
   'appLogo', 'homeBtn', 'storeTabs', 'syncChip',
   'viewStores', 'viewStore', 'storeGrid', 'backToStores',
   'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection', 'importDefaults',
+  'undoImport', 'importNote',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
@@ -545,15 +546,86 @@ function moveItem(secId, itemId, dir) {
  *    ・config.js だけにある項目 … 今日から出る項目として足す
  *    ・この画面で追加した項目 … 消さずに区分の最後へ残す
  * ============================================================ */
+/** 取り込んだら何が変わるかを、先に数えておく */
+function importDiff(before, after) {
+  const oldById = {};
+  before.forEach((s) => s.items.forEach((i) => { oldById[i.id] = { label: i.label, sec: s.title }; }));
+
+  let renamed = 0;
+  let added = 0;
+  let moved = false;
+
+  after.forEach((s) => s.items.forEach((i) => {
+    const o = oldById[i.id];
+    if (!o) { added += 1; return; }
+    if (o.label !== i.label) renamed += 1;
+  }));
+
+  const seq = (list) => list.map((s) => s.title + ':' + s.items.map((i) => i.id).join(',')).join('|');
+  moved = seq(before) !== seq(after);
+
+  return { renamed, added, moved, none: !renamed && !added && !moved };
+}
+
 async function importDefaults() {
   const store = getStore(state.storeId);
-  const ok = await askConfirm(
-    store.name,
-    '項目の名前・並び順・曜日の設定を、用意された内容に合わせます。'
-    + 'この画面で追加した項目は消えず、区分の最後に残ります。'
-  );
+  const before = currentSections();
+  const after = buildImported();
+  const diff = importDiff(before, after);
+
+  if (diff.none) {
+    el.importNote.textContent = `${store.name} は用意された内容と同じです。変わるところはありません。`;
+    return;
+  }
+
+  const lines = [];
+  if (diff.renamed) lines.push(`名前が変わる項目：${diff.renamed}件`);
+  if (diff.added) lines.push(`新しく増える項目：${diff.added}件（今日から表示）`);
+  if (diff.moved) lines.push('並び順が変わります');
+  lines.push('この画面で追加した項目は消えず、区分の最後に残ります。');
+  lines.push('取り込んだあとでも「取り込みを取り消す」で元に戻せます。');
+
+  const ok = await askConfirm(store.name, lines.join('\n'));
   if (!ok) return;
 
+  // 元に戻せるよう、直前の状態を控えておく
+  localStorage.setItem(UNDO_KEY, JSON.stringify({ storeId: state.storeId, sections: before }));
+  saveSections(after);
+  el.importNote.textContent =
+    `取り込みました（名前${diff.renamed}件 / 追加${diff.added}件）。元に戻す場合は右のボタンを押してください。`;
+  renderUndo();
+}
+
+/** 取り込みを取り消して、直前の状態に戻す */
+async function undoImport() {
+  const saved = readUndo();
+  if (!saved) return;
+  const ok = await askConfirm(getStore(saved.storeId).name, '取り込む前の状態に戻します。よろしいですか？');
+  if (!ok) return;
+  Checklists.save(saved.storeId, saved.sections);
+  localStorage.removeItem(UNDO_KEY);
+  el.importNote.textContent = '取り込む前の状態に戻しました。';
+  renderChecklistEditor();
+  renderUndo();
+}
+
+const UNDO_KEY = APP.storageKey + ':importUndo';
+
+function readUndo() {
+  try {
+    const v = JSON.parse(localStorage.getItem(UNDO_KEY) || 'null');
+    return v && v.storeId === state.storeId ? v : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderUndo() {
+  el.undoImport.classList.toggle('is-hidden', !readUndo());
+}
+
+/** 取り込んだ結果を作る（保存はしません） */
+function buildImported() {
   const today = todayStr();
   const rest = {};
   currentSections().forEach((s) => { rest[s.id] = s; });
@@ -583,7 +655,7 @@ async function importDefaults() {
   });
 
   Object.keys(rest).forEach((id) => merged.push(rest[id]));
-  saveSections(merged);
+  return merged;
 }
 
 /* ============================================================
@@ -905,6 +977,8 @@ function renderAll() {
   renderChecklistEditor();
   renderClosed();
   renderSyncStatus();
+  el.importNote.textContent = '';
+  renderUndo();
 }
 
 /* ============================================================
@@ -990,6 +1064,7 @@ function bindEvents() {
 
   el.addSection.addEventListener('click', addSection);
   el.importDefaults.addEventListener('click', importDefaults);
+  el.undoImport.addEventListener('click', undoImport);
   el.pauseAdd.addEventListener('click', addPause);
   el.pauseModal.querySelectorAll('[data-pause-close]').forEach((n) =>
     n.addEventListener('click', () => el.pauseModal.classList.add('is-hidden')));

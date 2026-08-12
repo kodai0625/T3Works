@@ -14,7 +14,7 @@
 <title>T3クローズ 管理｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=fed8e094">
 <link rel="stylesheet" href="css/admin.css?v=58c2f390">
-<meta name="app-version" content="93995c93">
+<meta name="app-version" content="37ca29f6">
 </head>
 <body class="no-daytabs">
 
@@ -104,7 +104,11 @@
         項目の<b>名前・並び順・曜日の設定</b>を、あらかじめ用意してある内容に合わせます。<br>
         この画面で<b>追加した項目は消えません</b>（各区分の最後に残ります）。削除した項目も復活しません。
       </p>
-      <button type="button" class="btn" id="importDefaults">この店舗に取り込む</button>
+      <div class="admin-actions">
+        <button type="button" class="btn" id="importDefaults">この店舗に取り込む</button>
+        <button type="button" class="btn is-hidden" id="undoImport">取り込みを取り消す</button>
+      </div>
+      <p class="admin-note" id="importNote"></p>
     </details>
   </section>
 
@@ -204,10 +208,10 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=d75e1bb6"></script>
+<script src="../js/config.js?v=8a8fcd92"></script>
 <script src="../js/storage.js?v=8a5c2523"></script>
 <script src="../js/sync.js?v=e9b8d0aa"></script>
 <script src="../js/update.js?v=317fbca6"></script>
-<script src="js/admin.js?v=f9263ed1"></script>
+<script src="js/admin.js?v=8fa6e43d"></script>
 </body>
 </html>
