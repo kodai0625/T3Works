@@ -602,7 +602,82 @@ const CHECKLIST_OVERRIDES = {
 };
 
 /* ------------------------------------------------------------
- *  5) 未提出の通知時刻（★共有版で使います。現時点では未接続★）
+ *  4) 週間掃除の項目
+ *
+ *  毎日のチェックとは別に、「週に1回まわす掃除」を1か月の表で管理します。
+ *  縦が項目、横が週（日曜はじまり）です。
+ *
+ *  item
+ *    id    : 英数字で固定（★変えると過去の記録が消えて見えるので注意★）
+ *    label : 画面に出る項目名
+ *    every : 'week'   … 毎週やる（省略時はこちら）
+ *            'biweek' … 2週間に1回でよい
+ *    addedAt / retiredAt … 管理アプリで追加・削除した日（過去の記録を守るため）
+ *
+ *  ここに書いてあるのは初期値です。管理アプリで店舗ごとに
+ *  追加・削除・並べ替え・頻度の変更ができ、そちらが優先されます。
+ * ---------------------------------------------------------- */
+const WEEKLY_DEFAULT = [
+  { id: 'wk-seat',    label: '2名席ガタつき確認' },
+  { id: 'wk-station', label: 'ステーション備品補充' },
+  { id: 'wk-floor',   label: '床の黒ずみ・机の溝掃除' },
+  { id: 'wk-toilet',  label: 'トイレの洗面所水垢取り' },
+  { id: 'wk-fridge',  label: '冷蔵庫フィルター' },
+  { id: 'wk-steam',   label: 'スチコンフィルター' },
+  { id: 'wk-case',    label: 'ショーケースサッシ掃除' },
+  { id: 'wk-gutter',  label: '溝掃除' },
+  { id: 'wk-grease',  label: 'グリスト' },
+  { id: 'wk-stocker', label: 'ストッカー霜取り' },
+  { id: 'wk-shelf',   label: '食器棚拭き掃除' },
+];
+
+/* ------------------------------------------------------------
+ *  2週間の区切り（期）の起点
+ *
+ *  ここに書いた日曜から、2週間ずつ区切っていきます。
+ *  全店舗で同じ区切りになるので、6店舗まとめて比べられます。
+ *  ずらしたくなったら、この日付を別の日曜に書き換えるだけです
+ *  （過去の記録は週ごとに持っているので、消えたりしません）。
+ * ---------------------------------------------------------- */
+const PERIOD_ANCHOR = '2026-08-02';
+
+/* 店舗ごとに初期値を変えたいときはここに書きます。
+   （書かなければ全店舗 WEEKLY_DEFAULT から始まります）
+   例）const WEEKLY_OVERRIDES = { popo: [ { id:'wk-a', label:'…' } ] }; */
+const WEEKLY_OVERRIDES = {};
+
+/* ------------------------------------------------------------
+ *  5) 業務の一覧（★ページを増やす場所★）
+ *
+ *  アプリは「店舗をえらぶ → 業務をえらぶ → その画面」の3段です。
+ *  新しい業務のページを足すときは、ここに1つ足してください。
+ *
+ *    id    : 画面の名前。URL（#/店舗/ここ/…）にも使います
+ *    name  : 業務選択画面と見出しに出る名前
+ *    sub   : その下に出る短い説明
+ *    when  : 省略可。false を返すと一覧に出しません
+ *
+ *  「その店舗のいまの状況」を業務選択画面に出すため、
+ *  status(storeId) は app.js の taskStatus() が担当します。
+ * ---------------------------------------------------------- */
+const TASKS = [
+  { id: 'day',   name: '日別',     sub: '毎日の確認' },
+  { id: 'week',  name: '週間掃除', sub: '2週間ごと' },
+  { id: 'month', name: '月間表',   sub: '1か月の一覧', when: () => APP.showMonthView !== false },
+];
+
+/** いま使える業務だけ */
+function taskList() {
+  return TASKS.filter((t) => typeof t.when !== 'function' || t.when());
+}
+
+/** id から業務を引く */
+function getTask(id) {
+  return TASKS.find((t) => t.id === id) || null;
+}
+
+/* ------------------------------------------------------------
+ *  6) 未提出の通知時刻（★共有版で使います。現時点では未接続★）
  *
  *  「その営業日の分を、いつ判定して通知するか」を店舗ごと・曜日ごとに指定します。
  *
@@ -645,6 +720,177 @@ function defaultChecklist(storeId) {
 function getChecklist(storeId) {
   return typeof Checklists !== 'undefined' ? Checklists.sections(storeId) : defaultChecklist(storeId);
 }
+
+/* ------------------------------------------------------------
+ *  週間掃除
+ *
+ *  週は「日曜はじまり・土曜おわり」です。
+ *  1つの週は 'YYYY-MM-DD'（その週の日曜の日付）で表します。
+ *  月をまたぐ週は、両方の月の表に同じものとして出ます
+ *  （記録は1つなので、どちらでチェックしても同じです）。
+ * ---------------------------------------------------------- */
+
+/** Date を 'YYYY-MM-DD' にする */
+function dateToStr(dt) {
+  const p2 = (n) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${p2(dt.getMonth() + 1)}-${p2(dt.getDate())}`;
+}
+
+/** その日が属する週の日曜（'YYYY-MM-DD'） */
+function weekStartOf(y, m, d) {
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - dt.getDay());
+  return dateToStr(dt);
+}
+
+/** 週の日曜から、その週の土曜（'YYYY-MM-DD'） */
+function weekEndOf(startStr) {
+  const [y, m, d] = startStr.split('-').map(Number);
+  return dateToStr(new Date(y, m - 1, d + 6));
+}
+
+/** 表の見出し用。'8/2' のような短い表記 */
+function weekShortLabel(startStr) {
+  const [, m, d] = startStr.split('-').map(Number);
+  return `${m}/${d}`;
+}
+
+/** 「8/2（日）〜8/8（土）」のような表記 */
+function weekRangeLabel(startStr) {
+  const e = weekEndOf(startStr);
+  const [, sm, sd] = startStr.split('-').map(Number);
+  const [, em, ed] = e.split('-').map(Number);
+  return `${sm}/${sd}（日）〜${em}/${ed}（土）`;
+}
+
+/** このファイルに書いてある初期値。管理アプリで一度も編集していない店舗で使われます */
+function defaultWeekly(storeId) {
+  return WEEKLY_OVERRIDES[storeId] || WEEKLY_DEFAULT;
+}
+
+/** 店舗の週間掃除の項目を取得（管理アプリで変更された内容が優先されます） */
+function getWeekly(storeId) {
+  return typeof Weeklies !== 'undefined' ? Weeklies.items(storeId) : defaultWeekly(storeId);
+}
+
+/**
+ * その項目が、その週の対象かどうか
+ *
+ * 追加した日を含む週から出て、削除した日を含む週まで残ります
+ * （日別のチェックと同じで、過去の記録は当時のまま残します）。
+ */
+function weeklyAppliesTo(item, startStr) {
+  const endStr = weekEndOf(startStr);
+  if (item.addedAt && endStr < item.addedAt) return false;
+  if (item.retiredAt && startStr >= item.retiredAt) return false;
+  return true;
+}
+
+/** 週間掃除の記録キー。日別の記録（storeId/YYYY-MM-DD）とぶつからないよう W を付けます */
+function weekRecKey(startStr) {
+  return `W${startStr}`;
+}
+
+/* ------------------------------------------------------------
+ *  2週間の区切り（期）
+ *
+ *  PERIOD_ANCHOR の日曜から2週間ずつ。提出と達成率はこの単位です。
+ *  期は「その期の1週目の日曜」で表します。
+ * ---------------------------------------------------------- */
+
+/** 2つの日付（'YYYY-MM-DD'）が何日離れているか */
+function daysBetween(aStr, bStr) {
+  const [ay, am, ad] = aStr.split('-').map(Number);
+  const [by, bm, bd] = bStr.split('-').map(Number);
+  return Math.round((new Date(by, bm - 1, bd) - new Date(ay, am - 1, ad)) / 86400000);
+}
+
+/** その週が属する期の1週目（'YYYY-MM-DD'） */
+function periodStartOf(weekStartStr) {
+  const weeks = daysBetween(PERIOD_ANCHOR, weekStartStr) / 7;
+  // 起点より前（マイナス）でも正しく区切れるよう floor を使います
+  const back = ((Math.floor(weeks) % 2) + 2) % 2;
+  return addDaysStr(weekStartStr, -back * 7);
+}
+
+/** その日が属する期の1週目 */
+function periodOfDate(y, m, d) {
+  return periodStartOf(weekStartOf(y, m, d));
+}
+
+/** 期に含まれる2つの週（日曜の日付） */
+function periodWeeks(periodStart) {
+  return [periodStart, addDaysStr(periodStart, 7)];
+}
+
+/** 期の最終日（2週目の土曜） */
+function periodEndOf(periodStart) {
+  return addDaysStr(periodStart, 13);
+}
+
+/** 'YYYY-MM-DD' に日数を足す */
+function addDaysStr(str, n) {
+  const [y, m, d] = str.split('-').map(Number);
+  return dateToStr(new Date(y, m - 1, d + n));
+}
+
+/** 「8/9（日）〜8/22（土）」のような表記 */
+function periodRangeLabel(periodStart) {
+  const e = periodEndOf(periodStart);
+  const [, sm, sd] = periodStart.split('-').map(Number);
+  const [, em, ed] = e.split('-').map(Number);
+  return `${sm}/${sd}（日）〜${em}/${ed}（土）`;
+}
+
+/** その項目は「2週間に1回」か */
+function isBiweekly(item) {
+  return item.every === 'biweek';
+}
+
+/**
+ * その期にやるべきことを1つずつ並べる（達成率の分母になります）
+ *
+ *   毎週の項目     … 1週目と2週目で1つずつ（2つ）
+ *   2週に1回の項目 … 期に1つだけ。記録は1週目のところに入れます
+ */
+function periodSlots(storeId, periodStart) {
+  const weeks = periodWeeks(periodStart);
+  const out = [];
+  getWeekly(storeId).forEach((item) => {
+    if (isBiweekly(item)) {
+      if (weeks.some((w) => weeklyAppliesTo(item, w))) {
+        out.push({ item, week: periodStart, span: 2 });
+      }
+      return;
+    }
+    weeks.forEach((w) => {
+      if (weeklyAppliesTo(item, w)) out.push({ item, week: w, span: 1 });
+    });
+  });
+  return out;
+}
+
+/** その1マスが済んでいるか */
+function slotDone(storeId, slot) {
+  const rec = Store.getDay(storeId, weekRecKey(slot.week));
+  return !!(rec.items && rec.items[slot.item.id] && rec.items[slot.item.id].done);
+}
+
+/** 期の達成状況 { total, done, rate, submittedAt, submittedBy } */
+function periodStatus(storeId, periodStart) {
+  const slots = periodSlots(storeId, periodStart);
+  const done = slots.filter((s) => slotDone(storeId, s)).length;
+  const rec = Store.getDay(storeId, weekRecKey(periodStart));
+  return {
+    total: slots.length,
+    done,
+    rate: slots.length ? Math.round((done / slots.length) * 100) : 0,
+    submittedAt: rec.submittedAt || null,
+    submittedBy: rec.submittedBy || '',
+    staff: rec.staff || '',
+  };
+}
+
 
 /* 定休日の判定は storage.js の Closed（管理アプリの内容を反映）が持っています */
 

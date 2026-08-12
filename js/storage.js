@@ -137,12 +137,14 @@ const Store = {
     return this.adapter.getMonth(storeId, ym);
   },
 
-  /** その店舗で最初に記録がある日付（'YYYY-MM-DD'）。無ければ null */
+  /** その店舗で最初に記録がある日付（'YYYY-MM-DD'）。無ければ null
+   *  週間掃除の記録（storeId/W2026-08-02）は日付ではないので除きます */
   firstDate(storeId) {
     const prefix = `${storeId}/`;
     const dates = Object.keys(this.adapter.dump())
       .filter((k) => k.startsWith(prefix))
       .map((k) => k.slice(prefix.length))
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
       .sort();
     return dates[0] || null;
   },
@@ -272,6 +274,49 @@ const Checklists = {
   save(storeId, sections) {
     const all = this._read();
     all[storeId] = sections;
+    localStorage.setItem(this._key, JSON.stringify(all));
+    return all;
+  },
+};
+
+/* -------- 週間掃除の項目（こちらも管理アプリで変更し、全端末へ配られます） --------
+ *
+ *  毎日のチェック項目（Checklists）と同じ考え方ですが、
+ *  区分はなく、ただの項目の並びです。
+ *  「項目を1つも置かない」設定もできるよう、空の配列も設定済みとして扱います。
+ */
+const Weeklies = {
+  _key: APP.storageKey + ':weeklies',
+
+  _read() {
+    try {
+      const v = JSON.parse(localStorage.getItem(this._key) || 'null');
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    } catch (e) {
+      return {};
+    }
+  },
+
+  /** 保存されている全店舗分。管理アプリの一括保存で使います */
+  all() {
+    return this._read();
+  },
+
+  /** その店舗の項目。未設定なら config.js の初期値を使う */
+  items(storeId) {
+    const saved = this._read()[storeId];
+    if (Array.isArray(saved)) return saved;
+    return defaultWeekly(storeId);
+  },
+
+  /** まだ一度も編集されていない（config.js の初期値のまま）かどうか */
+  isDefault(storeId) {
+    return !Array.isArray(this._read()[storeId]);
+  },
+
+  save(storeId, items) {
+    const all = this._read();
+    all[storeId] = items;
     localStorage.setItem(this._key, JSON.stringify(all));
     return all;
   },

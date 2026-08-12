@@ -172,6 +172,18 @@ body.no-daytabs .update-bar {
 }
 .settings-btn:active { background: rgba(255,255,255,.2); }
 
+/* 管理アプリへの切り替えボタン。
+   ふだんの現場アプリでは隠したままにし、専用版（owner/）でだけ出します */
+.owner-only { display: none; }
+body[data-mode="owner"] .owner-only { display: inline-flex; }
+/* ボタンが1つ増えるぶん、ヘッダーの間隔を詰めてアプリ名が切れないようにする */
+body[data-mode="owner"] .app-header__inner { gap: 8px; }
+body[data-mode="owner"] .header-actions { gap: 5px; }
+@media (max-width: 520px) {
+  body[data-mode="owner"] .settings-btn { padding: 6px 9px; }
+  body[data-mode="owner"] .owner-only { padding: 6px 10px; }
+}
+
 /* ---- 店舗タブ ---- */
 .store-tabs {
   display: flex; gap: 6px; overflow-x: auto;
@@ -223,18 +235,53 @@ body.no-daytabs .update-bar {
 .store-head__name {
   margin: 0; font-size: 19px; font-weight: 700; letter-spacing: .01em;
 }
-.view-switch {
-  display: inline-flex; background: var(--surface-2);
-  border: 1px solid var(--line); border-radius: 999px; padding: 2px;
+/* ---- いま開いている業務（タップで業務の一覧へ戻る） ----
+   業務が何個に増えてもここは1つのままなので、画面が狭くなりません */
+.task-bar {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  margin: 12px 0 0; padding: 9px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 11px;
+  font: inherit; color: var(--text); cursor: pointer; text-align: left;
 }
-/* クラス2つぶんなので上の display: inline-flex より優先されます */
-.view-switch.is-hidden { display: none; }
-.view-switch__btn {
-  border: 0; background: transparent; color: var(--text-sub);
-  font: inherit; font-size: 13px; font-weight: 600;
-  padding: 5px 14px; border-radius: 999px; cursor: pointer;
+/* クラス2つぶんなので上の display: flex より優先されます */
+.task-bar.is-hidden { display: none; }
+.task-bar:active { background: var(--line-2); }
+.task-bar__arrow { font-size: 20px; line-height: 1; color: var(--text-weak); flex: 0 0 auto; }
+.task-bar__label { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.task-bar__name { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.task-bar__hint { font-size: 10.5px; font-weight: 600; color: var(--text-weak); line-height: 1.2; }
+
+/* ---- 業務選択（店舗をえらんだあとの画面） ---- */
+.stores-sub {
+  margin: 22px 2px 8px; font-size: 13px; font-weight: 700; color: var(--text-sub);
 }
-.view-switch__btn.is-active { background: var(--store); color: #fff; }
+.task-grid { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.task-card {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 66px; padding: 12px 12px 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--card-color, var(--accent));
+  border-radius: 12px; box-shadow: var(--shadow);
+  font: inherit; color: var(--text); cursor: pointer; text-align: left;
+}
+.task-card:active { background: var(--surface-2); }
+.task-card__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.task-card__name { font-size: 17px; font-weight: 700; line-height: 1.2; }
+.task-card__sub { font-size: 11.5px; color: var(--text-sub); line-height: 1.2; }
+.task-card__status {
+  flex: 0 0 auto; font-size: 12px; font-weight: 700;
+  border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  background: var(--line-2); color: var(--text-sub);
+}
+.task-card--todo .task-card__status {
+  background: color-mix(in srgb, var(--ng) 13%, transparent); color: var(--ng);
+}
+.task-card--done .task-card__status {
+  background: color-mix(in srgb, var(--ok) 13%, transparent); color: var(--ok);
+}
+.task-card__arrow { flex: 0 0 auto; font-size: 20px; color: var(--text-weak); line-height: 1; }
 
 .year-row { display: flex; align-items: center; gap: 6px; margin: 12px 0 8px; }
 .year-btn, .today-btn {
@@ -605,6 +652,225 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-sub); margin: 10px 2px; }
 .legend__item { display: inline-flex; align-items: center; gap: 5px; }
 
+/* ===================== 週間掃除 =====================
+   縦が項目、横が週。1週ずつ／2週まとめて を切り替えて見ます。
+   提出と達成率は「2週間（期）」が単位です。 */
+
+/* ---- 週送り ---- */
+.week-nav {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 10px;
+}
+.week-nav__label { flex: 1 1 auto; min-width: 0; text-align: center; }
+.week-nav__main {
+  display: block; font-size: 15.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1.25;
+}
+.week-nav__sub { display: block; font-size: 11.5px; color: var(--text-sub); margin-top: 1px; }
+
+/* 週間掃除では2週間ずつ送るので、年・月タブは出しません */
+.store-head.is-weekview .year-row,
+.store-head.is-weekview .month-tabs { display: none; }
+
+
+
+/* 6週ある月でもスマホ縦画面に収まるよう、幅は画面いっぱいに分け合わせます
+   （それでも足りないときだけ .table-scroll が横スクロールします） */
+.week-table {
+  border-collapse: separate; border-spacing: 0;
+  font-size: 12px; width: 100%;
+}
+.week-table th, .week-table td {
+  border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2);
+  padding: 0; text-align: center;
+}
+.week-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface-2); font-weight: 700; color: var(--text-sub);
+  min-width: 42px; padding: 7px 3px; line-height: 1.3;
+  white-space: nowrap;
+}
+/* 見出しは「1週目」と日付を横1列に並べます */
+.week-th__nth   { font-size: 11.5px; }
+.week-th__range {
+  font-size: 11px; font-weight: 600; color: var(--text-weak);
+  font-variant-numeric: tabular-nums; margin-left: 5px;
+}
+.week-table thead th.is-now {
+  background: color-mix(in srgb, var(--store) 18%, var(--surface-2)); color: var(--text);
+}
+.week-table thead th.is-now .week-th__range { color: var(--text-sub); }
+
+.week-table .col-item {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--surface); text-align: left; font-weight: 600;
+  width: 40%; min-width: 118px; white-space: normal;
+  padding: 6px 7px; line-height: 1.3; font-size: 11.5px;
+  border-right: 1px solid var(--line);
+}
+.week-table thead .col-item { z-index: 4; background: var(--surface-2); }
+
+/* 「2週に1回」の項目に付く小さな印 */
+.week-every {
+  display: inline-block; margin-left: 5px;
+  font-size: 9.5px; font-weight: 700; white-space: nowrap;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 999px; padding: 1px 6px; vertical-align: 1px;
+}
+/* 2週まとめて見るとき、「2週に1回」の項目はマスを1つにつなげます */
+.week-cell--span { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+/* マスそのものがボタン。指で押しやすいよう、セル全面を占めます */
+.week-cell.is-now { background: color-mix(in srgb, var(--store) 7%, transparent); }
+/* まだ来ていない週。押せますが、うっすら斜線で「先の週」と分かるように */
+.week-cell.is-future { background: repeating-linear-gradient(
+  -45deg, transparent, transparent 3px, var(--line-2) 3px, var(--line-2) 5px); }
+/* ✓・担当者・日付を横1列に並べます */
+.week-btn {
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  width: 100%; min-height: 44px; gap: 4px;
+  border: 0; background: transparent; color: var(--text);
+  font: inherit; cursor: pointer; padding: 4px 3px;
+  white-space: nowrap; overflow: hidden;
+}
+.week-btn:active { background: color-mix(in srgb, var(--store) 12%, transparent); }
+.week-btn__mark { font-size: 16px; font-weight: 800; line-height: 1; color: var(--text-weak); flex: 0 0 auto; }
+.week-btn__name {
+  font-size: 11px; font-weight: 700; line-height: 1.1;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.week-btn__date {
+  font-size: 10.5px; font-weight: 600; line-height: 1.1;
+  font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.week-btn.is-done .week-btn__mark { color: var(--ok); }
+.week-btn.is-done .week-btn__name { color: var(--text-sub); }
+.week-btn.is-done .week-btn__date { color: var(--text-weak); }
+
+.week-empty {
+  margin: 12px 2px; padding: 20px 14px; text-align: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: 13px; color: var(--text-sub); line-height: 1.7;
+}
+.week-empty.is-hidden { display: none; }
+#weekNoteCard.is-hidden { display: none; }
+.table-scroll.is-hidden { display: none; }
+
+/* やった人を選ぶ画面 */
+.doer__item {
+  margin: 0 0 4px; padding: 9px 11px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 15px; font-weight: 700;
+}
+.doer__week { margin: 0 0 12px; font-size: 12.5px; color: var(--text-sub); }
+.doer-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 7px; margin-bottom: 16px;
+}
+.doer-btn {
+  border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 14.5px; font-weight: 700;
+  padding: 11px 4px; cursor: pointer; text-align: center;
+}
+.doer-btn:active { background: var(--line-2); }
+.doer-btn.is-current { background: var(--ok); border-color: var(--ok); color: #fff; }
+#doerClear.is-hidden { display: none; }
+
+/* ---- 達成率の円グラフ（ドーナツ） ----
+   輪は補助で、主役は真ん中の数字です。色は1色だけ使い、
+   進み具合は輪の長さで表します（100%になったら緑）。 */
+.donut { display: block; width: 100%; height: auto; }
+.donut__track { fill: none; stroke: var(--line-2); }
+.donut__arc { fill: none; stroke-linecap: round; transition: stroke-dasharray .25s; }
+.donut__value {
+  font-family: inherit; font-weight: 800;
+  font-size: 25px; font-variant-numeric: tabular-nums;
+}
+
+/* ---- この2週間の達成状況と提出 ---- */
+.period-card {
+  margin: 12px 0 0;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px;
+}
+.period-card.is-submitted { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 5%, var(--surface)); }
+.period-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.period-card__title { font-size: 13px; font-weight: 700; color: var(--text-sub); }
+.period-card__rate {
+  font-size: 26px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--store);
+}
+.period-card__rate.is-full { color: var(--ok); }
+.period-card .progress { margin: 9px 0 5px; }
+.period-card__count { margin: 0; font-size: 12.5px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.period-card__when {
+  margin: 9px 0 0; padding-top: 9px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--text-sub); line-height: 1.5;
+}
+.period-card__when.is-done { color: var(--ok); font-weight: 700; }
+
+/* ---- 週間掃除の提出（日別ページ・提出ボタンの下） ---- */
+.submit-card--week { margin-top: 10px; }
+.submit-card--week.is-hidden { display: none; }
+.submit-card--week.is-submitted {
+  border-color: var(--ok); background: color-mix(in srgb, var(--ok) 5%, var(--surface));
+}
+.submit-card__mark--week {
+  font-size: 13px; color: var(--text-sub);
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 10px;
+}
+.submit-card__rate {
+  margin: 8px 0 0; font-size: 15px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.submit-card__rate.is-full { color: var(--ok); }
+
+.period-card__submit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.period-card__label { font-size: 12.5px; color: var(--text-sub); flex: 0 0 auto; }
+.period-card__submit .staff-row__select { flex: 1 1 110px; min-width: 100px; }
+.period-card__submit .submit-btn { flex: 1 1 100%; }
+.submit-card__hint { flex: 1 1 100%; margin: 0; text-align: center; }
+.submit-card__hint:empty { display: none; }
+.period-card__done { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.period-card__done.is-hidden, .period-card__submit.is-hidden { display: none; }
+
+/* ---- 6店舗の達成状況 ----
+   6つを並べて比べる画面なので、輪の色はそろえてあります。
+   色を店舗ごとに変えると輪の長さが比べにくくなるうえ、
+   店舗カラーには見分けの付きにくい組み合わせがあるためです。
+   店舗の見分けは、輪の下のロゴと店名が持たせています。 */
+/* 並びはアプリ最初の店舗選択画面と同じ（横2×縦3） */
+.rate-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+@media (min-width: 720px) { .rate-list { grid-template-columns: repeat(3, 1fr); } }
+
+.rate-item { display: flex; }
+.rate-card {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-top: 4px solid var(--card-color);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 12px 14px;
+  font: inherit; color: var(--text); cursor: pointer; text-align: center;
+}
+.rate-card:active { transform: scale(.98); }
+.logo-chip--rate { width: 52px; height: 52px; padding: 4px; border: 1px solid var(--line-2); }
+.rate-card .donut { width: 104px; margin-top: 2px; }
+.rate-card__name {
+  font-size: 14px; font-weight: 700; line-height: 1.25;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rate-card__count { font-size: 11.5px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.rate-card__badge { font-size: 12px; font-weight: 700; }
+.rate-card__badge--done { color: var(--ok); }
+.rate-card__badge--todo { color: var(--ng); }
+.rate-card__badge--none { color: var(--text-weak); }
+
 /* ===================== 日タブ（下部固定） ===================== */
 .day-tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
@@ -728,7 +994,8 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .confirm__item {
   margin: 0 0 8px; font-size: 17px; font-weight: 700; line-height: 1.45;
 }
-.confirm__message { margin: 0 0 18px; font-size: 13.5px; color: var(--text-sub); }
+/* 文中の改行をそのまま出す（提出の確認で担当者を別行に出すため） */
+.confirm__message { margin: 0 0 18px; font-size: 13.5px; color: var(--text-sub); white-space: pre-line; }
 .modal__actions--confirm { justify-content: center; }
 .modal__actions--confirm .btn { flex: 1 1 0; min-width: 110px; padding: 11px 14px; font-size: 14.5px; }
 

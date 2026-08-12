@@ -124,7 +124,7 @@ const Sync = {
 
   /** 管理用PINが要る操作を送信箱から取り除く（現場アプリが詰まらないように） */
   _dropAdminOps() {
-    const admin = ['checklists', 'staffList', 'closedDows'];
+    const admin = ['checklists', 'weeklies', 'staffList', 'closedDows'];
     const rest = this.outbox().filter((op) => !(op.t === 'setting' && admin.includes(op.n)));
     this._saveOutbox(rest);
   },
@@ -175,6 +175,7 @@ const Sync = {
     }
     if (settings) {
       if (settings.checklists) localStorage.setItem(Checklists._key, JSON.stringify(settings.checklists));
+      if (settings.weeklies) localStorage.setItem(Weeklies._key, JSON.stringify(settings.weeklies));
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
@@ -214,6 +215,8 @@ function summaryFor(key) {
   const [storeId, dateStr] = key.split('/');
   const store = getStore(storeId);
   if (!store || !dateStr) return null;
+  // 週間掃除（storeId/W2026-08-02 など）は日別の提出記録には出しません
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
 
   const [y, m, d] = dateStr.split('-').map(Number);
   const rec = Store.getDay(storeId, dateStr);
@@ -275,6 +278,13 @@ function summaryFor(key) {
   Checklists.save = function (storeId, sections) {
     const all = _saveChecklist(storeId, sections);
     Sync.enqueue({ t: 'setting', n: 'checklists', v: all });
+    return all;
+  };
+
+  const _saveWeekly = Weeklies.save.bind(Weeklies);
+  Weeklies.save = function (storeId, items) {
+    const all = _saveWeekly(storeId, items);
+    Sync.enqueue({ t: 'setting', n: 'weeklies', v: all });
     return all;
   };
 

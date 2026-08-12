@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/admin-icon-180.png?v=9351d6f8">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/admin-icon-64.png?v=e3ec8a6a">
 <title>T3クローズ 管理｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=fed8e094">
-<link rel="stylesheet" href="css/admin.css?v=58c2f390">
-<meta name="app-version" content="37ca29f6">
+<link rel="stylesheet" href="../css/style.css?v=3bb5e923">
+<link rel="stylesheet" href="css/admin.css?v=8eac491f">
+<meta name="app-version" content="70bf6fcb">
 </head>
 <body class="no-daytabs">
 
@@ -29,8 +29,10 @@
     </button>
     <div class="header-actions">
       <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ保存"></button>
-      <a class="settings-btn settings-btn--label" href="../">
-        <span aria-hidden="true">↩</span><span>現場アプリ</span>
+      <!-- 戻り先は管理者用の現場アプリ（owner/）。
+           現場スタッフが使う ../ ではありません -->
+      <a class="settings-btn settings-btn--label" href="../owner/">
+        <span aria-hidden="true">⇄</span><span>現場アプリ</span>
       </a>
     </div>
   </div>
@@ -80,10 +82,27 @@
   </section>
 </section>
 
-<!-- ===== 店舗ごとの設定 ===== -->
-<section class="view is-hidden" id="viewStore">
+<!-- ===== 設定メニュー（店舗をえらんだあとの画面） ===== -->
+<section class="view is-hidden" id="viewMenu">
+  <div class="stores-head">
+    <h1 class="stores-head__title" id="menuTitle">店舗名</h1>
+    <p class="stores-head__date">設定する内容をえらんでください</p>
+  </div>
+  <ul class="task-grid" id="menuGrid"></ul>
+  <button type="button" class="stores-report-btn" id="menuBackBtn">← 店舗をえらび直す</button>
+</section>
 
-  <!-- ===== チェック項目 ===== -->
+<!-- ===== いま開いている設定（タップでメニューに戻る） ===== -->
+<button type="button" class="task-bar is-hidden" id="pageBar">
+  <span class="task-bar__arrow" aria-hidden="true">‹</span>
+  <span class="task-bar__label">
+    <span class="task-bar__name" id="pageBarName">チェック項目</span>
+    <span class="task-bar__hint">タップで設定をえらぶ</span>
+  </span>
+</button>
+
+<!-- ===== チェック項目 ===== -->
+<section class="view is-hidden" id="viewItems">
   <section class="admin-block">
     <div class="admin-block__head">
       <h2 class="admin-block__title">チェック項目 ― <span id="itemsStoreName">店舗名</span></h2>
@@ -111,8 +130,27 @@
       <p class="admin-note" id="importNote"></p>
     </details>
   </section>
+</section>
 
-  <!-- ===== 定休日 ===== -->
+<!-- ===== 週間掃除 ===== -->
+<section class="view is-hidden" id="viewWeekly">
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">週間掃除 ― <span id="weeklyStoreName">店舗名</span></h2>
+      <span class="admin-count" id="weeklyCount"></span>
+    </div>
+    <p class="admin-note">
+      毎日のチェックとは別に、<b>週に1回まわす掃除</b>です。現場アプリの「週間掃除」に、
+      縦が項目・横が週（日曜はじまり）の表で出ます。<br>
+      項目を追加すると<b>今週から</b>出ます。削除すると<b>来週から</b>出なくなり、過去の記録はそのまま残ります。
+    </p>
+
+    <div id="weeklyEditor"></div>
+  </section>
+</section>
+
+<!-- ===== 定休日 ===== -->
+<section class="view is-hidden" id="viewClosed">
   <section class="admin-block">
     <div class="admin-block__head">
       <h2 class="admin-block__title">定休日 ― <span id="closedStoreName">店舗名</span></h2>
@@ -135,8 +173,6 @@
     <p class="ex-hint" id="exHint"></p>
     <ul class="ex-list" id="exList"></ul>
   </section>
-
-  <button type="button" class="btn btn--wide" id="backToStores">← 店舗一覧に戻る</button>
 </section>
 
 </main>
@@ -208,10 +244,10 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=8a8fcd92"></script>
-<script src="../js/storage.js?v=8a5c2523"></script>
-<script src="../js/sync.js?v=e9b8d0aa"></script>
+<script src="../js/config.js?v=5ff73fe8"></script>
+<script src="../js/storage.js?v=ba5ece53"></script>
+<script src="../js/sync.js?v=8fa067ec"></script>
 <script src="../js/update.js?v=317fbca6"></script>
-<script src="js/admin.js?v=8fa6e43d"></script>
+<script src="js/admin.js?v=9bbd6d68"></script>
 </body>
 </html>

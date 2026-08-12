@@ -1,0 +1,17 @@
+{
+  "name": "T3クローズ（管理者用）｜T3Dining株式会社",
+  "short_name": "T3クローズ",
+  "description": "現場アプリと同じ内容に、管理アプリへの切り替えを足したもの",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5f7",
+  "theme_color": "#1c1f26",
+  "icons": [
+    { "src": "../img/app-icon-64.png",  "sizes": "64x64",   "type": "image/png" },
+    { "src": "../img/app-icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "../img/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

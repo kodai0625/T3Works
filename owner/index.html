@@ -9,14 +9,14 @@
 <meta name="theme-color" content="#1c1f26">
 <!-- ホーム画面に追加したときのアイコン／ブラウザのタブのアイコン -->
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="img/app-icon-180.png?v=041e5fbb">
-<link rel="icon" type="image/png" sizes="512x512" href="img/app-icon-512.png?v=886a155a">
-<link rel="icon" type="image/png" sizes="64x64" href="img/app-icon-64.png?v=aaf709ad">
+<link rel="apple-touch-icon" href="../img/app-icon-180.png?v=041e5fbb">
+<link rel="icon" type="image/png" sizes="512x512" href="../img/app-icon-512.png?v=886a155a">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/app-icon-64.png?v=aaf709ad">
 <title>T3クローズ｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=3bb5e923">
+<link rel="stylesheet" href="../css/style.css?v=3bb5e923">
 <meta name="app-version" content="70bf6fcb">
 </head>
-<body>
+<body data-mode="owner" data-assets="../">
 
 <!-- ===== ヘッダー ===== -->
 <header class="app-header">
@@ -33,7 +33,7 @@
       <!-- 管理アプリへの切り替え。
            ふだんの現場アプリでは出ません。公開用を作る.py が作る
            owner/ 版（body に data-mode="owner" が付く）でだけ出ます -->
-      <a class="settings-btn owner-only" id="toAdminBtn" href="kanri/" title="管理アプリに切り替える">
+      <a class="settings-btn owner-only" id="toAdminBtn" href="../kanri/" title="管理アプリに切り替える">
         <span aria-hidden="true">⇄</span><span>管理</span>
       </a>
       <!-- settings-btn--label ＝ スマホ幅でも文字を残す（アイコンだけでは分かりにくいため） -->
@@ -361,10 +361,10 @@
   </div>
 </div>
 
-<script src="js/config.js?v=5ff73fe8"></script>
-<script src="js/storage.js?v=ba5ece53"></script>
-<script src="js/sync.js?v=8fa067ec"></script>
-<script src="js/update.js?v=317fbca6"></script>
-<script src="js/app.js?v=39931a43"></script>
+<script src="../js/config.js?v=5ff73fe8"></script>
+<script src="../js/storage.js?v=ba5ece53"></script>
+<script src="../js/sync.js?v=8fa067ec"></script>
+<script src="../js/update.js?v=317fbca6"></script>
+<script src="../js/app.js?v=39931a43"></script>
 </body>
 </html>

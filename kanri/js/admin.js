@@ -31,9 +31,13 @@ const state = {
 const el = {};
 [
   'appLogo', 'homeBtn', 'storeTabs', 'syncChip',
-  'viewStores', 'viewStore', 'storeGrid', 'backToStores',
+  'viewStores', 'storeGrid',
+  'viewMenu', 'menuTitle', 'menuGrid', 'menuBackBtn',
+  'pageBar', 'pageBarName',
+  'viewItems', 'viewWeekly', 'viewClosed',
   'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection', 'importDefaults',
   'undoImport', 'importNote',
+  'weeklyStoreName', 'weeklyCount', 'weeklyEditor',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
@@ -282,6 +286,12 @@ function startNameEdit(cell) {
     closed = true;
     const text = input.value.trim();
     if (keep && text && text !== before) {
+      if (secId === WEEKLY_SEC) {
+        const next = currentWeekly();
+        next.find((it) => it.id === itemId).label = text;
+        saveWeekly(next); // 画面はまるごと描き直されます
+        return;
+      }
       const next = currentSections();
       next.find((s) => s.id === secId).items.find((it) => it.id === itemId).label = text;
       saveSections(next); // 画面はまるごと描き直されます
@@ -352,6 +362,134 @@ async function removeItem(sec, item) {
   saveSections(next);
 }
 
+/* ============================================================
+ *  週間掃除の編集
+ *
+ *  毎日のチェック項目と違って区分がなく、ただの項目の並びです。
+ *  並べ替え・名前の変更・削除の仕組みは上と同じものを使いたいので、
+ *  見た目だけ「区分がひとつだけある」形にして、その区分IDを
+ *  WEEKLY_SEC という決まった文字にしています。
+ * ============================================================ */
+const WEEKLY_SEC = '__weekly__';
+
+/** いま編集中の店舗の週間掃除の項目（保存されていなければ config.js の初期値を複製） */
+function currentWeekly() {
+  return JSON.parse(JSON.stringify(Weeklies.items(state.storeId)));
+}
+
+/** 書き換えた内容を保存して、全端末へ送る */
+function saveWeekly(items) {
+  // 追加したその週に削除された項目は、どの週にも出ないので残さない
+  const cleaned = items.filter((it) => !(it.addedAt && it.retiredAt && it.addedAt >= it.retiredAt));
+  Weeklies.save(state.storeId, cleaned);
+  renderWeeklyEditor();
+}
+
+function renderWeeklyEditor() {
+  const items = currentWeekly();
+  const live = items.filter(alive);
+  const bi = live.filter(isBiweekly).length;
+
+  el.weeklyStoreName.textContent = getStore(state.storeId).name;
+  el.weeklyCount.textContent =
+    `${live.length}項目` + (bi ? `（うち2週に1回 ${bi}）` : '');
+
+  el.weeklyEditor.innerHTML = '';
+
+  const card = document.createElement('div');
+  card.className = 'sec-card';
+  card.dataset.secId = WEEKLY_SEC;
+
+  if (!live.length) {
+    const p = document.createElement('p');
+    p.className = 'admin-empty';
+    p.textContent = '項目がありません。下の「＋ 項目を追加」から作ってください。';
+    card.appendChild(p);
+  }
+
+  live.forEach((item, i) => {
+    card.appendChild(buildWeeklyRow(item, i, live.length));
+  });
+
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'sec-card__add';
+  add.textContent = '＋ 項目を追加';
+  add.addEventListener('click', addWeeklyItem);
+  card.appendChild(add);
+
+  el.weeklyEditor.appendChild(card);
+}
+
+function buildWeeklyRow(item, index, count) {
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  row.dataset.itemId = item.id;
+  row.addEventListener('pointerdown', (e) => startLongPress(e, row));
+
+  row.appendChild(buildNameCell({ id: WEEKLY_SEC }, item));
+
+  /* 毎週／2週に1回 の切り替え。押すたびに入れ替わります */
+  const every = document.createElement('button');
+  every.type = 'button';
+  every.className = 'every-btn' + (isBiweekly(item) ? ' every-btn--bi' : '');
+  every.textContent = isBiweekly(item) ? '2週' : '毎週';
+  every.title = isBiweekly(item)
+    ? '2週間に1回でよい項目です（押すと毎週に戻ります）'
+    : '毎週やる項目です（押すと2週に1回になります）';
+  every.addEventListener('click', () => toggleWeeklyEvery(item.id));
+  row.appendChild(every);
+
+  row.appendChild(moveButton('↑', index > 0, () => moveItem(WEEKLY_SEC, item.id, -1)));
+  row.appendChild(moveButton('↓', index < count - 1, () => moveItem(WEEKLY_SEC, item.id, 1)));
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'icon-btn icon-btn--danger';
+  del.textContent = '×';
+  del.title = '削除';
+  del.addEventListener('click', () => removeWeeklyItem(item));
+  row.appendChild(del);
+
+  return row;
+}
+
+function addWeeklyItem() {
+  const next = currentWeekly();
+  next.push({
+    id: newId('wk'),
+    label: '新しい項目',
+    addedAt: todayStr(), // 今週から出す（過ぎた週にはさかのぼらせない）
+  });
+  saveWeekly(next);
+
+  // 追加した項目にすぐ名前を入れられるようにしておく
+  const cells = [...el.weeklyEditor.querySelectorAll('.item-row__name')];
+  const last = cells.reverse().find((c) => c.textContent === '新しい項目');
+  if (last) startNameEdit(last);
+}
+
+/** 毎週 ⇄ 2週に1回 を入れ替える */
+function toggleWeeklyEvery(itemId) {
+  const next = currentWeekly();
+  const item = next.find((it) => it.id === itemId);
+  if (!item) return;
+  if (isBiweekly(item)) delete item.every;
+  else item.every = 'biweek';
+  saveWeekly(next);
+}
+
+async function removeWeeklyItem(item) {
+  const ok = await askConfirm(
+    item.label,
+    'この項目を来週から出さないようにします。今週までの記録はそのまま残ります。'
+  );
+  if (!ok) return;
+  const next = currentWeekly();
+  next.find((it) => it.id === item.id).retiredAt = tomorrowStr();
+  saveWeekly(next);
+}
+
 function addSection() {
   const next = currentSections();
   next.push({ id: newId('sec'), title: '新しい区分', items: [] });
@@ -391,7 +529,7 @@ let justDragged = false; // 並べ替え直後の click で編集に入らない
 
 function startLongPress(e, row) {
   // ボタンを押したとき、名前を編集中のときは並べ替えを始めない
-  if (e.target.closest('.icon-btn')) return;
+  if (e.target.closest('.icon-btn, .every-btn')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
 
@@ -495,20 +633,33 @@ function cancelLongPress() {
 
 /** 画面の並び（表示中の項目のID順）を保存する。やめた項目は後ろにまとめます */
 function applyItemOrder(secId, orderedIds) {
+  if (secId === WEEKLY_SEC) {
+    const next = currentWeekly();
+    const sorted = sortByOrder(next, orderedIds);
+    if (sorted) saveWeekly(sorted);
+    return;
+  }
+
   const next = currentSections();
   const sec = next.find((s) => s.id === secId);
   if (!sec) return;
 
-  const byId = {};
-  sec.items.forEach((it) => { byId[it.id] = it; });
-  const live = orderedIds.map((id) => byId[id]).filter(Boolean);
-  const rest = sec.items.filter((it) => !orderedIds.includes(it.id));
-
-  const before = sec.items.map((it) => it.id).join(',');
-  sec.items = live.concat(rest);
-  if (sec.items.map((it) => it.id).join(',') === before) return; // 並びが変わっていなければ保存しない
-
+  const sorted = sortByOrder(sec.items, orderedIds);
+  if (!sorted) return; // 並びが変わっていなければ保存しない
+  sec.items = sorted;
   saveSections(next);
+}
+
+/** 画面の並びどおりに並べ替えた配列。変化がなければ null */
+function sortByOrder(items, orderedIds) {
+  const byId = {};
+  items.forEach((it) => { byId[it.id] = it; });
+  const live = orderedIds.map((id) => byId[id]).filter(Boolean);
+  const rest = items.filter((it) => !orderedIds.includes(it.id));
+
+  const next = live.concat(rest);
+  if (next.map((it) => it.id).join(',') === items.map((it) => it.id).join(',')) return null;
+  return next;
 }
 
 /** 表示されている並びの中で、上下を入れ替える */
@@ -529,6 +680,11 @@ function moveSection(secId, dir) {
 }
 
 function moveItem(secId, itemId, dir) {
+  if (secId === WEEKLY_SEC) {
+    const next = currentWeekly();
+    if (swapWithin(next, alive, itemId, dir)) saveWeekly(next);
+    return;
+  }
   const next = currentSections();
   const items = next.find((s) => s.id === secId).items;
   if (swapWithin(items, alive, itemId, dir)) saveSections(next);
@@ -842,12 +998,13 @@ function addClosedException() {
 /* ============================================================
  *  店舗選択（最初の画面）
  * ============================================================ */
-/** その店舗の「◯区分 / ◯項目」を数える */
+/** その店舗の「◯区分 / ◯項目」と、週間掃除の項目数を数える */
 function countOf(storeId) {
   const secs = Checklists.sections(storeId).filter(alive);
   return {
     sections: secs.length,
     items: secs.reduce((n, s) => n + s.items.filter(alive).length, 0),
+    weekly: Weeklies.items(storeId).filter(alive).length,
   };
 }
 
@@ -885,7 +1042,9 @@ function renderStorePicker() {
 
     const sub = document.createElement('span');
     sub.className = 'store-card__sub';
-    sub.textContent = dows.length ? `毎週${dows.map((d) => DOW[d]).join('・')}曜定休` : '定休日なし';
+    sub.textContent =
+      (dows.length ? `毎週${dows.map((d) => DOW[d]).join('・')}曜定休` : '定休日なし') +
+      `　週間掃除 ${n.weekly}項目`;
 
     b.append(chip, name, status, sub);
     b.addEventListener('click', () => openStore(store.id));
@@ -896,7 +1055,8 @@ function renderStorePicker() {
 
 function openStore(storeId) {
   state.storeId = storeId;
-  state.view = 'store';
+  // 店舗タブから切り替えたときは、同じ設定を開いたままにする
+  if (!getPage(state.view)) state.view = 'menu';
   writeHash();
   renderAll();
   window.scrollTo(0, 0);
@@ -909,17 +1069,40 @@ function goHome() {
   window.scrollTo(0, 0);
 }
 
-/* -------- URLと画面を合わせる（端末の「戻る」で一覧へ戻れます） -------- */
+/* -------- URLと画面を合わせる（端末の「戻る」で一覧へ戻れます） --------
+ *
+ *   #/stores            店舗をえらぶ
+ *   #/{店舗}            設定をえらぶ
+ *   #/{店舗}/{設定}     その設定の画面
+ *
+ * 現場アプリと同じ3段の作りです。設定を増やすときは ADMIN_PAGES に足します。
+ */
+const ADMIN_PAGES = [
+  { id: 'items',  name: 'チェック項目', sub: '毎日の確認リスト' },
+  { id: 'weekly', name: '週間掃除',     sub: '2週間ごとの掃除' },
+  { id: 'closed', name: '定休日',       sub: '曜日と臨時の休業' },
+];
+
+function getPage(id) {
+  return ADMIN_PAGES.find((p) => p.id === id) || null;
+}
+
 function writeHash() {
-  const want = state.view === 'stores' ? '#/stores' : `#/${state.storeId}`;
+  let want = '#/stores';
+  if (state.view === 'menu') want = `#/${state.storeId}`;
+  else if (state.view !== 'stores') want = `#/${state.storeId}/${state.view}`;
   if (location.hash !== want) location.hash = want;
 }
 
 function readHash() {
-  const id = location.hash.replace(/^#\/?/, '').trim();
-  if (!id || id === 'stores') { state.view = 'stores'; return; }
-  if (STORES.some((s) => s.id === id)) { state.view = 'store'; state.storeId = id; return; }
-  state.view = 'stores';
+  const parts = location.hash.replace(/^#\/?/, '').split('/').filter((s) => s !== '');
+  const [id, page] = parts;
+  if (!id || id === 'stores' || !STORES.some((s) => s.id === id)) {
+    state.view = 'stores';
+    return;
+  }
+  state.storeId = id;
+  state.view = getPage(page) ? page : 'menu';
 }
 
 /* ============================================================
@@ -954,12 +1137,91 @@ function renderStoreTabs() {
   });
 }
 
+/** その設定のいまの状態（メニューに出す短い文字） */
+function pageStatus(pageId, storeId) {
+  if (pageId === 'items') {
+    const secs = Checklists.sections(storeId).filter(alive);
+    const n = secs.reduce((t, s) => t + s.items.filter(alive).length, 0);
+    return `${secs.length}区分 / ${n}項目`;
+  }
+  if (pageId === 'weekly') {
+    const items = Weeklies.items(storeId).filter(alive);
+    const bi = items.filter(isBiweekly).length;
+    return `${items.length}項目` + (bi ? `（2週 ${bi}）` : '');
+  }
+  if (pageId === 'closed') {
+    const dows = Closed.dows(storeId);
+    const ex = Object.keys(Closed.exceptions(storeId)).length;
+    return (dows.length ? `毎週${dows.map((d) => DOW[d]).join('・')}曜` : '定休日なし')
+      + (ex ? ` / 臨時${ex}日` : '');
+  }
+  return '';
+}
+
+function renderMenu() {
+  const store = getStore(state.storeId);
+  el.menuTitle.textContent = store.name;
+  el.menuGrid.innerHTML = '';
+
+  ADMIN_PAGES.forEach((page) => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'task-card';
+    b.style.setProperty('--card-color', store.color);
+
+    const main = document.createElement('span');
+    main.className = 'task-card__main';
+    const name = document.createElement('span');
+    name.className = 'task-card__name';
+    name.textContent = page.name;
+    const sub = document.createElement('span');
+    sub.className = 'task-card__sub';
+    sub.textContent = page.sub;
+    main.append(name, sub);
+
+    const status = document.createElement('span');
+    status.className = 'task-card__status';
+    status.textContent = pageStatus(page.id, store.id);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'task-card__arrow';
+    arrow.setAttribute('aria-hidden', 'true');
+    arrow.textContent = '›';
+
+    b.append(main, status, arrow);
+    b.addEventListener('click', () => openPage(page.id));
+    li.appendChild(b);
+    el.menuGrid.appendChild(li);
+  });
+}
+
+function openPage(pageId) {
+  state.view = pageId;
+  writeHash();
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
+function goMenu() {
+  state.view = 'menu';
+  writeHash();
+  renderAll();
+  window.scrollTo(0, 0);
+}
+
 function renderAll() {
   const isStores = state.view === 'stores';
+  const isMenu = state.view === 'menu';
+  const page = getPage(state.view);
 
   el.viewStores.classList.toggle('is-hidden', !isStores);
-  el.viewStore.classList.toggle('is-hidden', isStores);
+  el.viewMenu.classList.toggle('is-hidden', !isMenu);
   el.storeTabs.classList.toggle('is-hidden', isStores);
+  el.pageBar.classList.toggle('is-hidden', !page);
+  el.viewItems.classList.toggle('is-hidden', state.view !== 'items');
+  el.viewWeekly.classList.toggle('is-hidden', state.view !== 'weekly');
+  el.viewClosed.classList.toggle('is-hidden', state.view !== 'closed');
 
   if (isStores) {
     document.documentElement.style.setProperty('--store', '#2b7fd4');
@@ -974,11 +1236,20 @@ function renderAll() {
   document.documentElement.style.setProperty('--store', store.color);
   document.title = `${store.name}｜T3クローズ 管理`;
   renderStoreTabs();
-  renderChecklistEditor();
-  renderClosed();
   renderSyncStatus();
-  el.importNote.textContent = '';
-  renderUndo();
+
+  if (isMenu) { renderMenu(); return; }
+
+  el.pageBarName.textContent = page.name;
+  if (state.view === 'items') {
+    renderChecklistEditor();
+    el.importNote.textContent = '';
+    renderUndo();
+  } else if (state.view === 'weekly') {
+    renderWeeklyEditor();
+  } else if (state.view === 'closed') {
+    renderClosed();
+  }
 }
 
 /* ============================================================
@@ -1059,7 +1330,8 @@ function importJson(file) {
  * ============================================================ */
 function bindEvents() {
   el.homeBtn.addEventListener('click', goHome);
-  el.backToStores.addEventListener('click', goHome);
+  el.menuBackBtn.addEventListener('click', goHome);
+  el.pageBar.addEventListener('click', goMenu);
   window.addEventListener('hashchange', () => { readHash(); renderAll(); });
 
   el.addSection.addEventListener('click', addSection);

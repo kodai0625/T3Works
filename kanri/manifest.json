@@ -4,7 +4,7 @@
   "description": "チェック項目・担当者・定休日を設定する管理画面",
   "lang": "ja",
   "start_url": "./",
-  "scope": "./",
+  "scope": "../",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f4f5f7",
