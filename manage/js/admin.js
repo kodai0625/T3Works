@@ -1079,9 +1079,9 @@ function goHome() {
  */
 /* 現場側のページ名（config.js の TASKS）と同じ呼び方にそろえます */
 const ADMIN_PAGES = [
-  { id: 'items',  name: 'クローズ', sub: '閉店時の確認項目' },
-  { id: 'weekly', name: '週間掃除', sub: '2週間ごとの掃除項目' },
-  { id: 'closed', name: '定休日',   sub: '曜日と臨時の休業' },
+  { id: 'items',  name: 'クローズ', sub: '閉店時の確認項目',   icon: '🌙' },
+  { id: 'weekly', name: '週間掃除', sub: '2週間ごとの掃除項目', icon: '🧹' },
+  { id: 'closed', name: '定休日',   sub: '曜日と臨時の休業',   icon: '🗓' },
 ];
 
 function getPage(id) {
@@ -1171,6 +1171,12 @@ function renderMenu() {
     b.className = 'task-card';
     b.style.setProperty('--card-color', store.color);
 
+    // 現場アプリの業務えらびと同じ見た目にそろえます
+    const icon = document.createElement('span');
+    icon.className = 'task-card__icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = page.icon || '';
+
     const main = document.createElement('span');
     main.className = 'task-card__main';
     const name = document.createElement('span');
@@ -1185,12 +1191,7 @@ function renderMenu() {
     status.className = 'task-card__status';
     status.textContent = pageStatus(page.id, store.id);
 
-    const arrow = document.createElement('span');
-    arrow.className = 'task-card__arrow';
-    arrow.setAttribute('aria-hidden', 'true');
-    arrow.textContent = '›';
-
-    b.append(main, status, arrow);
+    b.append(icon, main, status);
     b.addEventListener('click', () => openPage(page.id));
     li.appendChild(b);
     el.menuGrid.appendChild(li);
@@ -1260,8 +1261,12 @@ function renderSyncStatus() {
   const s = Sync.status();
   if (s.kind === 'off') { el.syncChip.classList.add('is-hidden'); return; }
   el.syncChip.classList.remove('is-hidden');
+  // 文字は出さず、形と色だけで見せます（現場アプリと同じしるしです）
+  const text = s.text === '同期済み' ? '保存済み' : s.text;
   el.syncChip.className = `sync-chip sync-chip--${s.kind}`;
-  el.syncChip.textContent = s.text === '同期済み' ? '保存済み' : s.text;
+  el.syncChip.innerHTML = Sync.iconSvg(s.kind);
+  el.syncChip.title = `${text}（タップで今すぐ保存）`;
+  el.syncChip.setAttribute('aria-label', `保存の状態：${text}`);
 }
 
 /* ============================================================

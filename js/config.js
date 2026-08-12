@@ -655,15 +655,16 @@ const WEEKLY_OVERRIDES = {};
  *    id    : 画面の名前。URL（#/店舗/ここ/…）にも使います
  *    name  : 業務選択画面と見出しに出る名前
  *    sub   : その下に出る短い説明
+ *    icon  : カードに出す絵文字（店舗カードのロゴにあたる場所）
  *    when  : 省略可。false を返すと一覧に出しません
  *
  *  「その店舗のいまの状況」を業務選択画面に出すため、
  *  status(storeId) は app.js の taskStatus() が担当します。
  * ---------------------------------------------------------- */
 const TASKS = [
-  { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業' },
-  { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト' },
-  { id: 'month', name: '月間表',   sub: '1か月の一覧', when: () => APP.showMonthView !== false },
+  { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
+  { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
+  { id: 'month', name: '月間表',   sub: '1か月の一覧',               icon: '📅', when: () => APP.showMonthView !== false },
 ];
 
 /** いま使える業務だけ */

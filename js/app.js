@@ -588,6 +588,12 @@ function renderTaskPicker() {
     b.className = 'task-card task-card--' + st.kind;
     b.style.setProperty('--card-color', store.color);
 
+    // 店舗カードのロゴにあたる場所。業務は絵文字で見分けます
+    const icon = document.createElement('span');
+    icon.className = 'task-card__icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = task.icon || '';
+
     const main = document.createElement('span');
     main.className = 'task-card__main';
     const name = document.createElement('span');
@@ -602,12 +608,7 @@ function renderTaskPicker() {
     status.className = 'task-card__status';
     status.textContent = st.text;
 
-    const arrow = document.createElement('span');
-    arrow.className = 'task-card__arrow';
-    arrow.setAttribute('aria-hidden', 'true');
-    arrow.textContent = '›';
-
-    b.append(main, status, arrow);
+    b.append(icon, main, status);
     b.addEventListener('click', () => {
       state.view = task.id;
       // 業務を開くときは今日に合わせる（別の店舗に入る日もあるため）
@@ -1698,8 +1699,12 @@ function renderSyncStatus() {
   const st = Sync.status();
   el.syncChip.classList.toggle('is-hidden', st.kind === 'off');
   if (st.kind !== 'off') {
+    // 文字は出さず、形と色だけで見せます（狭いヘッダーでも場所を取らないため）。
+    // 「未送信 3件」などの詳しい説明は、設定の画面と長押しの吹き出しに出ます。
     el.syncChip.className = 'sync-chip sync-chip--' + st.kind;
-    el.syncChip.textContent = st.text;
+    el.syncChip.innerHTML = Sync.iconSvg(st.kind);
+    el.syncChip.title = st.text + '（タップで今すぐ同期）';
+    el.syncChip.setAttribute('aria-label', '同期の状態：' + st.text);
   }
 
   // 設定画面の説明も、共有版かどうかで出し分ける

@@ -182,6 +182,28 @@ const Sync = {
     }
   },
 
+  /**
+   * ヘッダーのしるしに入れる絵（文字は出しません）
+   *
+   *   ok      … ✓  送り終わっている
+   *   busy    … ぐるぐる  いま送っている（css でゆっくり回ります）
+   *   pending … ↑  まだ送っていないぶんがある
+   *   error   … !  送れていない／PIN未入力
+   *
+   * 色だけで見分けさせると、色の見え方が違う人には伝わりません。
+   * かならず「形」も変えてあります。
+   */
+  iconSvg(kind) {
+    const path = {
+      ok: '<path d="M5 10.6l3.4 3.4L15.2 6.6"/>',
+      busy: '<path d="M16.2 10a6.2 6.2 0 1 1-1.8-4.4"/><path d="M16.4 3.9v3.5h-3.5"/>',
+      pending: '<path d="M10 15.6V5.2"/><path d="M5.8 9.4L10 5.2l4.2 4.2"/>',
+      error: '<path d="M10 5.2v6.1"/><circle cx="10" cy="14.7" r="1.15" fill="currentColor" stroke="none"/>',
+    }[kind] || '';
+    return '<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" '
+      + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
+  },
+
   /** 画面に出す状態 */
   status() {
     if (!this.enabled()) return { kind: 'off', text: '' };
