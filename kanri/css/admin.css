@@ -193,3 +193,18 @@ body.is-dragging { cursor: grabbing; user-select: none; }
   .icon-btn { width: 27px; height: 27px; font-size: 13px; }
   .sec-card__head { gap: 5px; padding: 7px 6px 7px 9px; }
 }
+
+/* ---- 用意された内容の取り込み（普段は畳んでおく） ---- */
+.admin-tool {
+  margin-top: 12px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-2);
+}
+.admin-tool > summary {
+  padding: 9px 12px;
+  font-size: 13px; font-weight: 700; color: var(--text-sub);
+  cursor: pointer; list-style: none;
+}
+.admin-tool > summary::before { content: '▸ '; }
+.admin-tool[open] > summary::before { content: '▾ '; }
+.admin-tool > *:not(summary) { margin: 0 12px 12px; }

@@ -253,7 +253,7 @@ const CHECKLIST_OVERRIDES = {
         { id: 'kj-k11', label: 'ビールサーバー締め' },
         { id: 'kj-k14', label: '保温切られているか' },
         { id: 'kj-k08', label: 'ガスの元栓' },
-        { id: 'kj-k02', label: 'エアコン' },
+        { id: 'kj-k02', label: 'エアコン確認' },
         { id: 'kj-k01', label: '電気' },
       ],
     },
@@ -262,7 +262,7 @@ const CHECKLIST_OVERRIDES = {
       // 通常の6項目は金土だけ、製氷機は木（ON）と土（OFF）だけ。
       // その日に出る項目が1つも無ければ、この区分自体が出ません。
       id: 'kj-2f',
-      title: '二階',
+      title: '2階',
       items: [
         { id: 'kj-f03', label: 'ユーセン確認', onlyDows: [5, 6] },
         { id: 'kj-f04', label: '洗浄機', onlyDows: [5, 6] },
@@ -270,7 +270,7 @@ const CHECKLIST_OVERRIDES = {
         { id: 'kj-f06', label: 'ドリンクサーバー締め', onlyDows: [5, 6] },
         { id: 'kj-f07', label: '製氷機電源ON', onlyDows: [4] },
         { id: 'kj-f08', label: '製氷機電源OFF', onlyDows: [6] },
-        { id: 'kj-f02', label: 'エアコン', onlyDows: [5, 6] },
+        { id: 'kj-f02', label: 'エアコン確認', onlyDows: [5, 6] },
         { id: 'kj-f01', label: '電気', onlyDows: [5, 6] },
       ],
     },
@@ -278,7 +278,7 @@ const CHECKLIST_OVERRIDES = {
       id: 'kj-irregular',
       title: 'イレギュラー',
       items: [
-        { id: 'kj-i01', label: '仕込み移し後二階ストッカー出しっ放し' },
+        { id: 'kj-i01', label: '仕込み移し後2階ストッカー出しっ放し' },
       ],
     },
     {
@@ -291,7 +291,8 @@ const CHECKLIST_OVERRIDES = {
         { id: 'kj-h05', label: 'セットの確認' },
         { id: 'kj-h06', label: 'トイレ' },
         { id: 'kj-h07', label: '賄い後テーブル' },
-        { id: 'kj-h03', label: '各部屋と全体エアコン' },
+        { id: 'kj-h03', label: '各部屋エアコン確認' },
+        { id: 'kj-h09', label: '全体エアコン確認' },
         { id: 'kj-h02', label: '電気' },
       ],
     },
@@ -351,7 +352,7 @@ const CHECKLIST_OVERRIDES = {
     },
     {
       id: 'sm-1f-hall',
-      title: '１階ホール',
+      title: '1階ホール',
       items: [
         { id: 'sm-h01', label: '掃除機ゴミ捨て' },
         { id: 'sm-h02', label: '外灰皿' },
@@ -359,12 +360,12 @@ const CHECKLIST_OVERRIDES = {
         // 冬場だけ出す項目（11月〜3月）
         { id: 'sm-h04', label: '個室の３つの暖房電源', onlyMonths: [11, 12, 1, 2, 3] },
         { id: 'sm-h05', label: 'ガスの元栓' },
-        { id: 'sm-h06', label: 'エアコン確認業務用3つ' },
+        { id: 'sm-h06', label: '業務用エアコン×3確認' },
       ],
     },
     {
       id: 'sm-2f',
-      title: '２階',
+      title: '2階',
       items: [
         { id: 'sm-f01', label: '窓戸締り' },
         { id: 'sm-f02', label: '冷蔵庫・冷凍庫扉チェック' },
@@ -372,8 +373,8 @@ const CHECKLIST_OVERRIDES = {
         { id: 'sm-f04', label: '掃除機ゴミ捨て' },
         { id: 'sm-f05', label: 'セットの確認' },
         { id: 'sm-f06', label: 'ドリンク少ないの新品に変える' },
-        { id: 'sm-f07', label: 'エアコン確認業務用1つ' },
-        { id: 'sm-f08', label: 'エアコン確認家庭用1台' },
+        { id: 'sm-f07', label: '業務用エアコン×1確認' },
+        { id: 'sm-f08', label: '家庭用エアコン×1確認' },
         { id: 'sm-f09', label: 'トイレ電気' },
         { id: 'sm-f10', label: '電気' },
       ],
@@ -425,7 +426,7 @@ const CHECKLIST_OVERRIDES = {
         { id: 'ch-d04', label: 'by解凍の再冷凍', onlyDows: [6] },
         { id: 'ch-d05', label: 'ゴミ箱洗ってあるか', onlyDows: [6] },
         { id: 'ch-d06', label: '余り米、冷凍or他店舗に渡す', onlyDows: [6] },
-        { id: 'ch-d07', label: '２階の開きかけの生樽おろす', onlyDows: [6] },
+        { id: 'ch-d07', label: '2階の開きかけの生樽おろす', onlyDows: [6] },
         { id: 'ch-a10', label: 'プリンター電源' },
         { id: 'ch-a14', label: 'ビールサーバー締め' },
         { id: 'ch-d03', label: 'フライヤー締めてあるか', onlyDows: [5, 6] },
@@ -435,7 +436,7 @@ const CHECKLIST_OVERRIDES = {
     },
     {
       id: 'ch-1f-hall',
-      title: '1Fホール',
+      title: '1階ホール',
       items: [
         { id: 'ch-a11', label: '掃除機ゴミ捨て' },
         { id: 'ch-a15', label: 'セットの確認' },
@@ -445,27 +446,27 @@ const CHECKLIST_OVERRIDES = {
         { id: 'ch-a22', label: '賄い後テーブル' },
         { id: 'ch-a25', label: 'ユーセン確認' },
         { id: 'ch-a28', label: 'おしぼりいっぱいなら外に出してあるか' },
-        { id: 'ch-a03', label: 'エアコン確認業務用2つ' },
+        { id: 'ch-a03', label: '業務用エアコン×2確認' },
         { id: 'ch-a04', label: 'エアコン確認F1' },
       ],
     },
     {
       id: 'ch-2f',
-      title: '2F',
+      title: '2階',
       items: [
         { id: 'ch-b03', label: '窓戸締り' },
         { id: 'ch-b04', label: '冷蔵庫・冷凍庫扉チェック' },
         { id: 'ch-b07', label: 'セットの確認' },
         { id: 'ch-b08', label: 'ドリンク少ないの新品に変える' },
-        { id: 'ch-b01', label: 'エアコン確認業務用1つ' },
-        { id: 'ch-b02', label: 'エアコン確認家庭用4台' },
+        { id: 'ch-b01', label: '業務用エアコン×1確認' },
+        { id: 'ch-b02', label: '家庭用エアコン×4確認' },
         { id: 'ch-b05', label: 'トイレ電気' },
         { id: 'ch-b06', label: '外照明' },
       ],
     },
     {
       id: 'ch-3f',
-      title: '3F',
+      title: '3階',
       items: [
         { id: 'ch-c02', label: '窓戸締り' },
         { id: 'ch-c03', label: 'ストッカー扉' },

@@ -32,7 +32,7 @@ const el = {};
 [
   'appLogo', 'homeBtn', 'storeTabs', 'syncChip',
   'viewStores', 'viewStore', 'storeGrid', 'backToStores',
-  'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection',
+  'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection', 'importDefaults',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
@@ -534,6 +534,59 @@ function moveItem(secId, itemId, dir) {
 }
 
 /* ============================================================
+ *  用意された内容（config.js）を取り込む
+ *
+ *  一度この画面で編集すると、以降は保存された内容が使われます。
+ *  そのため、あとから config.js 側で表記や並びを整えても届きません。
+ *  この取り込みは、項目IDを目印にして次のように合わせます。
+ *
+ *    ・両方にある項目 … 名前・並び順・曜日の設定を config.js に合わせる
+ *                      （休止期間・削除・追加日は、いまの設定を残す）
+ *    ・config.js だけにある項目 … 今日から出る項目として足す
+ *    ・この画面で追加した項目 … 消さずに区分の最後へ残す
+ * ============================================================ */
+async function importDefaults() {
+  const store = getStore(state.storeId);
+  const ok = await askConfirm(
+    store.name,
+    '項目の名前・並び順・曜日の設定を、用意された内容に合わせます。'
+    + 'この画面で追加した項目は消えず、区分の最後に残ります。'
+  );
+  if (!ok) return;
+
+  const today = todayStr();
+  const rest = {};
+  currentSections().forEach((s) => { rest[s.id] = s; });
+
+  const merged = defaultChecklist(state.storeId).map((ds) => {
+    const cs = rest[ds.id];
+    delete rest[ds.id];
+
+    const leftover = {};
+    (cs ? cs.items : []).forEach((it) => { leftover[it.id] = it; });
+
+    const items = ds.items.map((di) => {
+      const ci = leftover[di.id];
+      delete leftover[di.id];
+      if (!ci) return { ...di, addedAt: today }; // 新しく増えた項目は今日から
+      const next = { ...di };                    // 名前・曜日は用意された内容
+      if (ci.addedAt) next.addedAt = ci.addedAt; // いつからか・いつまでかは今の設定を残す
+      if (ci.retiredAt) next.retiredAt = ci.retiredAt;
+      if (ci.pauses) next.pauses = ci.pauses;
+      return next;
+    });
+    Object.keys(leftover).forEach((id) => items.push(leftover[id]));
+
+    const sec = { ...ds, items };
+    if (cs && cs.retiredAt) sec.retiredAt = cs.retiredAt;
+    return sec;
+  });
+
+  Object.keys(rest).forEach((id) => merged.push(rest[id]));
+  saveSections(merged);
+}
+
+/* ============================================================
  *  休止期間（長期休みなどで一時的に外す）
  * ============================================================ */
 const pauseTarget = { secId: null, itemId: null };
@@ -936,6 +989,7 @@ function bindEvents() {
   window.addEventListener('hashchange', () => { readHash(); renderAll(); });
 
   el.addSection.addEventListener('click', addSection);
+  el.importDefaults.addEventListener('click', importDefaults);
   el.pauseAdd.addEventListener('click', addPause);
   el.pauseModal.querySelectorAll('[data-pause-close]').forEach((n) =>
     n.addEventListener('click', () => el.pauseModal.classList.add('is-hidden')));
