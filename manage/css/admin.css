@@ -170,8 +170,20 @@ body.is-dragging { cursor: grabbing; user-select: none; }
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   color: var(--accent);
 }
+/* 掃除する場所（ホール／キッチン／トイレ）の入れ替え */
+.every-btn--group { min-width: 0; font-weight: 600; }
 @media (max-width: 520px) {
   .every-btn { min-width: 36px; height: 27px; font-size: 11px; padding: 0 5px; }
+  .every-btn--group { font-size: 10.5px; padding: 0 6px; }
+}
+
+/* 週間掃除の見出しは決まった場所なので、名前は書き換えられません */
+.sec-card__name--fixed { cursor: default; }
+
+/* 週間掃除の行は「場所」ボタンのぶん幅が狭いので、
+   長い名前は途中で切らずに2行にして最後まで見せます */
+.item-row--weekly .item-row__name {
+  white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.35;
 }
 
 .pause__item {

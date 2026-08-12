@@ -396,38 +396,69 @@ function renderWeeklyEditor() {
 
   el.weeklyEditor.innerHTML = '';
 
-  const card = document.createElement('div');
-  card.className = 'sec-card';
-  card.dataset.secId = WEEKLY_SEC;
+  /* 掃除する場所ごとに1枚のカード。
+     まだ項目が無い場所（トイレなど）も、足せるように空のまま出します */
+  const found = groupWeekly(live);
+  const names = WEEKLY_GROUPS.slice();
+  found.forEach((g) => { if (!names.includes(g.name)) names.push(g.name); });
 
-  if (!live.length) {
-    const p = document.createElement('p');
-    p.className = 'admin-empty';
-    p.textContent = '項目がありません。下の「＋ 項目を追加」から作ってください。';
-    card.appendChild(p);
-  }
+  names.forEach((name) => {
+    const list = (found.find((g) => g.name === name) || { items: [] }).items;
 
-  live.forEach((item, i) => {
-    card.appendChild(buildWeeklyRow(item, i, live.length));
+    const card = document.createElement('div');
+    card.className = 'sec-card';
+    card.dataset.secId = WEEKLY_SEC;
+
+    const head = document.createElement('div');
+    head.className = 'sec-card__head';
+    const title = document.createElement('span');
+    title.className = 'sec-card__name sec-card__name--fixed';
+    title.textContent = name;
+    head.appendChild(title);
+    const count = document.createElement('span');
+    count.className = 'admin-count';
+    count.textContent = `${list.length}項目`;
+    head.appendChild(count);
+    card.appendChild(head);
+
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'admin-empty';
+      p.textContent = 'まだ項目がありません。';
+      card.appendChild(p);
+    }
+
+    list.forEach((item, i) => {
+      card.appendChild(buildWeeklyRow(item, i, list.length));
+    });
+
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'sec-card__add';
+    add.textContent = '＋ 項目を追加';
+    add.addEventListener('click', () => addWeeklyItem(name));
+    card.appendChild(add);
+
+    el.weeklyEditor.appendChild(card);
   });
-
-  const add = document.createElement('button');
-  add.type = 'button';
-  add.className = 'sec-card__add';
-  add.textContent = '＋ 項目を追加';
-  add.addEventListener('click', addWeeklyItem);
-  card.appendChild(add);
-
-  el.weeklyEditor.appendChild(card);
 }
 
 function buildWeeklyRow(item, index, count) {
   const row = document.createElement('div');
-  row.className = 'item-row';
+  row.className = 'item-row item-row--weekly';
   row.dataset.itemId = item.id;
   row.addEventListener('pointerdown', (e) => startLongPress(e, row));
 
   row.appendChild(buildNameCell({ id: WEEKLY_SEC }, item));
+
+  /* 掃除する場所の入れ替え。押すたびに次の場所へ移ります */
+  const group = document.createElement('button');
+  group.type = 'button';
+  group.className = 'every-btn every-btn--group';
+  group.textContent = weeklyGroupOf(item);
+  group.title = '掃除する場所を変えます（押すたびに次の場所へ移ります）';
+  group.addEventListener('click', () => cycleWeeklyGroup(item.id));
+  row.appendChild(group);
 
   /* 毎週／2週に1回 の切り替え。押すたびに入れ替わります */
   const every = document.createElement('button');
@@ -454,12 +485,13 @@ function buildWeeklyRow(item, index, count) {
   return row;
 }
 
-function addWeeklyItem() {
+function addWeeklyItem(group) {
   const next = currentWeekly();
   next.push({
     id: newId('wk'),
     label: '新しい項目',
-    addedAt: todayStr(), // 今週から出す（過ぎた週にはさかのぼらせない）
+    group: group || WEEKLY_GROUPS[0], // 押したカードの場所に入れる
+    addedAt: todayStr(),              // 今週から出す（過ぎた週にはさかのぼらせない）
   });
   saveWeekly(next);
 
@@ -467,6 +499,17 @@ function addWeeklyItem() {
   const cells = [...el.weeklyEditor.querySelectorAll('.item-row__name')];
   const last = cells.reverse().find((c) => c.textContent === '新しい項目');
   if (last) startNameEdit(last);
+}
+
+/** 掃除する場所を次のものへ移す（ホール→キッチン→トイレ→ホール…） */
+function cycleWeeklyGroup(itemId) {
+  const next = currentWeekly();
+  const item = next.find((it) => it.id === itemId);
+  if (!item) return;
+  const at = WEEKLY_GROUPS.indexOf(weeklyGroupOf(item));
+  // 一覧に無い場所（その他など）だったときは、先頭の場所へ入れます
+  item.group = WEEKLY_GROUPS[(at + 1) % WEEKLY_GROUPS.length] || WEEKLY_GROUPS[0];
+  saveWeekly(next);
 }
 
 /** 毎週 ⇄ 2週に1回 を入れ替える */
@@ -682,7 +725,12 @@ function moveSection(secId, dir) {
 function moveItem(secId, itemId, dir) {
   if (secId === WEEKLY_SEC) {
     const next = currentWeekly();
-    if (swapWithin(next, alive, itemId, dir)) saveWeekly(next);
+    // 同じ場所（ホールならホール）の中だけで入れ替えます
+    const item = next.find((it) => it.id === itemId);
+    if (!item) return;
+    const g = weeklyGroupOf(item);
+    const sameGroup = (it) => alive(it) && weeklyGroupOf(it) === g;
+    if (swapWithin(next, sameGroup, itemId, dir)) saveWeekly(next);
     return;
   }
   const next = currentSections();

@@ -716,13 +716,15 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   border-collapse: separate; border-spacing: 0;
   font-size: 12px; width: 100%;
 }
+/* 罫線は薄い線ではなく、はっきり見える線を使います */
 .week-table th, .week-table td {
-  border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2);
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
   padding: 0; text-align: center;
 }
 .week-table thead th {
   position: sticky; top: 0; z-index: 2;
-  background: var(--surface-2); font-weight: 700; color: var(--text-sub);
+  background: color-mix(in srgb, var(--store) 12%, var(--surface));
+  font-weight: 700; color: var(--text);
   min-width: 42px; padding: 7px 3px; line-height: 1.3;
   white-space: nowrap;
 }
@@ -733,7 +735,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-variant-numeric: tabular-nums; margin-left: 5px;
 }
 .week-table thead th.is-now {
-  background: color-mix(in srgb, var(--store) 18%, var(--surface-2)); color: var(--text);
+  background: color-mix(in srgb, var(--store) 26%, var(--surface)); color: var(--text);
 }
 .week-table thead th.is-now .week-th__range { color: var(--text-sub); }
 
@@ -744,20 +746,58 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   padding: 6px 7px; line-height: 1.3; font-size: 11.5px;
   border-right: 1px solid var(--line);
 }
-.week-table thead .col-item { z-index: 4; background: var(--surface-2); }
+.week-table thead .col-item {
+  z-index: 4; background: color-mix(in srgb, var(--store) 12%, var(--surface));
+}
 
-/* 「2週に1回」の項目に付く小さな印 */
+/* ---- 表に色を付けて見やすくする ----
+   グレーだと暗く見えるので、色は全部「店舗の色をうすめたもの」で作ります。
+   ・項目名の列は、チェックの列と分けるために少し濃いめ
+   ・1行おきに色を敷いて、横に目がすべらないようにする
+   横スクロールしたとき下の文字が透けないよう、
+   項目名の列だけは透けない色（surface と混ぜた色）にしています */
+.week-table tbody tr { background: var(--surface); }
+.week-table tbody tr.is-alt { background: color-mix(in srgb, var(--store) 7%, var(--surface)); }
+.week-table tbody .col-item { background: color-mix(in srgb, var(--store) 10%, var(--surface)); }
+.week-table tbody tr.is-alt .col-item { background: color-mix(in srgb, var(--store) 17%, var(--surface)); }
+
+/* 掃除する場所の見出し（ホール／キッチン／トイレ）。
+   表の1行に見えてしまうと項目と紛らわしいので、
+   罫線を消して上に大きく余白を空け、「区切り」として見せます */
+.week-table tr.week-group td {
+  border: 0; background: var(--surface);
+  text-align: left; padding: 22px 9px 8px;
+}
+/* いちばん上の見出しだけは、表のすぐ下なので余白を詰めます */
+.week-table tbody tr.week-group:first-child td { padding-top: 10px; }
+
+.week-group__label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 15.5px; font-weight: 900; letter-spacing: .06em; color: var(--text);
+}
+/* 店舗の色の短い棒。見出しだと一目で分かるようにするための目印です */
+.week-group__label::before {
+  content: ''; flex: 0 0 auto;
+  width: 5px; height: 19px; border-radius: 2px; background: var(--store);
+}
+/* 見出しの下から、また表が始まることを示す線 */
+.week-table tr.week-group + tr td { border-top: 1px solid var(--line); }
+
+/* 「毎週」やる項目に付く小さな印。目立つ色にしてあります。
+   2週に1回の項目には印を付けません（マスが1つにつながっているので分かります） */
 .week-every {
   display: inline-block; margin-left: 5px;
   font-size: 9.5px; font-weight: 700; white-space: nowrap;
-  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-radius: 999px; padding: 1px 6px; vertical-align: 1px;
+  color: var(--ng); background: color-mix(in srgb, var(--ng) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ng) 30%, transparent);
+  border-radius: 999px; padding: 0 6px; vertical-align: 1px;
 }
 /* 2週まとめて見るとき、「2週に1回」の項目はマスを1つにつなげます */
-.week-cell--span { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+/* 下の行の色と混ざって濁らないよう、ここだけ透けない色にしています */
+.week-cell--span { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 
 /* マスそのものがボタン。指で押しやすいよう、セル全面を占めます */
-.week-cell.is-now { background: color-mix(in srgb, var(--store) 7%, transparent); }
+.week-cell.is-now { background: color-mix(in srgb, var(--store) 9%, transparent); }
 /* まだ来ていない週。押せますが、うっすら斜線で「先の週」と分かるように */
 .week-cell.is-future { background: repeating-linear-gradient(
   -45deg, transparent, transparent 3px, var(--line-2) 3px, var(--line-2) 5px); }

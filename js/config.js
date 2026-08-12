@@ -39,7 +39,8 @@ const STORES = [
   { id: 'sumimaro', name: '炭まろ',         short: '炭まろ',   color: '#a9453c', logo: 'img/sumimaro.png' },
   { id: 'chacoru',  name: 'ちゃこる',       short: 'ちゃこる', color: '#c14a1e', logo: 'img/chacoru.png', closedDays: [0] },
   { id: 'baguru',   name: 'バグる',         short: 'バグる',   color: '#bf5480', logo: 'img/baguru.png', closedDays: [2] },
-  { id: 'popo',     name: 'popo',           short: 'popo',     color: '#5a3728', logo: 'img/popo.png' },
+  // popo は焦げ茶(#5a3728)だと暗くて表の色が沈むので、明るいキャラメル色にしています
+  { id: 'popo',     name: 'popo',           short: 'popo',     color: '#946444', logo: 'img/popo.png' },
   { id: 'oiden',    name: 'おいでんテラス', short: 'おいでん', color: '#b3690c', logo: 'img/oiden.png', closedDays: [2] },
 ];
 
@@ -610,6 +611,8 @@ const CHECKLIST_OVERRIDES = {
  *  item
  *    id    : 英数字で固定（★変えると過去の記録が消えて見えるので注意★）
  *    label : 画面に出る項目名
+ *    group : 見出し（掃除する場所）。WEEKLY_GROUPS のどれか。
+ *            省略すると「その他」にまとまります
  *    every : 'week'   … 毎週やる（省略時はこちら）
  *            'biweek' … 2週間に1回でよい
  *    addedAt / retiredAt … 管理アプリで追加・削除した日（過去の記録を守るため）
@@ -617,18 +620,26 @@ const CHECKLIST_OVERRIDES = {
  *  ここに書いてあるのは初期値です。管理アプリで店舗ごとに
  *  追加・削除・並べ替え・頻度の変更ができ、そちらが優先されます。
  * ---------------------------------------------------------- */
+
+/* 見出しの並び順。ここに書いた順に上から出ます。
+   場所を増やしたくなったら、この行に足してください */
+const WEEKLY_GROUPS = ['ホール', 'キッチン', 'トイレ'];
+
+/* 見出しの決まっていない項目のいき先 */
+const WEEKLY_GROUP_OTHER = 'その他';
+
 const WEEKLY_DEFAULT = [
-  { id: 'wk-seat',    label: '2名席ガタつき確認' },
-  { id: 'wk-station', label: 'ステーション備品補充' },
-  { id: 'wk-floor',   label: '床の黒ずみ・机の溝掃除' },
-  { id: 'wk-toilet',  label: 'トイレの洗面所水垢取り' },
-  { id: 'wk-fridge',  label: '冷蔵庫フィルター' },
-  { id: 'wk-steam',   label: 'スチコンフィルター' },
-  { id: 'wk-case',    label: 'ショーケースサッシ掃除' },
-  { id: 'wk-gutter',  label: '溝掃除' },
-  { id: 'wk-grease',  label: 'グリスト' },
-  { id: 'wk-stocker', label: 'ストッカー霜取り' },
-  { id: 'wk-shelf',   label: '食器棚拭き掃除' },
+  { id: 'wk-seat',    label: '2名席ガタつき確認',     group: 'ホール' },
+  { id: 'wk-station', label: 'ステーション備品補充',   group: 'ホール' },
+  { id: 'wk-floor',   label: '床の黒ずみ・机の溝掃除', group: 'ホール' },
+  { id: 'wk-fridge',  label: '冷蔵庫フィルター',       group: 'キッチン' },
+  { id: 'wk-steam',   label: 'スチコンフィルター',     group: 'キッチン' },
+  { id: 'wk-case',    label: 'ショーケースサッシ掃除', group: 'キッチン' },
+  { id: 'wk-gutter',  label: '溝掃除',                 group: 'キッチン' },
+  { id: 'wk-grease',  label: 'グリスト',               group: 'キッチン' },
+  { id: 'wk-stocker', label: 'ストッカー霜取り',       group: 'キッチン' },
+  { id: 'wk-shelf',   label: '食器棚拭き掃除',         group: 'キッチン' },
+  { id: 'wk-toilet',  label: 'トイレの洗面所水垢取り', group: 'トイレ' },
 ];
 
 /* ------------------------------------------------------------
@@ -644,7 +655,50 @@ const PERIOD_ANCHOR = '2026-08-02';
 /* 店舗ごとに初期値を変えたいときはここに書きます。
    （書かなければ全店舗 WEEKLY_DEFAULT から始まります）
    例）const WEEKLY_OVERRIDES = { popo: [ { id:'wk-a', label:'…' } ] }; */
-const WEEKLY_OVERRIDES = {};
+const WEEKLY_OVERRIDES = {
+
+  /* ---- バグる ----
+     お店の掃除表から写したものです。上から順に「ホール」→「キッチン」。
+     頻度が「週1回」「2週に1回」以外のものは入れていません
+     （夏前・毎週月曜日・暇な時・汚くなったら の6項目）。 */
+  baguru: [
+    { id: 'bg-sash',         label: '窓サッシ',                     group: 'ホール' },
+    { id: 'bg-chair',        label: '椅子の足裏',                   group: 'ホール',   every: 'biweek' },
+    { id: 'bg-light',        label: 'ライト周り',                   group: 'ホール' },
+    { id: 'bg-dishup',       label: 'デシャップ周り拭き掃除',       group: 'ホール' },
+    { id: 'bg-dishup-towel', label: 'デシャップ周りタオル交換',     group: 'ホール',   every: 'biweek' },
+    { id: 'bg-water',        label: 'ウォーターサーバー周り',       group: 'ホール',   every: 'biweek' },
+    { id: 'bg-btable',       label: 'B卓椅子と壁の間',              group: 'ホール',   every: 'biweek' },
+    { id: 'bg-ac',           label: 'エアコンフィルター',           group: 'ホール',   every: 'biweek' },
+    { id: 'bg-register',     label: 'レジ周り拭き掃除',             group: 'ホール' },
+
+    { id: 'bg-griddle',      label: 'グリドル壁',                   group: 'キッチン', every: 'biweek' },
+    { id: 'bg-conro',        label: 'コンロ',                       group: 'キッチン' },
+    { id: 'bg-steam-around', label: 'スチコン周り',                 group: 'キッチン' },
+    { id: 'bg-yakidai',      label: '焼き台壁のしつこい汚れ',       group: 'キッチン', every: 'biweek' },
+    { id: 'bg-ih-wall',      label: 'IH周りの壁',                   group: 'キッチン', every: 'biweek' },
+    // 掃除表では「毎週月曜日」。曜日の指定はできないので、毎週の項目として入れています
+    { id: 'bg-fridge-low',   label: '全冷蔵庫下段拭き掃除',         group: 'キッチン' },
+    { id: 'bg-stocker',      label: 'ストッカー霜取り',             group: 'キッチン' },
+    { id: 'bg-drink-sash',   label: 'ドリンク冷蔵庫サッシ',         group: 'キッチン' },
+    { id: 'bg-gutter',       label: '溝掃除',                       group: 'キッチン' },
+    { id: 'bg-chawan',       label: '茶碗棚タオル',                 group: 'キッチン', every: 'biweek' },
+    { id: 'bg-mixer',        label: '肉ミキサー周り',               group: 'キッチン' },
+    { id: 'bg-f-hamburg',    label: 'ハンバーグ冷蔵庫フィルター×2', group: 'キッチン' },
+    { id: 'bg-f-fryer',      label: 'フライヤー横冷蔵庫フィルター', group: 'キッチン' },
+    { id: 'bg-f-steamside',  label: 'スチコン横冷蔵庫フィルター',   group: 'キッチン' },
+    { id: 'bg-f-ih',         label: 'IH下冷蔵庫フィルター',         group: 'キッチン' },
+    { id: 'bg-f-drink',      label: 'ドリンク冷蔵庫フィルター',     group: 'キッチン' },
+    { id: 'bg-f-steam',      label: 'スチコンフィルター',           group: 'キッチン' },
+    { id: 'bg-ih-tray',      label: 'IHフィルターと受け皿',         group: 'キッチン' },
+    { id: 'bg-pellet',       label: 'ペレットウォーマー受け皿',     group: 'キッチン' },
+    { id: 'bg-f-server',     label: 'サーバーフィルター',           group: 'キッチン' },
+    { id: 'bg-f-ice',        label: '製氷機フィルター',             group: 'キッチン' },
+    { id: 'bg-f-case',       label: 'F卓右側ショーケースフィルター', group: 'キッチン' },
+    { id: 'bg-case-tray',    label: 'ショーケース受け皿×2',         group: 'キッチン' },
+  ],
+
+};
 
 /* ------------------------------------------------------------
  *  5) 業務の一覧（★ページを増やす場所★）
@@ -846,6 +900,38 @@ function periodRangeLabel(periodStart) {
 /** その項目は「2週間に1回」か */
 function isBiweekly(item) {
   return item.every === 'biweek';
+}
+
+/** その項目の見出し（決まっていなければ「その他」） */
+function weeklyGroupOf(item) {
+  const g = (item.group || '').trim();
+  return g || WEEKLY_GROUP_OTHER;
+}
+
+/**
+ * 週間掃除の項目を見出しごとにまとめる
+ *
+ * 並びは WEEKLY_GROUPS の順。そこに無い見出しは後ろへ、
+ * 見出しの決まっていないもの（その他）はいちばん最後に置きます。
+ * 中身が0件の見出しは返しません。
+ *
+ *   戻り値 … [{ name: 'ホール', items: [...] }, ...]
+ */
+function groupWeekly(items) {
+  const bag = new Map();
+  WEEKLY_GROUPS.forEach((g) => bag.set(g, []));
+  items.forEach((it) => {
+    const g = weeklyGroupOf(it);
+    if (!bag.has(g)) bag.set(g, []);
+    bag.get(g).push(it);
+  });
+  // 「その他」は最後にまわす
+  const other = bag.get(WEEKLY_GROUP_OTHER);
+  if (other) { bag.delete(WEEKLY_GROUP_OTHER); bag.set(WEEKLY_GROUP_OTHER, other); }
+
+  const out = [];
+  bag.forEach((list, name) => { if (list.length) out.push({ name, items: list }); });
+  return out;
 }
 
 /**

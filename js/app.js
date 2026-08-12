@@ -979,29 +979,53 @@ function renderWeekView() {
   t.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  items.forEach((it) => {
-    const tr = document.createElement('tr');
-    const nameTd = document.createElement('td');
-    nameTd.className = 'col-item';
-    nameTd.textContent = it.label;
-    if (isBiweekly(it)) {
-      const tag = document.createElement('span');
-      tag.className = 'week-every';
-      tag.textContent = '2週に1回';
-      nameTd.appendChild(tag);
+  // ホール・キッチン・トイレ…の見出しで区切って並べます
+  const groups = groupWeekly(items);
+  groups.forEach((g) => {
+    // 見出しが1つしか無いときは、わざわざ帯を出しません
+    if (groups.length > 1) {
+      const htr2 = document.createElement('tr');
+      htr2.className = 'week-group';
+      const gtd = document.createElement('td');
+      gtd.colSpan = 3;
+      // 色の棒＋名前。上に余白を空けて、項目の行と見分けやすくします
+      const glabel = document.createElement('span');
+      glabel.className = 'week-group__label';
+      glabel.textContent = g.name;
+      gtd.appendChild(glabel);
+      htr2.appendChild(gtd);
+      tbody.appendChild(htr2);
     }
-    tr.appendChild(nameTd);
 
-    // 2週に1回の項目は、記録を期の1週目にまとめて持ち、マスも1つにつなげます
-    if (isBiweekly(it)) {
-      const td = weekCell(storeId, it, period, nowWeek);
-      td.classList.add('week-cell--span');
-      td.colSpan = 2;
-      tr.appendChild(td);
-    } else {
-      weeks.forEach((w) => tr.appendChild(weekCell(storeId, it, w, nowWeek)));
-    }
-    tbody.appendChild(tr);
+    g.items.forEach((it, i) => {
+      const tr = document.createElement('tr');
+      // 1行おきに色を付けて、目が横にすべらないようにします（見出しごとに数え直し）
+      if (i % 2 === 1) tr.classList.add('is-alt');
+
+      const nameTd = document.createElement('td');
+      nameTd.className = 'col-item';
+      nameTd.textContent = it.label;
+      // 毎週やるものにだけ印を付けます（2週に1回のものは、マスが1つに
+      // つながっているので印は付けません）
+      if (!isBiweekly(it)) {
+        const tag = document.createElement('span');
+        tag.className = 'week-every';
+        tag.textContent = '毎週';
+        nameTd.appendChild(tag);
+      }
+      tr.appendChild(nameTd);
+
+      // 2週に1回の項目は、記録を期の1週目にまとめて持ち、マスも1つにつなげます
+      if (isBiweekly(it)) {
+        const td = weekCell(storeId, it, period, nowWeek);
+        td.classList.add('week-cell--span');
+        td.colSpan = 2;
+        tr.appendChild(td);
+      } else {
+        weeks.forEach((w) => tr.appendChild(weekCell(storeId, it, w, nowWeek)));
+      }
+      tbody.appendChild(tr);
+    });
   });
   t.appendChild(tbody);
 
