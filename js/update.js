@@ -55,9 +55,36 @@ const Updater = {
     location.replace(url);
   },
 
+  /**
+   * 4つのアプリが置いてある場所（…/kakunin-check/）を返す
+   * mine / manage / owner は1つ下の階層にあるので、その分だけ戻ります
+   */
+  root() {
+    const dir = location.pathname.replace(/[^/]*$/, '');
+    return dir.replace(/(mine|manage|owner)\/$/, '');
+  },
+
+  /**
+   * 読み込みの世話係（sw.js）を登録する
+   *
+   * ホーム画面に追加したアプリは、iPhone が index.html を長く
+   * 持ち続けます。そのままだと、アプリを開き直したときに
+   * 古い画面が出てしまうので、sw.js に面倒を見てもらいます。
+   */
+  registerWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+    const root = this.root();
+    // updateViaCache:'none' … sw.js 自体は控えを使わず、毎回取りに行く
+    navigator.serviceWorker
+      .register(root + 'sw.js', { scope: root, updateViaCache: 'none' })
+      .catch(() => { /* 使えない端末では、これまでどおり動きます */ });
+  },
+
   start() {
     if (this._started || !this.current()) return;
     this._started = true;
+    this.registerWorker();
 
     const bar = document.getElementById('updateBar');
     if (bar) bar.querySelector('.update-bar__btn').addEventListener('click', () => this.apply());

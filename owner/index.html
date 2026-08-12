@@ -80,7 +80,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 </style>
-<meta name="app-version" content="e8228e9a">
+<meta name="app-version" content="6af6e198">
 </head>
 <body class="no-daytabs">
 
@@ -137,6 +137,14 @@ body {
   // 公開用を作る.py が入れる「版の印」を出します（どの版が入っているかの確認用）
   var meta = document.querySelector('meta[name="app-version"]');
   document.getElementById('hubFoot').textContent = meta ? '版 ' + meta.content : '';
+
+  // 読み込みの世話係。これが無いと、ホーム画面のアプリを開き直したときに
+  // 古い画面のまま出てしまいます（くわしくは ../sw.js）
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker
+      .register('../sw.js', { scope: '../', updateViaCache: 'none' })
+      .catch(function () {});
+  }
 </script>
 
 </body>
