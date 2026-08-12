@@ -56,7 +56,7 @@ const Updater = {
   },
 
   /**
-   * 4つのアプリが置いてある場所（…/kakunin-check/）を返す
+   * 4つのアプリが置いてある場所（…/T3Works/）を返す
    * mine / manage / owner は1つ下の階層にあるので、その分だけ戻ります
    */
   root() {
