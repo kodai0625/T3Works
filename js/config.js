@@ -313,12 +313,71 @@ const CHECKLIST_OVERRIDES = {
   ],
 
   /* ===== 炭まろ =====
-     区分だけ先に作ってあります。項目は管理アプリから追加してください。
-     項目が1つも無い区分は、現場アプリには出ません（管理アプリには出ます）。 */
+     表記と並び順は、こじゃれ・ちゃこるに合わせてあります。
+     電源・元栓を切る作業は各区分の下のほうにまとめています。 */
   sumimaro: [
-    { id: 'sm-kitchen', title: 'キッチン',  items: [] },
-    { id: 'sm-1f-hall', title: '１階ホール', items: [] },
-    { id: 'sm-2f',      title: '２階',      items: [] },
+    {
+      id: 'sm-kitchen',
+      title: 'キッチン',
+      items: [
+        { id: 'sm-k01', label: '冷蔵庫・冷凍庫扉チェック' },
+        { id: 'sm-k02', label: '台上食材の確認' },
+        { id: 'sm-k03', label: '炭壺閉まってるか' },
+        { id: 'sm-k04', label: '水道が閉まっているか' },
+        { id: 'sm-k05', label: 'ゴミ袋を縛ってあるか' },
+        { id: 'sm-k06', label: '炊飯器の米移し' },
+        { id: 'sm-k07', label: '米ラップ' },
+        { id: 'sm-k08', label: 'ドリバショーケース水受け' },
+        { id: 'sm-k09', label: 'セットの確認' },
+        { id: 'sm-k10', label: 'ディスペンサー補充、しまってあるか' },
+        { id: 'sm-k11', label: '乾物補充' },
+        { id: 'sm-k12', label: '揚場補充' },
+        { id: 'sm-k13', label: '賄い後シンク、ゴミ受けカゴ' },
+        { id: 'sm-k14', label: 'シンクゴミ' },
+        { id: 'sm-k15', label: 'アルコール類少ないの新品に買える' },
+        { id: 'sm-k16', label: '油補充' },
+        { id: 'sm-k17', label: 'まな板漂白' },
+        { id: 'sm-k18', label: 'おしぼりいっぱいなら外に出してあるか' },
+        { id: 'sm-k19', label: 'レンジ拭き' },
+        { id: 'sm-k20', label: 'コンロ掃除' },
+        { id: 'sm-k21', label: '氷寄せ', onlyDows: [4] },
+        { id: 'sm-k22', label: 'by準備されてるか', onlyDows: [4] },
+        { id: 'sm-k23', label: 'ゴミ箱洗ってあるか', onlyDows: [5, 6] },
+        { id: 'sm-k24', label: 'プリンター電源' },
+        { id: 'sm-k25', label: 'ビールサーバー締め' },
+        { id: 'sm-k26', label: 'フライヤー締めてあるか', onlyDows: [5, 6] },
+        { id: 'sm-k27', label: 'フライヤー電源' },
+      ],
+    },
+    {
+      id: 'sm-1f-hall',
+      title: '１階ホール',
+      items: [
+        { id: 'sm-h01', label: '掃除機ゴミ捨て' },
+        { id: 'sm-h02', label: '外灰皿' },
+        { id: 'sm-h03', label: 'ユーセン確認' },
+        // 冬場だけ出す項目（11月〜3月）
+        { id: 'sm-h04', label: '個室の３つの暖房電源', onlyMonths: [11, 12, 1, 2, 3] },
+        { id: 'sm-h05', label: 'ガスの元栓' },
+        { id: 'sm-h06', label: 'エアコン確認業務用3つ' },
+      ],
+    },
+    {
+      id: 'sm-2f',
+      title: '２階',
+      items: [
+        { id: 'sm-f01', label: '窓戸締り' },
+        { id: 'sm-f02', label: '冷蔵庫・冷凍庫扉チェック' },
+        { id: 'sm-f03', label: 'ストッカー扉' },
+        { id: 'sm-f04', label: '掃除機ゴミ捨て' },
+        { id: 'sm-f05', label: 'セットの確認' },
+        { id: 'sm-f06', label: 'ドリンク少ないの新品に変える' },
+        { id: 'sm-f07', label: 'エアコン確認業務用1つ' },
+        { id: 'sm-f08', label: 'エアコン確認家庭用1台' },
+        { id: 'sm-f09', label: 'トイレ電気' },
+        { id: 'sm-f10', label: '電気' },
+      ],
+    },
     {
       id: 'sm-all',
       title: '全体',
@@ -614,6 +673,8 @@ function appliesTo(item, store, y, m, d, section) {
   if (item.retiredAt && dateStr >= item.retiredAt) return false;
   if (item.onlyDays && !item.onlyDays.includes(d)) return false;
   if (item.onlyDows && !item.onlyDows.includes(dow)) return false;
+  // その月だけ出す（暖房など季節もののため）。例）onlyMonths: [11,12,1,2,3]
+  if (item.onlyMonths && !item.onlyMonths.includes(m)) return false;
   if (item.hideOnDows && item.hideOnDows.includes(dow)) return false;
   return true;
 }

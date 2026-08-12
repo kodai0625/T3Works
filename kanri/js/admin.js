@@ -301,6 +301,7 @@ function specialTags(item) {
   const tags = [];
   if (item.onlyDays) tags.push(item.onlyDays.join('・') + '日だけ');
   if (item.onlyDows) tags.push(item.onlyDows.map((d) => DOW[d]).join('') + 'のみ');
+  if (item.onlyMonths) tags.push(item.onlyMonths.join('・') + '月のみ');
   if (item.hideOnDows) tags.push(item.hideOnDows.map((d) => DOW[d]).join('') + 'は非表示');
   if (item.type === 'number') tags.push('数値' + (item.unit ? `（${item.unit}）` : ''));
   if (item.pauses && item.pauses.length) {
