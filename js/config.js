@@ -5,7 +5,7 @@
  * ============================================================ */
 
 const APP = {
-  title: 'T3クローズ',
+  title: 'T3 Works',
   company: 'T3Dining株式会社',
   logo: 'img/t3dining.png', // ヘッダーに出る会社ロゴ
 
@@ -661,8 +661,8 @@ const WEEKLY_OVERRIDES = {};
  *  status(storeId) は app.js の taskStatus() が担当します。
  * ---------------------------------------------------------- */
 const TASKS = [
-  { id: 'day',   name: '日別',     sub: '毎日の確認' },
-  { id: 'week',  name: '週間掃除', sub: '2週間ごと' },
+  { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業' },
+  { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト' },
   { id: 'month', name: '月間表',   sub: '1か月の一覧', when: () => APP.showMonthView !== false },
 ];
 

@@ -5,366 +5,139 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="T3クローズ">
+<meta name="apple-mobile-web-app-title" content="T3 Owner">
 <meta name="theme-color" content="#1c1f26">
-<!-- ホーム画面に追加したときのアイコン／ブラウザのタブのアイコン -->
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="../img/app-icon-180.png?v=041e5fbb">
-<link rel="icon" type="image/png" sizes="512x512" href="../img/app-icon-512.png?v=886a155a">
-<link rel="icon" type="image/png" sizes="64x64" href="../img/app-icon-64.png?v=aaf709ad">
-<title>T3クローズ｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=3bb5e923">
-<meta name="app-version" content="70bf6fcb">
-</head>
-<body data-mode="owner" data-assets="../">
+<link rel="apple-touch-icon" href="../img/owner-icon-180.png?v=cbb1087e">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/owner-icon-64.png?v=ce05c3fc">
+<title>T3 Owner｜T3Dining株式会社</title>
+<link rel="stylesheet" href="../css/style.css?v=2570d8c0">
+<style>
+/* ============================================================
+ *  切り替え画面（ホーム画面のフォルダ代わり）
+ *  ここから現場アプリ・管理アプリのどちらかを開きます。
+ * ============================================================ */
+/* 画面の真ん中に置きます。
+   iPhone の上端（ノッチ／ダイナミックアイランド）に食い込まないよう、
+   safe-area-inset ぶんの余白を必ず空けます */
+body {
+  min-height: 100dvh;
+  display: flex;
+  padding: calc(env(safe-area-inset-top) + 18px) 0 calc(env(safe-area-inset-bottom) + 18px);
+}
+/* margin:auto は、中身が画面より高くなっても上が切れない中央寄せです */
+.hub { margin: auto; width: 100%; max-width: 520px; padding: 0 16px; }
 
-<!-- ===== ヘッダー ===== -->
-<header class="app-header">
-  <div class="app-header__inner">
-    <button type="button" class="app-title" id="homeBtn" title="店舗一覧に戻る">
-      <span class="logo-chip logo-chip--app"><img id="appLogo" alt="T3Dining"></span>
-      <span class="app-title__text">
-        <span class="app-title__main" id="appTitle">T3クローズ</span>
-        <span class="app-title__sub" id="appCompany">T3Dining株式会社</span>
-      </span>
-    </button>
-    <div class="header-actions">
-      <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ同期"></button>
-      <!-- 管理アプリへの切り替え。
-           ふだんの現場アプリでは出ません。公開用を作る.py が作る
-           owner/ 版（body に data-mode="owner" が付く）でだけ出ます -->
-      <a class="settings-btn owner-only" id="toAdminBtn" href="../kanri/" title="管理アプリに切り替える">
-        <span aria-hidden="true">⇄</span><span>管理</span>
-      </a>
-      <!-- settings-btn--label ＝ スマホ幅でも文字を残す（アイコンだけでは分かりにくいため） -->
-      <button class="settings-btn settings-btn--label" id="reportBtn" type="button">
-        <span aria-hidden="true">📋</span><span>提出記録</span>
-      </button>
-      <button class="settings-btn" id="settingsBtn" type="button">
-        <span aria-hidden="true">⚙</span><span>設定</span>
-      </button>
-    </div>
+.hub__head { text-align: center; margin-bottom: 26px; }
+.hub__logo {
+  width: 78px; height: 78px; margin: 0 auto 13px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--line); border-radius: 19px;
+  overflow: hidden;
+}
+.hub__logo img { width: 100%; height: 100%; object-fit: contain; }
+.hub__title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: .01em; }
+.hub__company { margin: 4px 0 0; font-size: 12.5px; color: var(--text-sub); }
+
+.hub__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.hub-card {
+  display: flex; align-items: center; gap: 16px; width: 100%;
+  min-height: 108px; padding: 22px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--card-color);
+  border-radius: 16px; box-shadow: var(--shadow);
+  font: inherit; color: var(--text); text-align: left;
+  cursor: pointer; text-decoration: none;
+}
+.hub-card:active { background: var(--surface-2); }
+.hub-card__icon {
+  flex: 0 0 auto; width: 64px; height: 64px;
+  background: #fff; border: 1px solid var(--line); border-radius: 15px;
+  overflow: hidden;
+}
+.hub-card__icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* 3つ目はアプリではなく「近道」なので、少し控えめにします */
+.hub-card--shortcut { min-height: 86px; padding: 16px 18px; background: var(--surface-2); }
+.hub-card--shortcut .hub-card__name { font-size: 17px; }
+.hub-card__icon--mark {
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; font-size: 24px;
+  background: var(--surface); border-radius: 13px;
+}
+.hub-card__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hub-card__name { font-size: 21px; font-weight: 700; line-height: 1.2; }
+.hub-card__sub { font-size: 13px; color: var(--text-sub); line-height: 1.4; }
+.hub-card__arrow { flex: 0 0 auto; font-size: 26px; color: var(--text-weak); line-height: 1; }
+
+.hub__note {
+  margin: 24px 2px 0; font-size: 12px; color: var(--text-sub); line-height: 1.7;
+}
+.hub__foot {
+  margin: 14px 0 0; text-align: center;
+  font-size: 11.5px; color: var(--text-weak);
+  font-variant-numeric: tabular-nums;
+}
+</style>
+<meta name="app-version" content="3805ec84">
+</head>
+<body class="no-daytabs">
+
+<main class="hub">
+  <div class="hub__head">
+    <div class="hub__logo"><img src="../img/t3dining-mark.png?v=c9163364" alt=""></div>
+    <h1 class="hub__title">T3 Owner</h1>
+    <p class="hub__company">T3Dining株式会社</p>
   </div>
 
-  <!-- 店舗タブ（1店舗＝1ページ） -->
-  <nav class="store-tabs" id="storeTabs" aria-label="店舗"></nav>
-</header>
+  <ul class="hub__list">
+    <li>
+      <a class="hub-card" href="../mine/" style="--card-color:#d1730a">
+        <span class="hub-card__icon"><img src="../img/mine-icon-180.png?v=cbafcd5d" alt=""></span>
+        <span class="hub-card__text">
+          <span class="hub-card__name">T3 Works Mine</span>
+          <span class="hub-card__sub">オーナー専用アプリ</span>
+        </span>
+        <span class="hub-card__arrow" aria-hidden="true">›</span>
+      </a>
+    </li>
+    <li>
+      <a class="hub-card" href="../manage/" style="--card-color:#1b4f86">
+        <span class="hub-card__icon"><img src="../img/manage-icon-180.png?v=ac18efea" alt=""></span>
+        <span class="hub-card__text">
+          <span class="hub-card__name">T3 Works Manage</span>
+          <span class="hub-card__sub">項目・担当者・定休日の設定</span>
+        </span>
+        <span class="hub-card__arrow" aria-hidden="true">›</span>
+      </a>
+    </li>
+    <!-- 3つ目はアプリではなく近道。T3 Works Mine の中の画面を直接ひらきます -->
+    <li>
+      <a class="hub-card hub-card--shortcut" href="../mine/#/report" style="--card-color:#55606e">
+        <span class="hub-card__icon hub-card__icon--mark" aria-hidden="true">📋</span>
+        <span class="hub-card__text">
+          <span class="hub-card__name">全店舗の提出記録</span>
+          <span class="hub-card__sub">6店舗が今日分を出したかを見る</span>
+        </span>
+        <span class="hub-card__arrow" aria-hidden="true">›</span>
+      </a>
+    </li>
+  </ul>
 
-<main class="page">
-
-  <!-- ===== 店舗選択（アプリを開いて最初の画面） ===== -->
-  <section class="view view--stores is-hidden" id="viewStores">
-    <div class="stores-head">
-      <h1 class="stores-head__title">店舗を選んでください</h1>
-      <p class="stores-head__date" id="storesDate"></p>
-    </div>
-    <ul class="store-grid" id="storeGrid"></ul>
-
-    <h2 class="stores-sub">全店舗をまとめて見る</h2>
-    <button type="button" class="stores-report-btn" id="storesReportBtn">日別の提出記録</button>
-    <button type="button" class="stores-report-btn" id="storesWeekAllBtn">週間掃除の達成状況</button>
-  </section>
-
-  <!-- ===== 業務選択（店舗をえらんだあとの画面） ===== -->
-  <section class="view view--tasks is-hidden" id="viewTasks">
-    <div class="stores-head">
-      <h1 class="stores-head__title" id="tasksTitle">業務をえらんでください</h1>
-      <p class="stores-head__date" id="tasksDate"></p>
-    </div>
-    <ul class="task-grid" id="taskGrid"></ul>
-    <button type="button" class="stores-report-btn" id="tasksBackBtn">← 店舗をえらび直す</button>
-  </section>
-
-  <!-- ===== 店舗見出し＋月タブ ===== -->
-  <section class="store-head" id="storeHead">
-    <div class="store-head__row">
-      <div class="store-head__id">
-        <span class="logo-chip logo-chip--store" id="storeLogo"></span>
-        <h1 class="store-head__name" id="storeNameLabel">店舗名</h1>
-        <span class="closed-badge is-hidden" id="storeClosedBadge"></span>
-      </div>
-    </div>
-
-    <!-- いま開いている業務。タップで業務の一覧に戻ります
-         （業務が増えてもここは1つのままなので、画面が狭くなりません） -->
-    <button type="button" class="task-bar" id="taskBar">
-      <span class="task-bar__arrow" aria-hidden="true">‹</span>
-      <span class="task-bar__label">
-        <span class="task-bar__name" id="taskBarName">日別</span>
-        <span class="task-bar__hint">タップで業務をえらぶ</span>
-      </span>
-    </button>
-
-    <div class="year-row">
-      <button class="year-btn" id="prevYear" type="button" aria-label="前の年">‹</button>
-      <span class="year-label" id="yearLabel">2026年</span>
-      <button class="year-btn" id="nextYear" type="button" aria-label="次の年">›</button>
-      <button class="today-btn" id="todayBtn" type="button">今日へ</button>
-    </div>
-
-    <nav class="month-tabs" id="monthTabs" aria-label="月"></nav>
-  </section>
-
-  <!-- ===== 日別ビュー ===== -->
-  <section class="view view--day" id="viewDay">
-    <div class="day-head">
-      <div class="day-head__left">
-        <div class="day-head__date">
-          <span class="day-head__num" id="dayNum">1</span>
-          <span class="day-head__unit">日</span>
-          <span class="day-head__dow" id="dayDow">（金）</span>
-        </div>
-        <!-- 日付の下：その日の担当者 -->
-        <div class="staff-row" id="staffRow">
-          <label class="staff-row__label" for="dayStaff">担当者</label>
-          <select class="staff-row__select" id="dayStaff"></select>
-        </div>
-
-        <!-- この日だけ営業／休業に切り替える -->
-        <div class="day-flags">
-          <span class="override-tag is-hidden" id="overrideTag"></span>
-          <button type="button" class="linkbtn" id="closedToggle">休業にする</button>
-          <button type="button" class="linkbtn is-hidden" id="overrideReset">通常に戻す</button>
-        </div>
-      </div>
-
-      <div class="day-head__progress">
-        <div class="progress"><div class="progress__bar" id="dayProgressBar"></div></div>
-        <span class="progress__text" id="dayProgressText">0 / 0</span>
-      </div>
-    </div>
-
-    <p class="closed-notice is-hidden" id="closedNotice"></p>
-
-    <div id="checklistArea"></div>
-
-    <div class="note-card" id="noteCard">
-      <label class="note-card__label" for="dayNote">申し送り・気付き</label>
-      <textarea id="dayNote" class="note-card__input" rows="3"
-        placeholder="翌日への引継ぎ、トラブル、気付いたことなど"></textarea>
-    </div>
-
-    <!-- 提出（全項目チェックで押せるようになります） -->
-    <div class="submit-card" id="submitCard">
-      <div class="submit-card__status" id="submitStatus"></div>
-      <button type="button" class="submit-btn" id="submitBtn">提出する</button>
-      <button type="button" class="linkbtn is-hidden" id="unsubmitBtn">提出を取り消す</button>
-    </div>
-
-    <!-- 週間掃除の提出。2週間の最終日にだけ、上の提出ボタンの下に出ます -->
-    <div class="submit-card submit-card--week is-hidden" id="weekSubmitCard">
-      <div class="submit-card__status">
-        <span class="submit-card__mark submit-card__mark--week">週間掃除</span>
-        <span class="submit-card__meta" id="weekSubmitRange">8/9〜8/22</span>
-      </div>
-      <p class="submit-card__rate" id="weekSubmitRate"></p>
-
-      <div class="period-card__submit" id="periodSubmit">
-        <label class="period-card__label" for="periodStaff">提出する人</label>
-        <select class="staff-row__select" id="periodStaff"></select>
-        <button type="button" class="submit-btn" id="periodSubmitBtn">この2週間分を提出する</button>
-        <p class="submit-card__meta submit-card__hint" id="weekSubmitHint"></p>
-      </div>
-      <div class="period-card__done is-hidden" id="periodDone">
-        <span class="submit-card__ready">提出済み</span>
-        <span class="submit-card__meta" id="periodDoneMeta"></span>
-        <button type="button" class="linkbtn" id="periodUnsubmitBtn">提出を取り消す</button>
-      </div>
-    </div>
-
-    <p class="updated" id="dayUpdated"></p>
-  </section>
-
-  <!-- ===== 全店舗提出記録 ===== -->
-  <section class="view view--report is-hidden" id="viewReport">
-    <div class="report-head">
-      <div class="report-head__row">
-        <h2 class="report-head__title">全店舗提出記録</h2>
-        <button type="button" class="btn" id="reportBack">チェックリストに戻る</button>
-      </div>
-      <div class="report-nav">
-        <button type="button" class="year-btn" id="reportPrev" aria-label="前の日">‹</button>
-        <span class="report-nav__date" id="reportDate">2026年8月9日（日）</span>
-        <button type="button" class="year-btn" id="reportNext" aria-label="次の日">›</button>
-        <button type="button" class="today-btn" id="reportToday">今日</button>
-      </div>
-      <p class="report-summary" id="reportSummary"></p>
-    </div>
-
-    <ul class="report-list" id="reportList"></ul>
-  </section>
-
-  <!-- ===== 週間掃除ビュー ===== -->
-  <section class="view view--week is-hidden" id="viewWeek">
-
-    <!-- 2週間ぶんの送り戻し -->
-    <div class="week-nav">
-      <button type="button" class="year-btn" id="weekPrev" aria-label="前の2週間">‹</button>
-      <div class="week-nav__label">
-        <span class="week-nav__main" id="weekNavMain">8/9（日）〜8/22（土）</span>
-        <span class="week-nav__sub" id="weekNavSub">この2週間</span>
-      </div>
-      <button type="button" class="year-btn" id="weekNext" aria-label="次の2週間">›</button>
-      <button type="button" class="today-btn" id="weekToday">今期</button>
-    </div>
-
-    <div class="table-scroll" id="weekTableWrap">
-      <table class="week-table" id="weekTable"></table>
-    </div>
-
-    <p class="week-empty is-hidden" id="weekEmpty">
-      この店舗の週間掃除の項目は、まだ登録されていません。<br>
-      管理アプリから追加できます。
-    </p>
-
-    <!-- この2週間の達成状況（提出は日別ページで行います） -->
-    <div class="period-card" id="periodCard">
-      <div class="period-card__head">
-        <span class="period-card__title" id="periodTitle">この2週間 8/9〜8/22</span>
-        <span class="period-card__rate" id="periodRate">0%</span>
-      </div>
-      <div class="progress"><div class="progress__bar" id="periodBar"></div></div>
-      <p class="period-card__count" id="periodCount">0 / 0</p>
-      <p class="period-card__when" id="periodWhen"></p>
-    </div>
-
-    <button type="button" class="stores-report-btn" id="weekAllBtn">6店舗の達成状況を見る</button>
-
-    <div class="note-card" id="weekNoteCard">
-      <label class="note-card__label" for="weekNote">備考</label>
-      <textarea id="weekNote" class="note-card__input" rows="3"
-        placeholder="この2週間の気付き、次回への申し送りなど"></textarea>
-    </div>
-  </section>
-
-  <!-- ===== 全店舗の週間掃除 達成状況 ===== -->
-  <section class="view view--weekall is-hidden" id="viewWeekAll">
-    <div class="report-head">
-      <div class="report-head__row">
-        <h2 class="report-head__title">週間掃除 達成状況</h2>
-        <button type="button" class="btn" id="weekAllBack">戻る</button>
-      </div>
-      <div class="report-nav">
-        <button type="button" class="year-btn" id="weekAllPrev" aria-label="前の2週間">‹</button>
-        <span class="report-nav__date" id="weekAllRange">8/9（日）〜8/22（土）</span>
-        <button type="button" class="year-btn" id="weekAllNext" aria-label="次の2週間">›</button>
-        <button type="button" class="today-btn" id="weekAllToday">今期</button>
-      </div>
-      <p class="report-summary" id="weekAllSummary"></p>
-    </div>
-
-    <ul class="rate-list" id="weekAllList"></ul>
-  </section>
-
-  <!-- ===== 月間表ビュー ===== -->
-  <section class="view view--month is-hidden" id="viewMonth">
-    <div class="month-summary" id="monthSummary"></div>
-    <div class="table-scroll">
-      <table class="month-table" id="monthTable"></table>
-    </div>
-    <p class="legend">
-      <span class="legend__item"><i class="cell-mark cell-mark--ok">✓</i>完了</span>
-      <span class="legend__item"><i class="cell-mark cell-mark--ng">×</i>確認漏れ（前日まで）</span>
-      <span class="legend__item"><i class="cell-mark cell-mark--wait">未</i>本日の未実施</span>
-      <span class="legend__item"><i class="cell-mark cell-mark--none">–</i>対象外（未来日・運用開始前）</span>
-      <span class="legend__item"><i class="cell-mark cell-mark--closed">休</i>定休日（確認漏れに数えません）</span>
-      <span class="legend__item"><i class="legend__hatch"></i>その日は対象外の項目（肉の日POP、翌日が休みのランチメニューなど）</span>
-    </p>
-  </section>
-
+  <p class="hub__note">
+    ホーム画面に追加するのはこの画面だけでOKです。<br>
+    この画面に戻るには、アプリを終了してから開き直してください。<br>
+    現場スタッフには <b>T3 Works</b>（末尾に何も付かないURL）を渡してください。
+  </p>
+  <p class="hub__foot" id="hubFoot"></p>
 </main>
 
-<!-- ===== 日タブ（画面下に固定・スプレッドシートのシートタブ相当） ===== -->
-<nav class="day-tabs" id="dayTabs" aria-label="日付"></nav>
+<script>
+  // 公開用を作る.py が入れる「版の印」を出します（どの版が入っているかの確認用）
+  var meta = document.querySelector('meta[name="app-version"]');
+  document.getElementById('hubFoot').textContent = meta ? '版 ' + meta.content : '';
+</script>
 
-<!-- ===== 新しい版のお知らせ（公開版でのみ出ます） ===== -->
-<div class="update-bar is-hidden" id="updateBar" role="status">
-  <span class="update-bar__text">新しい版があります</span>
-  <button type="button" class="update-bar__btn">更新する</button>
-</div>
-
-<!-- ===== 週間掃除：やった人を選ぶ ===== -->
-<div class="modal is-hidden" id="doerModal">
-  <div class="modal__backdrop" data-doer-close></div>
-  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="doerTitle">
-    <h2 class="modal__title" id="doerTitle">やった人を選んでください</h2>
-    <p class="doer__item" id="doerItem"></p>
-    <p class="doer__week" id="doerWeek"></p>
-
-    <div class="doer-grid" id="doerGrid"></div>
-
-    <div class="modal__actions modal__actions--confirm">
-      <button type="button" class="btn" data-doer-close>キャンセル</button>
-      <button type="button" class="btn btn--danger is-hidden" id="doerClear">チェックを外す</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== 誤チェック防止の確認ダイアログ ===== -->
-<div class="modal is-hidden" id="confirmDialog">
-  <div class="modal__backdrop" data-confirm-cancel></div>
-  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-    <h2 class="modal__title" id="confirmTitle">確認</h2>
-    <p class="confirm__item" id="confirmItem"></p>
-    <p class="confirm__message" id="confirmMessage"></p>
-    <div class="modal__actions modal__actions--confirm">
-      <button type="button" class="btn" data-confirm-cancel>キャンセル</button>
-      <button type="button" class="btn btn--primary" id="confirmOk">はい</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== PIN入力（共有版のみ） ===== -->
-<div class="modal is-hidden" id="pinModal">
-  <div class="modal__backdrop"></div>
-  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
-    <h2 class="modal__title" id="pinTitle">合言葉（PIN）を入力してください</h2>
-    <p class="confirm__message">全店舗で共有しているデータを開くために必要です。<br>一度入力すれば、この端末では次回から不要です。</p>
-    <!-- 英字も入力できるよう、数字キーボード固定（inputmode="numeric"）は外してあります -->
-    <div class="pin-row">
-      <input type="password" id="pinInput" class="field__input" autocomplete="off"
-             autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="PIN">
-      <button type="button" class="pin-reveal" id="pinReveal" title="入力内容を表示">表示</button>
-    </div>
-    <p class="pin-error" id="pinError"></p>
-    <div class="modal__actions modal__actions--confirm">
-      <button type="button" class="btn btn--primary" id="pinOk">開く</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== 設定モーダル ===== -->
-<div class="modal is-hidden" id="modal">
-  <div class="modal__backdrop" data-close></div>
-  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <h2 class="modal__title" id="modalTitle">この端末の設定</h2>
-
-    <div class="field" id="syncField">
-      <span class="field__label">共有の状態</span>
-      <p class="sync-info" id="syncInfo"></p>
-      <div class="modal__actions">
-        <button type="button" class="btn" id="syncNow">今すぐ同期</button>
-        <button type="button" class="btn" id="pinChange">PINを入れ直す</button>
-      </div>
-    </div>
-
-    <!-- 管理アプリへのリンクは置きません。切り替えは「T3クローズ」の
-         最初の画面（切り替えアプリ）から行います -->
-    <p class="modal__note">
-      チェック項目・担当者・定休日は<strong>管理アプリ</strong>で設定します。<br>
-      変更すると、この端末にも自動で届きます。
-    </p>
-
-    <div class="modal__actions">
-      <button type="button" class="btn" data-close>閉じる</button>
-    </div>
-  </div>
-</div>
-
-<script src="../js/config.js?v=5ff73fe8"></script>
-<script src="../js/storage.js?v=ba5ece53"></script>
-<script src="../js/sync.js?v=8fa067ec"></script>
-<script src="../js/update.js?v=317fbca6"></script>
-<script src="../js/app.js?v=39931a43"></script>
 </body>
 </html>

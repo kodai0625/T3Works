@@ -172,16 +172,19 @@ body.no-daytabs .update-bar {
 }
 .settings-btn:active { background: rgba(255,255,255,.2); }
 
-/* 管理アプリへの切り替えボタン。
-   ふだんの現場アプリでは隠したままにし、専用版（owner/）でだけ出します */
-.owner-only { display: none; }
-body[data-mode="owner"] .owner-only { display: inline-flex; }
+/* T3 Works Manage への切り替えボタン。
+   スタッフが使う T3 Works では隠したままにし、
+   T3 Works Mine（mine/）でだけ出します */
+.mine-only { display: none; }
+body[data-mode="mine"] .mine-only { display: inline-flex; }
 /* ボタンが1つ増えるぶん、ヘッダーの間隔を詰めてアプリ名が切れないようにする */
-body[data-mode="owner"] .app-header__inner { gap: 8px; }
-body[data-mode="owner"] .header-actions { gap: 5px; }
+body[data-mode="mine"] .app-header__inner { gap: 8px; }
+body[data-mode="mine"] .header-actions { gap: 5px; }
 @media (max-width: 520px) {
-  body[data-mode="owner"] .settings-btn { padding: 6px 9px; }
-  body[data-mode="owner"] .owner-only { padding: 6px 10px; }
+  body[data-mode="mine"] .settings-btn { padding: 6px 9px; }
+  body[data-mode="mine"] .mine-only { padding: 6px 10px; }
+  /* 「T3 Works Mine」は長いので、狭い画面では提出記録もアイコンだけにする */
+  body[data-mode="mine"] .settings-btn--label > span + span { display: none; }
 }
 
 /* ---- 店舗タブ ---- */

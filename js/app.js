@@ -213,9 +213,13 @@ function renderStoreTabs() {
  *  画像が用意できていない店舗は、店舗カラーの丸印にそのまま戻します
  * ---------------------------------------------------------- */
 /* 画像の置き場所。
-   owner/ のように1つ下の階層に置いた版では、公開用を作る.py が
+   mine/ のように1つ下の階層に置いた版では、公開用を作る.py が
    body に data-assets="../" を付けるので、そのぶんだけ前に足します */
 const ASSET_BASE = document.body.dataset.assets || '';
+
+/* 画面に出すアプリ名。
+   管理者用（mine/）は「T3 Works Mine」、スタッフ用は「T3 Works」 */
+const APP_NAME = APP.title + (document.body.dataset.mode === 'mine' ? ' Mine' : '');
 
 function fillLogo(chip, store) {
   chip.innerHTML = '';
@@ -304,7 +308,7 @@ function renderDayTabs(scrollToActive = true) {
 }
 
 /* ============================================================
- *  描画：日別ビュー
+ *  描画：クローズ（閉店時の確認作業）
  * ============================================================ */
 function renderDayView() {
   const storeId = state.storeId;
@@ -379,7 +383,7 @@ function renderDayView() {
   /* --- 申し送り --- */
   el.note.value = rec.note || '';
 
-  /* --- 提出（日別と、2週間に1回の週間掃除） --- */
+  /* --- 提出（クローズと、2週間に1回の週間掃除） --- */
   renderSubmit(closed, showList, dateStr, rec, items, done);
   renderWeekSubmit(dateStr);
 
@@ -905,7 +909,7 @@ function refreshSubmitCard() {
  *  描画：週間掃除ビュー
  *
  *  縦が項目、横が週（日曜はじまり）。1週ずつ／2週まとめて を選べます。
- *  記録は「週」ごとに1つで、日別の記録とは別に持っています
+ *  記録は「週」ごとに1つで、クローズの記録とは別に持っています
  *  （キーは storeId/W2026-08-02 の形。config.js の weekRecKey）。
  *
  *  提出と達成率の単位は「2週間（期）」です。期の1週目の記録に
@@ -1131,7 +1135,7 @@ function renderPeriodCard(storeId, period) {
 
   el.periodCard.classList.toggle('is-submitted', submitted);
 
-  // 提出は日別ページで行うので、ここではいつ提出できるかだけ案内します
+  // 提出はクローズのページで行うので、ここではいつ提出できるかだけ案内します
   const last = periodEndOf(period);
   if (submitted) {
     const d = new Date(st.submittedAt);
@@ -1142,14 +1146,14 @@ function renderPeriodCard(storeId, period) {
   } else {
     const [, lm, ld] = last.split('-').map(Number);
     el.periodWhen.textContent = TODAY_STR > last
-      ? `未提出です（提出日は ${lm}/${ld} でした）。日別の ${lm}/${ld} から提出できます`
-      : `提出は最終日の ${lm}/${ld}（土）に、日別ページの提出ボタンの下に出ます`;
+      ? `未提出です（提出日は ${lm}/${ld} でした）。クローズの ${lm}/${ld} から提出できます`
+      : `提出は最終日の ${lm}/${ld}（土）に、クローズの提出ボタンの下に出ます`;
     el.periodWhen.classList.remove('is-done');
   }
 }
 
 /* ------------------------------------------------------------
- *  週間掃除の提出（日別ページの、提出ボタンの下）
+ *  週間掃除の提出（クローズのページの、提出ボタンの下）
  *
  *  2週間に1回でよいので、その2週間の最終日（2週目の土曜）を
  *  開いているときだけ出します。出し忘れたときのために、
@@ -1531,7 +1535,7 @@ function renderMonthView() {
  *  全体描画
  * ============================================================ */
 function render() {
-  el.appTitle.textContent = APP.title;
+  el.appTitle.textContent = APP_NAME;
   el.appCompany.textContent = APP.company;
 
   // 会社ロゴ（読めなければ枠ごと隠す）
@@ -1552,7 +1556,7 @@ function render() {
   if (isTasks) {
     const store = getStore(state.storeId);
     document.documentElement.style.setProperty('--store', store.color);
-    document.title = `${store.name}｜${APP.title}`;
+    document.title = `${store.name}｜${APP_NAME}`;
     el.storeTabs.classList.remove('is-hidden');
     el.storeHead.classList.add('is-hidden');
     el.dayTabs.classList.add('is-hidden');
@@ -1574,7 +1578,7 @@ function render() {
   /* ---- 店舗選択画面：店舗に属する部品はすべて隠す ---- */
   if (isStores) {
     document.documentElement.style.setProperty('--store', APP.accent || '#2b7fd4');
-    document.title = APP.title;
+    document.title = APP_NAME;
     el.storeTabs.classList.add('is-hidden');
     el.storeHead.classList.add('is-hidden');
     el.dayTabs.classList.add('is-hidden');
@@ -1599,7 +1603,7 @@ function render() {
 
   const store = getStore(state.storeId);
   document.documentElement.style.setProperty('--store', store.color);
-  document.title = `${store.name}｜${APP.title}`;
+  document.title = `${store.name}｜${APP_NAME}`;
   el.storeName.textContent = store.name;
   fillLogo(el.storeLogo, store);
 

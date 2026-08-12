@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="T3 Works">
+<meta name="apple-mobile-web-app-title" content="T3 Works Mine">
 <meta name="theme-color" content="#1c1f26">
 <!-- ホーム画面に追加したときのアイコン／ブラウザのタブのアイコン -->
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="img/works-icon-180.png?v=a0ee5b78">
-<link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
-<link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
-<title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=2570d8c0">
+<link rel="apple-touch-icon" href="../img/mine-icon-180.png?v=cbafcd5d">
+<link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
+<title>T3 Works Mine｜T3Dining株式会社</title>
+<link rel="stylesheet" href="../css/style.css?v=2570d8c0">
 <meta name="app-version" content="3805ec84">
 </head>
-<body>
+<body data-mode="mine" data-assets="../">
 
 <!-- ===== ヘッダー ===== -->
 <header class="app-header">
@@ -33,7 +33,7 @@
       <!-- T3 Works Manage への切り替え。
            スタッフが使う T3 Works では出ません。公開用を作る.py が作る
            mine/ 版（body に data-mode="mine" が付く）でだけ出ます -->
-      <a class="settings-btn mine-only" id="toManageBtn" href="manage/" title="T3 Works Manage に切り替える">
+      <a class="settings-btn mine-only" id="toManageBtn" href="../manage/" title="T3 Works Manage に切り替える">
         <span aria-hidden="true">⇄</span><span>Manage</span>
       </a>
       <!-- settings-btn--label ＝ スマホ幅でも文字を残す（アイコンだけでは分かりにくいため） -->
@@ -361,10 +361,10 @@
   </div>
 </div>
 
-<script src="js/config.js?v=2d8d8a95"></script>
-<script src="js/storage.js?v=ba5ece53"></script>
-<script src="js/sync.js?v=8fa067ec"></script>
-<script src="js/update.js?v=317fbca6"></script>
-<script src="js/app.js?v=376fd61b"></script>
+<script src="../js/config.js?v=2d8d8a95"></script>
+<script src="../js/storage.js?v=ba5ece53"></script>
+<script src="../js/sync.js?v=8fa067ec"></script>
+<script src="../js/update.js?v=317fbca6"></script>
+<script src="../js/app.js?v=376fd61b"></script>
 </body>
 </html>

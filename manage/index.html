@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="T3 Works Manage">
+<meta name="theme-color" content="#1b4f86">
+<link rel="manifest" href="manifest.json">
+<!-- 現場アプリと見分けが付くよう、青い「管理」のアイコンを使います -->
+<link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
+<title>T3 Works Manage｜T3Dining株式会社</title>
+<link rel="stylesheet" href="../css/style.css?v=2570d8c0">
+<link rel="stylesheet" href="css/admin.css?v=8eac491f">
+<meta name="app-version" content="3805ec84">
+</head>
+<body class="no-daytabs">
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <button type="button" class="app-title" id="homeBtn" title="店舗一覧に戻る">
+      <span class="logo-chip logo-chip--app"><img id="appLogo" alt="T3Dining"></span>
+      <span class="app-title__text">
+        <span class="app-title__main">T3 Works Manage</span>
+        <span class="app-title__sub">項目・担当者・定休日の設定</span>
+      </span>
+    </button>
+    <div class="header-actions">
+      <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ保存"></button>
+      <!-- 戻り先は T3 Works Mine（mine/）。
+           現場スタッフが使う T3 Works（../）ではありません -->
+      <a class="settings-btn settings-btn--label" href="../mine/">
+        <span aria-hidden="true">⇄</span><span>T3 Works</span>
+      </a>
+    </div>
+  </div>
+  <nav class="store-tabs" id="storeTabs" aria-label="店舗"></nav>
+</header>
+
+<main class="page page--admin">
+
+<!-- ===== 店舗選択（管理アプリを開いて最初の画面） ===== -->
+<section class="view view--stores is-hidden" id="viewStores">
+  <div class="stores-head">
+    <h1 class="stores-head__title">店舗を選んでください</h1>
+    <p class="stores-head__date">クローズ・週間掃除の項目と、定休日を設定します</p>
+  </div>
+  <ul class="store-grid" id="storeGrid"></ul>
+
+  <p class="admin-lead">
+    ここでの変更は、保存した時点で<b>全店舗の端末に配られます</b>。
+    現場のアプリからは変更できません。
+  </p>
+
+  <!-- ===== 担当者（全店舗で共通） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">担当者</h2>
+      <span class="admin-count" id="staffCount"></span>
+    </div>
+    <p class="admin-note">1行に1人。日付の下のプルダウンに、この順番で並びます。全店舗で共通です。</p>
+    <textarea id="staffInput" class="field__input field__input--area" rows="12"
+      placeholder="河上&#10;熊谷&#10;木村"></textarea>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveStaff">担当者を保存</button>
+      <span class="admin-saved is-hidden" id="staffSaved">保存しました</span>
+    </div>
+  </section>
+
+  <!-- ===== バックアップ ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">バックアップ</h2>
+    </div>
+    <p class="admin-note">記録をまとめてファイルに書き出します。取り込むと、いまの内容に上書きされます。</p>
+    <div class="admin-actions">
+      <button type="button" class="btn" id="exportBtn">書き出す</button>
+      <label class="btn">取り込む<input type="file" id="importFile" accept="application/json" hidden></label>
+    </div>
+  </section>
+</section>
+
+<!-- ===== 設定メニュー（店舗をえらんだあとの画面） ===== -->
+<section class="view is-hidden" id="viewMenu">
+  <div class="stores-head">
+    <h1 class="stores-head__title" id="menuTitle">店舗名</h1>
+    <p class="stores-head__date">設定する内容をえらんでください</p>
+  </div>
+  <ul class="task-grid" id="menuGrid"></ul>
+  <button type="button" class="stores-report-btn" id="menuBackBtn">← 店舗をえらび直す</button>
+</section>
+
+<!-- ===== いま開いている設定（タップでメニューに戻る） ===== -->
+<button type="button" class="task-bar is-hidden" id="pageBar">
+  <span class="task-bar__arrow" aria-hidden="true">‹</span>
+  <span class="task-bar__label">
+    <span class="task-bar__name" id="pageBarName">クローズ</span>
+    <span class="task-bar__hint">タップで設定をえらぶ</span>
+  </span>
+</button>
+
+<!-- ===== クローズ（閉店時の確認項目） ===== -->
+<section class="view is-hidden" id="viewItems">
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">クローズ ― <span id="itemsStoreName">店舗名</span></h2>
+      <span class="admin-count" id="itemsCount"></span>
+    </div>
+    <p class="admin-note">
+      項目を追加すると<b>今日から</b>チェックリストに出ます。過去の日には出ません。<br>
+      項目を削除すると<b>明日から</b>出なくなります。過去の記録はそのまま残ります。
+    </p>
+
+    <div id="checklistEditor"></div>
+
+    <button type="button" class="btn btn--wide" id="addSection">＋ 区分を追加</button>
+
+    <details class="admin-tool">
+      <summary>用意された内容を取り込む</summary>
+      <p class="admin-note">
+        項目の<b>名前・並び順・曜日の設定</b>を、あらかじめ用意してある内容に合わせます。<br>
+        この画面で<b>追加した項目は消えません</b>（各区分の最後に残ります）。削除した項目も復活しません。
+      </p>
+      <div class="admin-actions">
+        <button type="button" class="btn" id="importDefaults">この店舗に取り込む</button>
+        <button type="button" class="btn is-hidden" id="undoImport">取り込みを取り消す</button>
+      </div>
+      <p class="admin-note" id="importNote"></p>
+    </details>
+  </section>
+</section>
+
+<!-- ===== 週間掃除 ===== -->
+<section class="view is-hidden" id="viewWeekly">
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">週間掃除 ― <span id="weeklyStoreName">店舗名</span></h2>
+      <span class="admin-count" id="weeklyCount"></span>
+    </div>
+    <p class="admin-note">
+      毎日のチェックとは別に、<b>週に1回まわす掃除</b>です。現場アプリの「週間掃除」に、
+      縦が項目・横が週（日曜はじまり）の表で出ます。<br>
+      項目を追加すると<b>今週から</b>出ます。削除すると<b>来週から</b>出なくなり、過去の記録はそのまま残ります。
+    </p>
+
+    <div id="weeklyEditor"></div>
+  </section>
+</section>
+
+<!-- ===== 定休日 ===== -->
+<section class="view is-hidden" id="viewClosed">
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">定休日 ― <span id="closedStoreName">店舗名</span></h2>
+    </div>
+    <p class="admin-note">曜日をタップでON／OFF。定休日はチェック不要になり、確認漏れにも数えません。</p>
+    <div class="dow-toggles" id="dowToggles"></div>
+
+    <h3 class="admin-sub">臨時の休業・営業</h3>
+    <p class="admin-note">年末年始など。曜日の設定より優先されます。</p>
+    <div class="ex-add">
+      <input type="date" id="exFrom" class="ex-date" aria-label="開始日">
+      <span class="ex-tilde">〜</span>
+      <input type="date" id="exTo" class="ex-date" aria-label="終了日">
+      <select id="exKind" class="ex-kind">
+        <option value="closed">休業にする</option>
+        <option value="open">営業する</option>
+      </select>
+      <button type="button" class="btn" id="exAdd">追加</button>
+    </div>
+    <p class="ex-hint" id="exHint"></p>
+    <ul class="ex-list" id="exList"></ul>
+  </section>
+</section>
+
+</main>
+
+<!-- ===== 確認ダイアログ ===== -->
+<div class="modal is-hidden" id="confirmDialog">
+  <div class="modal__backdrop" data-confirm-cancel></div>
+  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 class="modal__title" id="confirmTitle">確認</h2>
+    <p class="confirm__item" id="confirmItem"></p>
+    <p class="confirm__message" id="confirmMessage"></p>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-confirm-cancel>キャンセル</button>
+      <button type="button" class="btn btn--primary" id="confirmOk">はい</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 休止期間 ===== -->
+<div class="modal is-hidden" id="pauseModal">
+  <div class="modal__backdrop" data-pause-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+    <h2 class="modal__title" id="pauseTitle">休止期間</h2>
+    <p class="pause__item" id="pauseItem"></p>
+    <p class="admin-note">
+      この期間はチェックリストに出ません。期間が過ぎれば<b>自動で戻ります</b>。<br>
+      長期休みでランチをやらない週など、一時的に外したいときに使ってください。
+    </p>
+
+    <div class="ex-add">
+      <input type="date" id="pauseFrom" class="ex-date" aria-label="開始日">
+      <span class="ex-tilde">〜</span>
+      <input type="date" id="pauseTo" class="ex-date" aria-label="終了日">
+      <button type="button" class="btn" id="pauseAdd">追加</button>
+    </div>
+    <p class="ex-hint" id="pauseHint"></p>
+    <ul class="ex-list" id="pauseList"></ul>
+
+    <div class="modal__actions">
+      <button type="button" class="btn btn--primary" data-pause-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 管理用PIN ===== -->
+<div class="modal is-hidden" id="pinModal">
+  <div class="modal__backdrop"></div>
+  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+    <h2 class="modal__title" id="pinTitle">管理用PINを入力してください</h2>
+    <p class="confirm__message">
+      現場アプリのPINとは別のものです。<br>
+      一度入力すれば、この端末では次回から不要です。
+    </p>
+    <div class="pin-row">
+      <input type="password" id="pinInput" class="field__input" autocomplete="off"
+             autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="管理用PIN">
+      <button type="button" class="pin-reveal" id="pinReveal" title="入力内容を表示">表示</button>
+    </div>
+    <p class="pin-error" id="pinError"></p>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn btn--primary" id="pinOk">開く</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 新しい版のお知らせ ===== -->
+<div class="update-bar is-hidden" id="updateBar" role="status">
+  <span class="update-bar__text">新しい版があります</span>
+  <button type="button" class="update-bar__btn">更新する</button>
+</div>
+
+<script src="../js/config.js?v=2d8d8a95"></script>
+<script src="../js/storage.js?v=ba5ece53"></script>
+<script src="../js/sync.js?v=8fa067ec"></script>
+<script src="../js/update.js?v=317fbca6"></script>
+<script src="js/admin.js?v=d89e7b66"></script>
+</body>
+</html>
