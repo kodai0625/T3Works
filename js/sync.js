@@ -237,7 +237,8 @@ function summaryFor(key) {
   const [storeId, dateStr] = key.split('/');
   const store = getStore(storeId);
   if (!store || !dateStr) return null;
-  // 週間掃除（storeId/W2026-08-02 など）は日別の提出記録には出しません
+  // 週間掃除（storeId/W2026-08-02）と随時掃除（storeId/ANYTIME）は
+  // 日別の提出記録シートには出しません（記録そのものは同じように同期されます）
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
 
   const [y, m, d] = dateStr.split('-').map(Number);

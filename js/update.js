@@ -56,6 +56,25 @@ const Updater = {
   },
 
   /**
+   * 設定の「今すぐ最新にする」
+   *
+   * 端末に残っている控えを全部捨ててから読み直します。
+   * 「画面が古いままな気がする」というときの最後の手段です。
+   * チェックの記録は別の場所にあるので消えません。
+   */
+  async force() {
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map((n) => caches.delete(n)));
+      }
+    } catch (e) {
+      /* 控えを消せなくても、下の読み直しは行います */
+    }
+    location.replace(location.pathname + '?t=' + Date.now() + location.hash);
+  },
+
+  /**
    * 4つのアプリが置いてある場所（…/T3Works/）を返す
    * mine / manage / owner は1つ下の階層にあるので、その分だけ戻ります
    */

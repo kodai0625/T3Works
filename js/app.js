@@ -58,11 +58,13 @@ const el = {
   periodSubmit: $('periodSubmit'), periodStaff: $('periodStaff'),
   periodSubmitBtn: $('periodSubmitBtn'), periodDone: $('periodDone'),
   periodDoneMeta: $('periodDoneMeta'),
+  anytimeBlock: $('anytimeBlock'), anytimeList: $('anytimeList'),
   viewWeekAll: $('viewWeekAll'), weekAllRange: $('weekAllRange'),
   weekAllSummary: $('weekAllSummary'), weekAllList: $('weekAllList'),
   doerModal: $('doerModal'), doerItem: $('doerItem'), doerWeek: $('doerWeek'),
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
   settingsBtn: $('settingsBtn'), modal: $('modal'),
+  fontSeg: $('fontSeg'), appVersionText: $('appVersionText'), forceUpdate: $('forceUpdate'),
   confirmDialog: $('confirmDialog'), confirmItem: $('confirmItem'),
   confirmMessage: $('confirmMessage'), confirmOk: $('confirmOk'),
 };
@@ -110,7 +112,7 @@ function readHash() {
 
   setDate(third);
   const task = getTask(second);
-  if (!task || (typeof task.when === 'function' && !task.when())) {
+  if (!task || (typeof task.when === 'function' && !task.when(state.storeId))) {
     // 業務が指定されていない／使えない業務なら、業務をえらぶ画面
     state.view = 'tasks';
     return;
@@ -565,6 +567,17 @@ function taskStatus(taskId, storeId) {
     return { text: `${st.rate}%　提出 ${lm}/${ld}`, kind: 'todo' };
   }
 
+  if (taskId === 'anytime') {
+    const items = getAnytime(storeId);
+    if (!items.length) return { text: '項目なし', kind: 'none' };
+    // 期限が無い掃除なので、達成率ではなく「まだ一度も記録が無い数」を出します
+    const rec = Store.getDay(storeId, ANYTIME_KEY);
+    const never = items.filter((it) => !rec.items?.[it.id]?.at).length;
+    return never
+      ? { text: `${items.length}件　未記録 ${never}`, kind: 'todo' }
+      : { text: `${items.length}件`, kind: 'none' };
+  }
+
   if (taskId === 'month') {
     return { text: `${TODAY.m}月の一覧`, kind: 'none' };
   }
@@ -579,7 +592,7 @@ function renderTaskPicker() {
   el.tasksDate.textContent = `${TODAY.m}月${TODAY.d}日（${DOW[dow]}）　業務をえらんでください`;
 
   el.taskGrid.innerHTML = '';
-  taskList().forEach((task) => {
+  taskList(store.id).forEach((task) => {
     const st = taskStatus(task.id, store.id);
 
     const li = document.createElement('li');
@@ -1033,6 +1046,9 @@ function renderWeekView() {
 
   /* ---- 備考（期ごと） ---- */
   el.weekNote.value = Store.getDay(storeId, weekRecKey(period)).note || '';
+
+  /* ---- 随時掃除（上の表とは別物。達成率には入れません） ---- */
+  renderAnytimeBlock();
 }
 
 /** 表のマス1つ。押すと「やった人」を選ぶ画面が出ます */
@@ -1362,7 +1378,7 @@ function renderWeekAll() {
 let doerTarget = null; // { item, week }
 
 function openDoerModal(item, week) {
-  doerTarget = { item, week };
+  doerTarget = { kind: 'week', item, week };
   el.doerItem.textContent = item.label;
   el.doerWeek.textContent = isBiweekly(item)
     ? `${periodRangeLabel(periodStartOf(week))} のうち1回`
@@ -1372,6 +1388,31 @@ function openDoerModal(item, week) {
   const done = !!cur?.done;
   el.doerClear.classList.toggle('is-hidden', !done);
 
+  fillDoerNames(done, cur);
+  el.doerModal.classList.remove('is-hidden');
+}
+
+/**
+ * 随時掃除の「やった人」を選ぶ画面
+ * 週の指定がないので、押した日がそのまま「最後にやった日」になります
+ */
+function openAnytimeDoer(item) {
+  doerTarget = { kind: 'anytime', item, week: null };
+  el.doerItem.textContent = item.label;
+
+  const cur = Store.getDay(state.storeId, ANYTIME_KEY).items?.[item.id];
+  const done = !!cur?.at;
+  el.doerWeek.textContent = done
+    ? `最後にやったのは ${shortDate(cur.at)}（${cur.by || '担当者なし'}）`
+    : 'まだ記録がありません';
+  el.doerClear.classList.toggle('is-hidden', !done);
+
+  fillDoerNames(done, cur);
+  el.doerModal.classList.remove('is-hidden');
+}
+
+/** 担当者のボタンを並べる（週間掃除・随時掃除で共通） */
+function fillDoerNames(done, cur) {
   const names = Staff.list();
   el.doerGrid.innerHTML = '';
   if (!names.length) {
@@ -1385,8 +1426,6 @@ function openDoerModal(item, week) {
     b.addEventListener('click', () => pickDoer(name));
     el.doerGrid.appendChild(b);
   });
-
-  el.doerModal.classList.remove('is-hidden');
 }
 
 function closeDoerModal() {
@@ -1394,22 +1433,114 @@ function closeDoerModal() {
   el.doerModal.classList.add('is-hidden');
 }
 
-function pickDoer(name) {
-  if (!doerTarget) return;
-  const { item, week } = doerTarget;
-  Store.setItem(state.storeId, weekRecKey(week), item.id, { done: true, by: name });
-  closeDoerModal();
+/** 記録の入れ先。随時掃除は日付ではなく1つのまとまりに入れます */
+function doerKey(target) {
+  return target.kind === 'anytime' ? ANYTIME_KEY : weekRecKey(target.week);
+}
+
+function doerRedraw() {
+  // 随時掃除も週間掃除ページの中にあるので、まとめて描き直します
   renderWeekView();
   renderSyncStatus();
 }
 
+function pickDoer(name) {
+  if (!doerTarget) return;
+  const target = doerTarget;
+  Store.setItem(state.storeId, doerKey(target), target.item.id, { done: true, by: name });
+  closeDoerModal();
+  doerRedraw();
+}
+
 function clearDoer() {
   if (!doerTarget) return;
-  const { item, week } = doerTarget;
-  Store.setItem(state.storeId, weekRecKey(week), item.id, { done: false, by: '' });
+  const target = doerTarget;
+  Store.setItem(state.storeId, doerKey(target), target.item.id, { done: false, by: '' });
   closeDoerModal();
-  renderWeekView();
-  renderSyncStatus();
+  doerRedraw();
+}
+
+/* ============================================================
+ *  描画：随時掃除ビュー（決まった間隔がない掃除）
+ *
+ *  期限が無いので、できた・できないの判定はしません。
+ *  「最後にやった日」と「そこから何日たったか」だけを見せます。
+ * ============================================================ */
+/** 日付（ISO）から今日までの日数。今日なら 0 */
+function daysAgo(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  const a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const b = new Date(TODAY.y, TODAY.m - 1, TODAY.d);
+  return Math.round((b - a) / 86400000);
+}
+
+/** 「今日」「昨日」「12日前」のような言い方にする */
+function agoLabel(n) {
+  if (n === null) return '';
+  if (n <= 0) return '今日';
+  if (n === 1) return '昨日';
+  return `${n}日前`;
+}
+
+function renderAnytimeBlock() {
+  const storeId = state.storeId;
+  const items = getAnytime(storeId);
+  // 項目が無い店舗では、この かたまり ごと出しません
+  el.anytimeBlock.classList.toggle('is-hidden', items.length === 0);
+  if (!items.length) return;
+
+  const rec = Store.getDay(storeId, ANYTIME_KEY);
+  const groups = groupWeekly(items); // 見出しは週間掃除と同じ分け方
+
+  el.anytimeList.innerHTML = '';
+  groups.forEach((g) => {
+    if (groups.length > 1) {
+      const head = document.createElement('li');
+      head.className = 'anytime-group';
+      head.innerHTML = `<span class="week-group__label">${g.name}</span>`;
+      el.anytimeList.appendChild(head);
+    }
+
+    g.items.forEach((item) => {
+      const cur = rec.items?.[item.id];
+      const n = daysAgo(cur?.at);
+
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'anytime-row' + (n === null ? ' is-never' : '');
+
+      const main = document.createElement('span');
+      main.className = 'anytime-row__main';
+      const name = document.createElement('span');
+      name.className = 'anytime-row__name';
+      name.textContent = item.label;
+      main.appendChild(name);
+      if (item.note) {
+        const note = document.createElement('span');
+        note.className = 'anytime-row__note';
+        note.textContent = item.note;
+        main.appendChild(note);
+      }
+
+      const last = document.createElement('span');
+      last.className = 'anytime-row__last';
+      if (n === null) {
+        last.innerHTML = '<span class="anytime-row__ago">まだ記録なし</span>';
+      } else {
+        last.innerHTML =
+          `<span class="anytime-row__ago">${agoLabel(n)}</span>` +
+          `<span class="anytime-row__date">${shortDate(cur.at)}${cur.by ? '　' + cur.by : ''}</span>`;
+      }
+
+      b.append(main, last);
+      b.addEventListener('click', () => openAnytimeDoer(item));
+      li.appendChild(b);
+      el.anytimeList.appendChild(li);
+    });
+  });
 }
 
 /* ============================================================
@@ -1769,10 +1900,50 @@ async function submitPin() {
 }
 
 /* ============================================================
+ *  文字の大きさ（この端末だけの設定）
+ *
+ *  画面ぜんぶを拡大すると、貼り付いた見出しや日タブの位置がずれるので、
+ *  body に is-big を付けて「読むところの文字」だけを大きくします
+ *  （どこを大きくするかは css/style.css の body.is-big を見てください）。
+ * ============================================================ */
+const FONT_KEY = APP.storageKey + ':fontSize';
+
+function fontSize() {
+  try {
+    return localStorage.getItem(FONT_KEY) === 'big' ? 'big' : 'normal';
+  } catch (e) {
+    return 'normal';
+  }
+}
+
+function applyFontSize() {
+  document.body.classList.toggle('is-big', fontSize() === 'big');
+}
+
+function setFontSize(size) {
+  try { localStorage.setItem(FONT_KEY, size); } catch (e) { /* 保存できなくても見た目は変わります */ }
+  applyFontSize();
+  renderFontSeg();
+}
+
+function renderFontSeg() {
+  const now = fontSize();
+  [...el.fontSeg.querySelectorAll('.seg__btn')].forEach((b) => {
+    b.classList.toggle('is-on', b.dataset.size === now);
+  });
+}
+
+/* ============================================================
  *  設定モーダル
  * ============================================================ */
 function openModal() {
   renderSyncStatus();
+  renderFontSeg();
+  // 版の番号。困ったときに「この番号を教えて」と聞くためのものです
+  const v = Updater.current();
+  el.appVersionText.innerHTML = v
+    ? `いま入っているのは <b>${v}</b> です。`
+    : '（手元で開いているため、版の番号はありません）';
   el.modal.classList.remove('is-hidden');
   // スマホでいきなりキーボードが出ないよう、自動フォーカスはしない
 }
@@ -1927,6 +2098,19 @@ function bindEvents() {
 
   /* 設定（この端末の設定のみ。項目・担当者・定休日は管理アプリで） */
   el.settingsBtn.addEventListener('click', () => openModal());
+
+  // 文字の大きさ（標準／大きく）
+  el.fontSeg.addEventListener('click', (e) => {
+    const btn = e.target.closest('.seg__btn');
+    if (btn) setFontSize(btn.dataset.size);
+  });
+
+  // 「今すぐ最新にする」…控えを捨てて読み直します
+  el.forceUpdate.addEventListener('click', () => {
+    el.forceUpdate.disabled = true;
+    el.forceUpdate.textContent = '読み直しています…';
+    Updater.force();
+  });
   el.modal.querySelectorAll('[data-close]').forEach((n) => n.addEventListener('click', closeModal));
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -1947,6 +2131,7 @@ function bindEvents() {
  *  起動
  * ============================================================ */
 function init() {
+  applyFontSize();
   readHash();
   writeHash(true);
   bindEvents();

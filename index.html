@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=48523ee3">
-<meta name="app-version" content="83f63fa9">
+<link rel="stylesheet" href="css/style.css?v=5f728318">
+<meta name="app-version" content="f2dd86c4">
 </head>
 <body>
 
@@ -240,6 +240,21 @@
       <textarea id="weekNote" class="note-card__input" rows="3"
         placeholder="この2週間の気付き、次回への申し送りなど"></textarea>
     </div>
+
+    <!-- ===== 随時掃除（決まった間隔がない掃除） =====
+         上の表とは別物です。いつやると決まっていないので、
+         達成率にも提出にも入れません。最後にやった日だけを残します -->
+    <section class="anytime-block is-hidden" id="anytimeBlock">
+      <div class="anytime-block__head">
+        <h2 class="anytime-block__title"><span aria-hidden="true">🧽</span>随時掃除</h2>
+        <span class="anytime-block__tag">達成率に入りません</span>
+      </div>
+      <p class="anytime-lead">
+        いつやると決まっていない掃除です。<b>やったら押して</b>ください。
+        最後にやった日が残るので、次にやる目安になります。
+      </p>
+      <ul class="anytime-list" id="anytimeList"></ul>
+    </section>
   </section>
 
   <!-- ===== 全店舗の週間掃除 達成状況 ===== -->
@@ -353,12 +368,28 @@
       </div>
     </div>
 
-    <!-- T3 Works Manage へのリンクは置きません。
+    <!-- ここに T3 Works Manage の案内は置きません。
+         現場スタッフには関係のない話で、かえって迷わせるためです。
          切り替えは T3 Owner（入口）から行います -->
-    <p class="modal__note">
-      チェック項目・担当者・定休日は<strong>T3 Works Manage</strong>で設定します。<br>
-      変更すると、この端末にも自動で届きます。
-    </p>
+
+    <!-- 文字の大きさ（この端末だけ。人によって変えられます） -->
+    <div class="field">
+      <span class="field__label">文字の大きさ</span>
+      <div class="seg" id="fontSeg">
+        <button type="button" class="seg__btn" data-size="normal">標準</button>
+        <button type="button" class="seg__btn" data-size="big">大きく</button>
+      </div>
+    </div>
+
+    <!-- 版の番号と、強制的に読み直すボタン。
+         「画面が古いまま」というときの切り分けに使います -->
+    <div class="field">
+      <span class="field__label">アプリの版</span>
+      <p class="app-version" id="appVersionText"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="forceUpdate">今すぐ最新にする</button>
+      </div>
+    </div>
 
     <div class="modal__actions">
       <button type="button" class="btn" data-close>閉じる</button>
@@ -366,10 +397,10 @@
   </div>
 </div>
 
-<script src="js/config.js?v=fb968cee"></script>
+<script src="js/config.js?v=640fabea"></script>
 <script src="js/storage.js?v=ba5ece53"></script>
-<script src="js/sync.js?v=84cc3d2f"></script>
-<script src="js/update.js?v=3a5cc81e"></script>
-<script src="js/app.js?v=c3d062dd"></script>
+<script src="js/sync.js?v=f4816346"></script>
+<script src="js/update.js?v=131cebaa"></script>
+<script src="js/app.js?v=163fad87"></script>
 </body>
 </html>

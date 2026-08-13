@@ -623,7 +623,7 @@ const CHECKLIST_OVERRIDES = {
 
 /* 見出しの並び順。ここに書いた順に上から出ます。
    場所を増やしたくなったら、この行に足してください */
-const WEEKLY_GROUPS = ['ホール', 'キッチン', 'トイレ'];
+const WEEKLY_GROUPS = ['ホール', 'キッチン', 'トイレ', '外'];
 
 /* 見出しの決まっていない項目のいき先 */
 const WEEKLY_GROUP_OTHER = 'その他';
@@ -681,6 +681,7 @@ const WEEKLY_OVERRIDES = {
     { id: 'bg-fridge-low',   label: '全冷蔵庫下段拭き掃除',         group: 'キッチン' },
     { id: 'bg-stocker',      label: 'ストッカー霜取り',             group: 'キッチン' },
     { id: 'bg-drink-sash',   label: 'ドリンク冷蔵庫サッシ',         group: 'キッチン' },
+    { id: 'bg-inside',       label: '庫内清掃',                     group: 'キッチン' },
     { id: 'bg-gutter',       label: '溝掃除',                       group: 'キッチン' },
     { id: 'bg-chawan',       label: '茶碗棚タオル',                 group: 'キッチン', every: 'biweek' },
     { id: 'bg-mixer',        label: '肉ミキサー周り',               group: 'キッチン' },
@@ -698,7 +699,118 @@ const WEEKLY_OVERRIDES = {
     { id: 'bg-case-tray',    label: 'ショーケース受け皿×2',         group: 'キッチン' },
   ],
 
+  /* ---- popo ----
+     お店の掃除表から写したものです。表の順どおり。
+     掃除表で「月1回」だったものは、2週に1回として入れています。
+     決まった間隔がないもの（暇なとき・汚くなったら）は、この表ではなく
+     ANYTIME_OVERRIDES の「随時掃除」に入れています。
+     ※「トイレの洗面所水垢取り」は、掃除表でホールの欄にあるので
+        ここでもホールに入れてあります */
+  popo: [
+    { id: 'pp-sash',         label: '窓サッシ',                 group: 'ホール',   every: 'biweek' },
+    { id: 'pp-chair',        label: '椅子の足裏',               group: 'ホール',   every: 'biweek' },
+    { id: 'pp-light',        label: 'ライト周り',               group: 'ホール',   every: 'biweek' },
+    { id: 'pp-dishup',       label: 'デシャップ周り',           group: 'ホール' },
+    { id: 'pp-towel',        label: '食器タオル交換',           group: 'ホール',   every: 'biweek' },
+    { id: 'pp-toilet-basin', label: 'トイレの洗面所水垢取り',   group: 'ホール' },
+    { id: 'pp-ac',           label: 'エアコンフィルター',       group: 'ホール',   every: 'biweek' },
+    { id: 'pp-register',     label: 'レジ周り',                 group: 'ホール' },
+    { id: 'pp-vacuum10',     label: '10卓後ろの掃除機がけ',     group: 'ホール' },
+    { id: 'pp-station',      label: 'ステーション掃除',         group: 'ホール' },
+    { id: 'pp-locker',       label: '更衣室冷蔵庫掃除',         group: 'ホール' },
+
+    { id: 'pp-soft',         label: 'ソフトマシン洗浄',         group: 'キッチン' },
+    { id: 'pp-shelf',        label: '棚掃除（皿どかして）',     group: 'キッチン', every: 'biweek' },
+
+    /* フィルター類。もとは「スチコンフィルター」「サーバー・冷蔵庫フィルター」の
+       2つでしたが、どれをやったか分かるように1台ずつに分けました。
+       頻度・場所は分ける前と同じ（2週に1回・キッチン）です */
+    { id: 'pp-f-fridge4',    label: '四面冷蔵庫フィルター',     group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-server',     label: 'サーバーフィルター',       group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-drink',      label: 'ドリンク冷蔵庫フィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-ice',        label: '製氷機フィルター',         group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-rice',       label: '炊飯器横冷蔵庫フィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-steamside',  label: 'スチコン横冷蔵庫フィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-patty',      label: 'パティ冷凍庫フィルター',   group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-steam',      label: 'スチコンフィルター',       group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-fryer',      label: 'フライヤー横冷凍庫フィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-griddle',    label: 'パンケーキグリドル下冷蔵庫フィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-soft',       label: 'ソフトクリームメーカーフィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-dishup',     label: 'デシャップ冷蔵庫フィルター', group: 'キッチン', every: 'biweek' },
+    { id: 'pp-f-water',      label: 'ウォーターサーバーのフィルター', group: 'キッチン', every: 'biweek' },
+
+    { id: 'pp-rice',         label: '炊飯器周り',               group: 'キッチン' },
+    { id: 'pp-stocker',      label: 'ストッカー霜取り',         group: 'キッチン', every: 'biweek' },
+    { id: 'pp-case-sash',    label: 'ショーケース冷蔵庫サッシ', group: 'キッチン' },
+    { id: 'pp-gutter',       label: '溝掃除',                   group: 'キッチン' },
+    { id: 'pp-washer',       label: '洗浄機周り',               group: 'キッチン', every: 'biweek' },
+
+    { id: 'pp-smoke',        label: '上の煙感知器綺麗にする',   group: '外',       every: 'biweek' },
+  ],
+
 };
+
+/* ------------------------------------------------------------
+ *  4-2) 随時掃除（決まった間隔がない掃除）
+ *
+ *  「暇なとき」「汚くなったら」のように、いつやると決まっていない掃除です。
+ *  期限が無いので達成率は出さず、代わりに **最後にやった日** を残します。
+ *
+ *    id    : 英数字で固定（★変えると過去の記録が消えて見えます★）
+ *    label : 画面に出る項目名
+ *    group : 見出し（WEEKLY_GROUPS と同じ並び）
+ *    note  : 掃除表に書いてあった目安（「暇なとき」など）。省略可
+ * ---------------------------------------------------------- */
+const ANYTIME_DEFAULT = [];
+
+const ANYTIME_OVERRIDES = {
+
+  /* ---- バグる ---- */
+  baguru: [
+    { id: 'bg-a-f-ac',    label: 'F卓エアコンフィルター', group: 'ホール',   note: '夏前' },
+    // 目安（頻度）の指定がないので note なし。決まったら足せます
+    { id: 'bg-a-entrance', label: '入口床黒ずみ掃除',    group: 'ホール' },
+
+    { id: 'bg-a-sink',    label: 'シンク下',         group: 'キッチン', note: '暇なとき' },
+    { id: 'bg-a-fryer',   label: 'フライヤー作業台下', group: 'キッチン', note: '暇なとき' },
+    { id: 'bg-a-washer',  label: '洗浄機周り',       group: 'キッチン', note: '汚くなったら' },
+    { id: 'bg-a-server',  label: 'サーバー周り',     group: 'キッチン', note: '汚くなったら' },
+    { id: 'bg-a-griddle', label: 'グリドル下',       group: 'キッチン', note: '暇なとき' },
+    { id: 'bg-a-griddle-sink', label: 'グリドルシンク下', group: 'キッチン', note: '暇なとき' },
+
+    { id: 'bg-a-toilet-ac', label: 'トイレエアコンフィルター', group: 'トイレ', note: '夏前' },
+  ],
+
+  /* ---- popo ---- */
+  popo: [
+    { id: 'pp-a-floor',   label: '床の黒ずみ・机の溝掃除', group: 'ホール',   note: '暇なとき' },
+    { id: 'pp-a-machine', label: 'サーバー・ソフト・コーヒーマシン下', group: 'キッチン', note: '暇なとき' },
+    { id: 'pp-a-griddle', label: 'パンケーキグリドル削り', group: 'キッチン', note: '汚くなったら' },
+    { id: 'pp-a-fryer',   label: 'フライヤー周りの油汚れ掃除', group: 'キッチン', note: '暇なとき' },
+    { id: 'pp-a-fridge4', label: '4面冷蔵庫庫内清掃', group: 'キッチン', note: '暇なとき' },
+    { id: 'pp-a-sink',    label: 'シンク下',         group: 'キッチン', note: '暇な時' },
+    { id: 'pp-a-mogura',  label: 'もぐら',           group: 'キッチン', note: '暇なとき' },
+    { id: 'pp-a-floor-t', label: 'トイレ床',         group: 'トイレ',   note: '汚くなったら' },
+  ],
+
+};
+
+/** 店舗の随時掃除の項目（初期値） */
+function defaultAnytime(storeId) {
+  return ANYTIME_OVERRIDES[storeId] || ANYTIME_DEFAULT;
+}
+
+/**
+ * 店舗の随時掃除の項目
+ * いまは config.js だけを見ています（管理アプリでの編集はまだありません）。
+ * 編集できるようにするときは、getWeekly と同じ形でここに足します。
+ */
+function getAnytime(storeId) {
+  return defaultAnytime(storeId);
+}
+
+/** 随時掃除の記録は、日付ではなく1つのまとまりに入れます（storeId/ANYTIME） */
+const ANYTIME_KEY = 'ANYTIME';
 
 /* ------------------------------------------------------------
  *  5) 業務の一覧（★ページを増やす場所★）
@@ -717,13 +829,14 @@ const WEEKLY_OVERRIDES = {
  * ---------------------------------------------------------- */
 const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
+  // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します
   { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
   { id: 'month', name: '月間表',   sub: '1か月の一覧',               icon: '📅', when: () => APP.showMonthView !== false },
 ];
 
-/** いま使える業務だけ */
-function taskList() {
-  return TASKS.filter((t) => typeof t.when !== 'function' || t.when());
+/** いま使える業務だけ（店舗によって出る・出ないが変わるものがあります） */
+function taskList(storeId) {
+  return TASKS.filter((t) => typeof t.when !== 'function' || t.when(storeId));
 }
 
 /** id から業務を引く */
