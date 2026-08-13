@@ -12,8 +12,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/drive-icon-512.png?v=7c78116c">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/drive-icon-64.png?v=7088d4ae">
 <title>配達記録｜バグる</title>
-<link rel="stylesheet" href="../css/style.css?v=1e12b364">
-<meta name="app-version" content="2931f8da">
+<link rel="stylesheet" href="../css/style.css?v=51eed3c9">
+<meta name="app-version" content="3888be42">
 </head>
 <body class="no-daytabs app-drive" data-assets="../">
 
@@ -41,8 +41,12 @@
   </div>
 </header>
 
-<main class="page">
+<!-- iPadの横画面では、左に「まとめと入力」、右に「1回ずつの記録」を並べます。
+     1列のまま横に伸ばすと、名前と数字のあいだが間延びして読みにくいためです。
+     スマホ幅では上下に並ぶだけで、見え方は今までと変わりません -->
+<main class="page drive-page">
 
+ <div class="drive-col">
   <!-- ===== その月のまとめ（この画面の主役） ===== -->
   <section class="drive-hero">
     <div class="drive-hero__nav">
@@ -60,17 +64,24 @@
 
     <!-- flex の子は必ず span でくくること。
          地の文と <b> を並べると、それぞれが別の箱になって変な折り返しになります -->
-    <p class="drive-hero__rule">
-      <span class="drive-hero__badge">片道</span>
-      <span>入れるのは<b>片道だけ</b>。往復分は自動で2倍にします</span>
-    </p>
+    <div class="drive-hero__rules">
+      <p class="drive-hero__rule">
+        <span class="drive-hero__badge">1か所</span>
+        <span><b>片道だけ</b>入れれば、往復分は自動で2倍になります</span>
+      </p>
+      <p class="drive-hero__rule">
+        <span class="drive-hero__badge drive-hero__badge--multi">何か所か</span>
+        <span><b>＋ 経由地を追加</b>を押すと、バグる→1か所目→2か所目→バグる と
+        <b>区間ごと</b>に入れる形に変わります（2倍にしません）</span>
+      </p>
+    </div>
   </section>
 
   <!-- いちばん使うボタンなので、表より上に置いています -->
   <button type="button" class="drive-add" id="driveAddBtn">
     <span class="drive-add__icon" aria-hidden="true">🛵</span>
     <span class="drive-add__text">
-      <span class="drive-add__main">片道の距離を入れる</span>
+      <span class="drive-add__main">走った距離を入れる</span>
       <span class="drive-add__sub">配達に行ったら、その都度ここから</span>
     </span>
     <span class="drive-add__plus" aria-hidden="true">＋</span>
@@ -88,6 +99,9 @@
     </table>
   </div>
 
+ </div>
+
+ <div class="drive-col">
   <h2 class="drive-sub is-hidden" id="driveListHead"><span aria-hidden="true">🧾</span>1回ずつの記録</h2>
   <div id="driveList"></div>
 
@@ -96,6 +110,7 @@
     （5kmごとに100円・100円未満は切り上げ）。<br>
     名前の追加・削除は <b>T3 Works Manage</b>（バグる → 交通費）で行います。
   </p>
+ </div>
 </main>
 
 <!-- ===== 新しい版のお知らせ ===== -->
@@ -108,7 +123,7 @@
 <div class="modal is-hidden" id="driveModal">
   <div class="modal__backdrop" data-close-drive></div>
   <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="driveFormTitle">
-    <h2 class="modal__title" id="driveFormTitle">片道の距離を入れる</h2>
+    <h2 class="modal__title" id="driveFormTitle">走った距離を入れる</h2>
 
     <div class="field">
       <label class="field__label" for="drvDate">走った日</label>
@@ -126,27 +141,22 @@
       <!-- 往復で入れてしまう間違いがいちばん起きやすいので、ここで念を押します -->
       <p class="drive-callout">
         <span class="drive-callout__mark" aria-hidden="true">🏠→📍</span>
-        <span><b>1か所だけ</b>なら、お店から配達先までの<b>片道</b>を入れてください。<br>
-        帰り分は足さなくて大丈夫です（<b>⇄往復</b>のまま。アプリが2倍にします）</span>
-      </p>
-      <p class="drive-callout drive-callout--multi">
-        <span class="drive-callout__mark" aria-hidden="true">🏠→📍→📍</span>
-        <span><b>何か所か回った</b>ときは、その行の <b>⇄往復</b> を押して
-        <b>→そのまま</b> に変えて、<b>実際に走った距離</b>を入れてください（2倍にしません）
+        <span><b>1か所だけ</b>なら、お店から配達先までの<b>片道</b>を入れるだけ。<br>
+        帰り分は足さなくて大丈夫です（アプリが2倍にします）
         <span class="drive-callout__eg">
-          例）バグる → Aさん → Bさん → バグる と回って <b>15.4km</b> 走った<br>
-          → <b>15.4</b> と入れて <b>→そのまま</b>。1回ぶんの記録になります<br>
-          <span class="drive-callout__ng">✗ AとBを別々に片道で入れると、通っていない道が2回分入ります</span>
+          <b>何か所か回ったとき</b>は「<b>＋ 経由地を追加</b>」を押してください。<br>
+          地図アプリと同じように <b>バグる → 1か所目 → 2か所目 → バグる</b> とつながり、
+          <b>区間ごと</b>に距離を入れる形に変わります（2倍にしません）
         </span></span>
       </p>
       <div class="drive-legs" id="drvLegs"></div>
       <button type="button" class="drive-legs__add" id="drvAddLeg">＋ もう1回分入れる</button>
-      <p class="drive-hint" id="drvHint">1回目の距離を入れてください</p>
-      <!-- 2件以上ぜんぶ「往復」のときだけ出ます（切り替え忘れの疑い） -->
+      <p class="drive-hint" id="drvHint">走った距離を入れてください</p>
+      <!-- 2回以上あって、どれにも経由地が無いときだけ出ます -->
       <p class="drive-warn is-hidden" id="drvWarn">
         <span aria-hidden="true">⚠️</span>
-        <span>ぜんぶ <b>⇄往復</b>（2倍）になっています。<br>
-        <b>1回の配達でまとめて回った</b>のなら、<b>→そのまま</b> に変えてください</span>
+        <span>どれも<b>経由地なし（往復）</b>になっています。<br>
+        <b>1回でまとめて回った</b>のなら、「<b>＋ 経由地を追加</b>」でつないでください</span>
       </p>
     </div>
 
@@ -230,8 +240,8 @@
 <script src="../js/config.js?v=93506d2d"></script>
 <script src="../js/storage.js?v=c163d4c1"></script>
 <script src="../js/sync.js?v=a633c4c7"></script>
-<script src="../js/update.js?v=da1d6bfe"></script>
-<script src="js/drive.js?v=11f0928b"></script>
+<script src="../js/update.js?v=bf53b433"></script>
+<script src="js/drive.js?v=b79a23bf"></script>
 
 </body>
 </html>

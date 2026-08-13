@@ -49,10 +49,25 @@ const Updater = {
     document.body.classList.add('has-update');
   },
 
-  /** 読み込み直す。URLに印を付けて、古いページが使われないようにする */
+  /**
+   * 読み込み直す。URLに印を付けて、古いページが使われないようにする
+   *
+   * ★もとのURLに付いていた ?from=mine などは残します。
+   *   捨ててしまうと、読み直したあとに画面が変わってしまいます
+   *   （配達記録の「ホームに戻る」が消える、など）
+   */
   apply() {
-    const url = location.pathname + '?v=' + encodeURIComponent(this._found) + location.hash;
-    location.replace(url);
+    location.replace(this.reloadUrl('v', this._found));
+  },
+
+  /** いまのURLに印を足したものを返す（もとの ?付き の内容は残す） */
+  reloadUrl(name, value) {
+    const params = new URLSearchParams(location.search);
+    params.set(name, value);
+    // 前回の印は残しておく必要がないので消します
+    if (name === 'v') params.delete('t');
+    if (name === 't') params.delete('v');
+    return location.pathname + '?' + params.toString() + location.hash;
   },
 
   /**
@@ -71,7 +86,7 @@ const Updater = {
     } catch (e) {
       /* 控えを消せなくても、下の読み直しは行います */
     }
-    location.replace(location.pathname + '?t=' + Date.now() + location.hash);
+    location.replace(this.reloadUrl('t', Date.now()));
   },
 
   /**

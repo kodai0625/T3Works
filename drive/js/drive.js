@@ -204,13 +204,13 @@ function render() {
       const li = document.createElement('li');
       li.className = 'exp-row';
       const [, m, d] = (g.d || '').split('-');
-      // 2倍にしていない記録が混ざっている日は、あとから見て分かるように印を出します
+      // 経由地でつないだ記録が混ざっている日は、あとから見て分かるように印を出します
       const plain = g.list.filter((e) => e.round === false).length;
       li.innerHTML =
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
         // 2回以上行った日だけ、回数を出します
         (g.list.length > 1 ? `<span class="drive-row__times">${g.list.length}回</span>` : '') +
-        (plain ? '<span class="drive-row__plain" title="2倍にしていない記録が入っています">通し</span>' : '') +
+        (plain ? '<span class="drive-row__plain" title="経由地でつないだ記録が入っています">経由地</span>' : '') +
         `<span class="exp-row__yen drive-row__km">${kmText(g.km)}</span>`;
 
       // 入れ間違いは後から直せます（消してから入れ直す必要はありません）
@@ -264,20 +264,21 @@ async function removeDay(g) {
  *  入力画面
  *
  *  新しく入れるとき
- *    1日に何回も配達に行くので、距離の欄は増やせるようにしています。
- *    「＋ もう1回分入れる」で欄が1つ増え、入れた分はそのまま残ります。
- *    記録するときは、1つの欄＝1件として別々に残します。
+ *    1日に何回も配達に行くので、1回ぶんずつ欄を増やせます。
+ *    「＋ もう1回分入れる」で1回ぶん増え、入れた分はそのまま残ります。
+ *    記録するときは、1回ぶん＝1件として別々に残します。
  *
- *  1つの欄には「⇄往復」と「→そのまま」の2とおりがあります
- *    ⇄往復   … 1か所だけの配達。片道を入れて、アプリが2倍にします
- *    →そのまま … 何か所か回った配達。実際に走った距離をそのまま使います
- *              （店→A→B→店 のようなとき、A・Bを片道で入れると
- *                A〜Bのあいだに存在しない復路が入ってしまうため）
+ *  1回ぶんの中には「経路」が入っています（地図アプリと同じ考え方）
+ *    経由地なし … お店 → 配達先 → お店。片道を1つ入れれば、往復で2倍にします
+ *    経由地あり … お店 → 1か所目 → 2か所目 → お店。区間ごとに入れて、そのまま足します
+ *
+ *  「＋ 経由地を追加」を押すと、その回だけ区間ごとの入力に変わります。
+ *  切り替えスイッチではなく経路の形そのものが変わるので、
+ *  「2倍にするか」を選び忘れて間違える、ということが起きません。
  *
  *  すでに入れたものを直すとき（一覧の「編集」）
- *    その日の記録をまとめて開きます。3回行った日なら欄が3つ並び、
- *    1回ずつ直せます。欄を増やして4回目を足すこともできます。
- *    保存すると同じ番号に上書きするので、二重にはなりません。
+ *    その日の記録をまとめて開きます。3回行った日なら3つ並び、
+ *    1回ずつ直せます。経由地の有無もそのまま戻ります。
  * ============================================================ */
 let drvName = '';
 let drvEditing = null;   // 直しているとき、その日のかたまり（新しく入れるときは null）
@@ -303,17 +304,10 @@ function openForm(group) {
     el.drvNames.appendChild(b);
   });
 
-  /* 距離の欄。直すときは、その日に入れた回数だけ並べます */
+  /* 1回ぶんの欄。直すときは、その日に入れた回数だけ並べます */
   el.drvLegs.innerHTML = '';
-  if (drvEditing) {
-    drvEditing.list.forEach((e) => {
-      // round が無い古い記録は「往復」（それまではすべて2倍していたため）
-      const isRound = e.round !== false;
-      addLeg(false, e.id, isRound).value = e.one || driveKm(isRound ? e.km / 2 : e.km);
-    });
-  } else {
-    addLeg();
-  }
+  if (drvEditing) drvEditing.list.forEach((e) => addTrip(false, e));
+  else addTrip();
 
   el.driveFormTitle.textContent = drvEditing ? '記録を直す' : '走った距離を入れる';
   el.driveSave.textContent = drvEditing ? '直す' : '記録する';
@@ -323,112 +317,233 @@ function openForm(group) {
 }
 
 /**
- * 距離の欄を1つ増やす
+ * 記録から「区間の距離の並び」を取り出す
+ *   経由地なし … [片道]         （保存時に2倍します）
+ *   経由地あり … [区間1, 区間2, …]（そのまま足します）
+ * legs が無い古い記録は、往復として入れてあるので片道に戻します。
+ */
+function legsOf(entry) {
+  if (!entry) return [''];
+  if (Array.isArray(entry.legs) && entry.legs.length > 1) return entry.legs.slice();
+  if (entry.round === false) return [entry.one || entry.km];
+  return [entry.one || driveKm(entry.km / 2)];
+}
+
+/**
+ * 1回ぶんの欄を増やす
  *
- * id を渡すと「すでに入れてある記録の欄」になります。
+ * entry を渡すと「すでに入れてある記録の欄」になります。
  * その欄を直せば同じ記録が書き換わり、×で消せばその記録だけ消えます。
  */
-function addLeg(focus, id, isRound) {
+function addTrip(focus, entry) {
   const row = document.createElement('div');
-  row.className = 'drive-leg';
-  if (id) row.dataset.id = id;
-  // 既定は「⇄往復」。1か所だけの配達がいちばん多いためです
-  row.dataset.round = isRound === false ? '0' : '1';
+  row.className = 'drive-trip';
+  if (entry && entry.id) row.dataset.id = entry.id;
+  row._legs = legsOf(entry);   // 区間の距離。ここが1つなら往復あつかい
 
-  const num = document.createElement('span');
-  num.className = 'drive-leg__no';
-
-  // type="number" にすると全角数字（１２．６）を弾いて空にしてしまうので、
-  // text にしておいて bindNumericInput で半角に直します
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'field__input drive-leg__input';
-  input.inputMode = 'decimal';
-  input.autocomplete = 'off';
-  input.placeholder = '6.2';
-  bindNumericInput(input);
-  input.addEventListener('input', renderForm);
-
-  // 2倍にするかどうかの切り替え。押した結果の距離もここに出すので、
-  // 「入れた数字がどう扱われるか」がその場で分かります
-  const round = document.createElement('button');
-  round.type = 'button';
-  round.className = 'drive-leg__mode';
-  round.addEventListener('click', () => {
-    row.dataset.round = row.dataset.round === '0' ? '1' : '0';
-    renderForm();
-  });
-
+  /* 見出し（1回目・2回目…）と、この回ごと消すボタン */
+  const head = document.createElement('div');
+  head.className = 'drive-trip__head';
+  const no = document.createElement('span');
+  no.className = 'drive-trip__no';
   const del = document.createElement('button');
   del.type = 'button';
-  del.className = 'drive-leg__del';
+  del.className = 'drive-trip__del';
   del.textContent = '×';
-  del.title = 'この欄を消す';
+  del.title = 'この回を消す';
   del.addEventListener('click', () => {
     // 最後の1つは消さずに空にします（欄がなくなると入れられなくなるため）
     if (el.drvLegs.children.length > 1) row.remove();
-    else input.value = '';
+    else { row._legs = ['']; drawTrip(row); }
     renderForm();
   });
+  head.append(no, del);
 
-  row.append(num, input, round, del);
+  const route = document.createElement('div');
+  route.className = 'drive-route';
+
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'drive-route__add';
+  add.textContent = '＋ 経由地を追加';
+  add.addEventListener('click', () => {
+    keepLegs(row);
+    // 経由地なし（区間1つ＝往復）から足すときは、
+    // 店→1か所目→2か所目→店 になるので区間は3つになります
+    if (row._legs.length === 1) row._legs = [row._legs[0], '', ''];
+    else row._legs.push('');
+    drawTrip(row);
+    renderForm();
+    const inputs = row.querySelectorAll('.drive-route__input');
+    inputs[inputs.length - 1].focus();
+  });
+
+  const total = document.createElement('p');
+  total.className = 'drive-trip__total';
+
+  row.append(head, route, add, total);
   el.drvLegs.appendChild(row);
-  if (focus) input.focus();
-  return input;
+  drawTrip(row);
+  if (focus) row.querySelector('.drive-route__input').focus();
+  return row;
 }
 
-/** 1件ぶんの距離。⇄往復なら2倍、→そのままならそのまま */
-function legKm(r) {
-  return r.round ? driveRound(r.one) : driveKm(r.one);
+/** 画面に出ている数字を row._legs に写し取る（描き直しで消えないように） */
+function keepLegs(row) {
+  const inputs = [...row.querySelectorAll('.drive-route__input')];
+  if (inputs.length) row._legs = inputs.map((i) => i.value);
 }
 
-/** いま欄に入っているもの（0より大きいものだけ）。id は元の記録の番号 */
+/**
+ * 1回ぶんの経路を描く
+ *
+ *   経由地なし（区間1つ）      経由地あり（区間3つ）
+ *   🏠 バグる                  🏠 バグる
+ *    ↓ [ 6.2 ]km               ↓ [ 4.1 ]km
+ *   📍 配達先                  📍 1か所目  ×
+ *    ↓ 帰りも同じ 6.2km         ↓ [ 2.8 ]km
+ *   🏠 バグる                  📍 2か所目  ×
+ *                              ↓ [ 5.2 ]km
+ *                             🏠 バグる
+ */
+function drawTrip(row) {
+  const route = row.querySelector('.drive-route');
+  const legs = row._legs.length ? row._legs : [''];
+  const multi = legs.length > 1;
+  route.innerHTML = '';
+  row.classList.toggle('is-multi', multi);
+
+  /* 立ち寄る場所 */
+  const stop = (mark, text, onRemove) => {
+    const li = document.createElement('div');
+    li.className = 'drive-route__stop';
+    li.innerHTML = `<span class="drive-route__mark">${mark}</span>`
+      + `<span class="drive-route__name">${text}</span>`;
+    if (onRemove) {
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'drive-route__drop';
+      x.textContent = '×';
+      x.title = 'この経由地を消す';
+      x.addEventListener('click', onRemove);
+      li.appendChild(x);
+    }
+    route.appendChild(li);
+  };
+
+  /* 区間（矢印＋距離を入れる欄） */
+  const legField = (i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'drive-route__leg';
+    wrap.innerHTML = '<span class="drive-route__arrow" aria-hidden="true">↓</span>';
+    const input = document.createElement('input');
+    // type="number" は全角数字（１２．６）を弾いて空にしてしまうので text にします
+    input.type = 'text';
+    input.className = 'field__input drive-route__input';
+    input.inputMode = 'decimal';
+    input.autocomplete = 'off';
+    input.placeholder = '6.2';
+    input.value = legs[i] || '';
+    bindNumericInput(input);
+    input.addEventListener('input', () => { keepLegs(row); renderForm(); });
+    wrap.appendChild(input);
+    const unit = document.createElement('span');
+    unit.className = 'drive-route__unit';
+    unit.textContent = 'km';
+    wrap.appendChild(unit);
+    route.appendChild(wrap);
+  };
+
+  /* 経由地を1か所消す。区間が2つに減ったら、往復の形（区間1つ）に戻します */
+  const dropStop = (i) => () => {
+    keepLegs(row);
+    row._legs.splice(i, 1);
+    if (row._legs.length === 2) row._legs = [row._legs[0]];
+    drawTrip(row);
+    renderForm();
+  };
+
+  stop('🏠', 'バグる');
+
+  if (!multi) {
+    // 往復。行きの距離だけ入れてもらい、帰りは自動で同じ距離にします
+    legField(0);
+    stop('📍', '配達先');
+    const back = document.createElement('div');
+    back.className = 'drive-route__leg drive-route__leg--auto';
+    const km = Number(toHalfWidthNumber(legs[0] || ''));
+    back.innerHTML = '<span class="drive-route__arrow" aria-hidden="true">↓</span>'
+      + `<span class="drive-route__auto">帰りも同じ${km > 0 ? ' ' + kmText(driveKm(km)) : ''}（自動）</span>`;
+    route.appendChild(back);
+  } else {
+    // 経由地あり。区間の数だけ欄を出し、あいだに立ち寄り先を挟みます
+    legs.forEach((v, i) => {
+      legField(i);
+      if (i < legs.length - 1) stop('📍', `${i + 1}か所目`, dropStop(i));
+    });
+  }
+
+  stop('🏠', 'バグる');
+}
+
+/** 1回ぶんの走った距離。経由地なしなら往復で2倍、ありなら区間の合計 */
+function tripKm(t) {
+  return t.multi ? driveKm(...t.legs) : driveRound(t.legs[0]);
+}
+
+/** いま欄に入っているもの（距離が入っている回だけ）。id は元の記録の番号 */
 function legValues() {
   return [...el.drvLegs.children]
-    .map((row) => ({
-      id: row.dataset.id || '',
-      round: row.dataset.round !== '0',
+    .map((row) => {
       // 全角で入っていても読めるよう、半角に直してから数字にします
-      one: Number(toHalfWidthNumber(row.querySelector('.drive-leg__input').value)),
-    }))
-    .filter((r) => r.one > 0);
+      const legs = [...row.querySelectorAll('.drive-route__input')]
+        .map((i) => Number(toHalfWidthNumber(i.value)));
+      return { id: row.dataset.id || '', legs, multi: legs.length > 1 };
+    })
+    .filter((t) => t.legs.length && t.legs.every((v) => v > 0));
 }
 
-/** えらんだ名前と、その行が何kmになるかを出します */
+/** えらんだ名前と、それぞれの回が何kmになるかを出します */
 function renderForm() {
   [...el.drvNames.children].forEach((b) => b.classList.toggle('is-current', b.dataset.name === drvName));
 
-  // 何回目かの番号を振り直し、その行が何kmになるかも出し直す
+  // 何回目かの番号を振り直し、その回が何kmになるかも出し直す
   [...el.drvLegs.children].forEach((row, i) => {
-    row.querySelector('.drive-leg__no').textContent = `${i + 1}回目`;
-    const isRound = row.dataset.round !== '0';
-    const one = Number(toHalfWidthNumber(row.querySelector('.drive-leg__input').value));
-    const mode = row.querySelector('.drive-leg__mode');
-    mode.classList.toggle('is-plain', !isRound);
-    mode.title = isRound
-      ? '1か所だけの配達（片道を2倍にします）。押すと「そのまま」に変わります'
-      : '何か所か回った配達（2倍にしません）。押すと「往復」に変わります';
-    mode.textContent = (isRound ? '⇄ 往復' : '→ そのまま')
-      + (one > 0 ? ' ' + kmText(isRound ? driveRound(one) : driveKm(one)) : '');
+    row.querySelector('.drive-trip__no').textContent = `${i + 1}回目`;
+    const legs = [...row.querySelectorAll('.drive-route__input')]
+      .map((x) => Number(toHalfWidthNumber(x.value)));
+    const multi = legs.length > 1;
+    const ok = legs.length && legs.every((v) => v > 0);
+    const km = ok ? tripKm({ legs, multi }) : 0;
+    // 帰り道の説明は、打っているそばから距離を出します
+    const auto = row.querySelector('.drive-route__auto');
+    if (auto) auto.textContent = '帰りも同じ' + (legs[0] > 0 ? ' ' + kmText(legs[0]) : '') + '（自動）';
+
+    row.querySelector('.drive-trip__total').textContent = !ok
+      ? (multi ? '区間の距離をすべて入れてください' : '')
+      : multi
+        ? `${legs.length}区間 ／ 合計 ${kmText(km)}`
+        : `往復 ${kmText(km)}（入れた ${kmText(legs[0])} の2倍）`;
+    row.querySelector('.drive-trip__total').classList.toggle('is-on', ok);
   });
-  // 欄が1つだけのときは消すボタンを出さない
+  // 1回ぶんしかないときは、回ごと消すボタンを出さない
   el.drvLegs.classList.toggle('is-single', el.drvLegs.children.length === 1);
 
   const list = legValues();
-  const total = driveKm(...list.map(legKm));
-  if (!list.length) el.drvHint.textContent = '1回目の距離を入れてください';
+  const total = driveKm(...list.map(tripKm));
+  if (!list.length) el.drvHint.textContent = '走った距離を入れてください';
   else if (drvEditing) el.drvHint.textContent = `この日は ${list.length}回 ／ 合計 ${kmText(total)} に直します`;
   else el.drvHint.textContent = `${list.length}回分 ／ 合計 ${kmText(total)} として記録します`;
   el.drvHint.classList.toggle('is-on', list.length > 0);
 
-  // 切り替え忘れがいちばん起きるのは「まとめて回ったのに、1件ずつ往復で入れた」とき。
-  // 2件以上ぜんぶ往復のときだけ、入力中から声をかけます
+  // 間違いがいちばん起きるのは「まとめて回ったのに、1回ずつに分けて入れた」とき。
+  // 2回以上あって、どれにも経由地が無いときだけ声をかけます
   el.drvWarn.classList.toggle('is-hidden', !allRoundMulti(list));
 }
 
-/** 2件以上あって、ぜんぶ「⇄往復」になっているか（切り替え忘れの疑い） */
+/** 2回以上あって、どれにも経由地が無いか（分けて入れてしまった疑い） */
 function allRoundMulti(list) {
-  return list.length >= 2 && list.every((r) => r.round);
+  return list.length >= 2 && list.every((t) => !t.multi);
 }
 
 async function saveEntry() {
@@ -438,7 +553,7 @@ async function saveEntry() {
   if (!d) { el.driveError.textContent = '走った日を入れてください。'; return; }
   if (!drvName) { el.driveError.textContent = '名前をえらんでください。'; return; }
   if (!list.length) { el.driveError.textContent = '走った距離を入れてください。'; return; }
-  if (list.some((r) => r.one > 200)) {
+  if (list.some((t) => t.legs.some((v) => v > 200))) {
     el.driveError.textContent = '200kmを超えています。入れ間違いではありませんか？';
     return;
   }
@@ -447,9 +562,9 @@ async function saveEntry() {
   // （毎回聞くと読まずに押すようになるので、疑わしいときだけにしています）
   if (allRoundMulti(list)) {
     const ok = await askConfirm({
-      item: `${list.length}回とも「⇄ 往復」になっています`,
+      item: `${list.length}回とも「経由地なし（往復）」になっています`,
       message: '1か所ずつ行って、そのつど店に戻ったのなら、このままでOKです。\n'
-        + 'まとめて何か所か回ったのなら、「キャンセル」を押して →そのまま に変えてください。',
+        + '1回でまとめて回ったのなら、「キャンセル」を押して「＋ 経由地を追加」でつないでください。',
       okLabel: '1か所ずつです',
     });
     if (!ok) return;
@@ -474,14 +589,17 @@ async function saveEntry() {
   }
 
   // 元からある欄は同じ番号に上書き、足した欄は新しい番号で入れます
-  list.forEach((r, i) => {
-    Store.setItem(DRIVE_STORE, key, r.id || newId(i), {
+  list.forEach((t, i) => {
+    Store.setItem(DRIVE_STORE, key, t.id || newId(i), {
       done: true,
       d,
       by: drvName,
-      one: driveKm(r.one),   // 入れた数字そのもの
-      km: legKm(r),          // 実際に走った距離（合計はこちらで足します）
-      round: r.round,        // 2倍にしたかどうか（編集で開き直すときに使います）
+      one: driveKm(t.legs[0]),  // 入れた最初の数字（経由地なしなら片道）
+      // driveKm は「いくつでも足す」道具なので、map に直接渡すと
+      // 添字まで足されてしまいます。1つずつ包んで渡すこと
+      legs: t.legs.map((v) => driveKm(v)),  // 区間ごとの距離（編集で開き直すときに使います）
+      km: tripKm(t),            // 実際に走った距離（合計はこちらで足します）
+      round: !t.multi,          // 経由地が無い＝往復として2倍にした
     });
   });
 
@@ -588,7 +706,7 @@ function bindEvents() {
 
   $('driveAddBtn').addEventListener('click', () => openForm());
   el.driveSave.addEventListener('click', saveEntry);
-  el.drvAddLeg.addEventListener('click', () => { addLeg(true); renderForm(); });
+  el.drvAddLeg.addEventListener('click', () => { addTrip(true); renderForm(); });
   document.querySelectorAll('[data-close-drive]').forEach((n) => {
     n.addEventListener('click', () => el.driveModal.classList.add('is-hidden'));
   });
@@ -657,10 +775,17 @@ function bindEvents() {
   if (shop) el.driveLogo.style.setProperty('--chip-color', shop.color);
 
   /* マイン（?from=mine）から開いたときだけ、ホームに戻るボタンを出します。
-     店舗のタブレットは配達記録だけを入れるので、戻り先がありません */
+     店舗のタブレットは配達記録だけを入れるので、戻り先がありません。
+
+     いちど来たことは端末に覚えさせます。読み直しでURLの印が消えても
+     ボタンが残るようにするためです（アプリを閉じると忘れます）。 */
+  const FROM_MINE = 'fromMine';
   if (/(^|[?&])from=mine([&#]|$)/.test(location.search)) {
-    el.toOwnerBtn.classList.remove('is-hidden');
+    try { sessionStorage.setItem(FROM_MINE, '1'); } catch (e) { /* 使えない端末もあります */ }
   }
+  let cameFromMine = false;
+  try { cameFromMine = sessionStorage.getItem(FROM_MINE) === '1'; } catch (e) { /* 同上 */ }
+  if (cameFromMine) el.toOwnerBtn.classList.remove('is-hidden');
 
   bindEvents();
   render();

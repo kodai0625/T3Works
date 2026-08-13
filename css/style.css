@@ -1070,6 +1070,20 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .app-drive .app-header { border-bottom: 3px solid var(--accent); }
 .app-drive .page { padding-top: 16px; }
 
+/* ---- iPadの横画面（広い画面）は2列に ----
+   1列のまま横に伸ばすと、表の名前と数字が左右に離れて読みにくくなります。
+   左＝まとめと入力／右＝1回ずつの記録 に分けて、真ん中の余白をなくします。
+   900px未満（スマホ・iPadの縦）では、今までどおり上から順に並びます */
+.drive-page { display: flex; flex-direction: column; }
+.drive-col { min-width: 0; }
+@media (min-width: 900px) {
+  .drive-page {
+    flex-direction: row; align-items: flex-start;
+    gap: 26px; max-width: 1040px;
+  }
+  .drive-col { flex: 1 1 0; }
+}
+
 /* ---- その月のまとめ（この画面の主役） ---- */
 .drive-hero {
   position: relative; overflow: hidden;
@@ -1121,17 +1135,28 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-variant-numeric: tabular-nums;
 }
 
-.drive-hero__rule {
-  display: flex; align-items: center; gap: 9px;
-  margin: 13px 0 0; padding-top: 11px;
+/* 入れ方の決まり。1か所のときと、何か所か回ったときの2つを並べます。
+   区切り線は外側に1本だけ引きます（1行ごとに引くと騒がしいため） */
+.drive-hero__rules {
+  margin-top: 13px; padding-top: 11px;
   border-top: 1px dashed color-mix(in srgb, var(--accent) 32%, var(--line));
-  font-size: 12px; line-height: 1.5; color: var(--text-sub);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.drive-hero__rule {
+  display: flex; align-items: flex-start; gap: 9px; margin: 0;
+  font-size: 12px; line-height: 1.55; color: var(--text-sub);
 }
 .drive-hero__badge {
-  flex: 0 0 auto;
+  flex: 0 0 auto; min-width: 76px; text-align: center;   /* 「何か所か」に合わせて、後ろの文章の頭をそろえます */
   padding: 3px 10px; border-radius: 999px;
   background: var(--drive-solid); color: #fff;
   font-size: 11.5px; font-weight: 800; letter-spacing: .04em;
+}
+/* 経由地のほうは、ふつうの往復と見分けが付くよう白抜きにします */
+.drive-hero__badge--multi {
+  background: var(--surface); color: var(--drive-solid);
+  border: 1.5px solid var(--drive-solid);
+  padding: 1.5px 8.5px;
 }
 
 /* ---- 記録するボタン（この画面でいちばん押されるもの） ---- */
@@ -1257,54 +1282,82 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-size: 12.5px; line-height: 1.55; color: var(--text);
 }
 .drive-callout__mark { flex: 0 0 auto; font-size: 15px; white-space: nowrap; }
-/* 2つ目（何か所か回ったとき）は続けて出すので、上の余白を詰めます */
-.drive-callout--multi { margin-top: -6px; }
+/* ---- 入力画面：1回ぶんの経路 ----
+   1回ぶんを1枚のカードにして、その中に地図アプリのような経路を描きます。
+   経由地なし … お店 → 配達先 → お店（片道を1つ入れて、2倍にします）
+   経由地あり … お店 → 1か所目 → … → お店（区間ごとに入れて、そのまま足します） */
+.drive-legs { display: flex; flex-direction: column; gap: 12px; }
 
-/* ---- 入力画面：1日に何回も行く分の欄 ----
-   欄はいくつでも増やせます。1つだけのときは消すボタンを出しません */
-.drive-legs { display: flex; flex-direction: column; gap: 9px; }
-.drive-leg { display: flex; align-items: center; gap: 8px; }
-.drive-leg__no {
-  flex: 0 0 auto; min-width: 44px;
+.drive-trip {
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line); border-radius: 13px;
+  background: var(--surface-2);
+}
+/* 経由地を足した回は、ふつうの往復と見分けが付くよう縁を色づけます */
+.drive-trip.is-multi {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.drive-trip__head { display: flex; align-items: center; margin-bottom: 8px; }
+.drive-trip__no {
   font-size: 12.5px; font-weight: 800; color: var(--drive-deep);
   font-variant-numeric: tabular-nums;
 }
-.drive-leg__input {
-  flex: 1 1 auto; min-width: 0;
-  font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
-}
-.drive-leg__input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-/* 2倍にするかどうかの切り替え。押した結果の距離もここに出します。
-   ボタンだと分かるよう、枠と背景を付けています */
-.drive-leg__mode {
-  flex: 0 0 auto; min-width: 104px;
-  padding: 7px 9px; border-radius: 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  color: var(--accent);
-  font: inherit; font-size: 11.5px; font-weight: 800;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-  cursor: pointer; text-align: center;
-}
-.drive-leg__mode:active { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
-/* 「そのまま」のときは、2倍にしていないことが分かるよう色を落とします */
-.drive-leg__mode.is-plain {
-  border-color: var(--line); background: var(--surface-2); color: var(--text-sub);
-}
-.drive-leg__del {
-  flex: 0 0 auto; width: 32px; height: 32px;
+.drive-trip__del {
+  margin-left: auto; width: 30px; height: 30px;
   border: 1px solid var(--line); border-radius: 50%;
   background: var(--surface); color: var(--text-weak);
   font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
 }
-.drive-legs.is-single .drive-leg__del { visibility: hidden; }
+.drive-legs.is-single .drive-trip__del { visibility: hidden; }
+
+/* 経路。左に縦線を引いて、上から下へつながって見えるようにします */
+.drive-route { position: relative; padding-left: 3px; }
+.drive-route__stop { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.drive-route__mark { flex: 0 0 auto; width: 22px; text-align: center; font-size: 14px; }
+.drive-route__name { font-size: 13.5px; font-weight: 700; }
+.drive-route__drop {
+  margin-left: auto; width: 26px; height: 26px;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--surface); color: var(--text-weak);
+  font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
+}
+/* 区間（矢印＋距離） */
+.drive-route__leg { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.drive-route__arrow {
+  flex: 0 0 auto; width: 22px; text-align: center;
+  color: color-mix(in srgb, var(--accent) 60%, var(--text-weak)); font-size: 15px;
+}
+.drive-route__input {
+  flex: 1 1 auto; min-width: 0; max-width: 150px;
+  font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.drive-route__input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.drive-route__unit { flex: 0 0 auto; font-size: 12.5px; color: var(--text-sub); font-weight: 700; }
+/* 帰り道は自動なので、入力欄ではなく説明として出します */
+.drive-route__leg--auto { padding: 3px 0; }
+.drive-route__auto { font-size: 12px; color: var(--text-weak); }
+
+.drive-route__add {
+  display: block; width: 100%; margin-top: 9px; padding: 9px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 10px; background: transparent; color: var(--accent);
+  font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer;
+}
+.drive-route__add:active { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+
+/* その回が何kmになるか。入れ終わるまでは色を落としておきます */
+.drive-trip__total {
+  margin: 9px 0 0; font-size: 12px; color: var(--text-weak); line-height: 1.5;
+  font-variant-numeric: tabular-nums; min-height: 1em;
+}
+.drive-trip__total.is-on { color: var(--accent); font-weight: 800; font-size: 12.5px; }
 
 .drive-legs__add {
-  display: block; width: 100%; margin-top: 10px; padding: 11px;
+  display: block; width: 100%; margin-top: 12px; padding: 11px;
   border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
   border-radius: 11px;
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
@@ -1313,18 +1366,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 .drive-legs__add:active { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
 
-/* 狭い画面では1行に収まらないので、切り替えボタンを次の行へ折り返します
-   （1行目＝番号・数字・消す ／ 2行目＝切り替え）。
-   数字を入れる欄を狭くしてしまうと、そちらのほうが困るためです */
 @media (max-width: 380px) {
-  .drive-leg { flex-wrap: wrap; row-gap: 6px; }
-  .drive-leg__no { min-width: 34px; font-size: 11.5px; }
-  .drive-leg__input { flex: 1 1 120px; }
-  .drive-leg__del { order: 3; }
-  .drive-leg__mode {
-    order: 4; flex: 1 1 100%; min-width: 0;
-    margin-left: 42px; text-align: left; font-size: 11.5px;
-  }
   .drive-hero__yen { font-size: 34px; }
 }
 
