@@ -205,6 +205,29 @@ const Sync = {
       + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
   },
 
+  /**
+   * 設定画面に出す「しるしの見かた」
+   *
+   * ヘッダーの丸いしるしが何を表しているか、実物と同じ絵で並べます。
+   * 色だけでなく形も違うので、色の見え方が違う人にも伝わります。
+   */
+  legendHtml() {
+    const rows = [
+      ['ok', '同期できています', '入力した内容が、みんなの端末に届いています'],
+      ['busy', '送っています', '少し待つと ✓ に変わります'],
+      ['pending', 'まだ送れていない分があります', 'つながり次第、自動で送られます。入力した内容が消えることはありません'],
+      ['error', '送れていません', '電波を確かめてください。それでも赤いままなら「PINを入れ直す」を試してください'],
+    ];
+    return rows.map(([kind, name, desc]) =>
+      '<li class="sync-legend__row">'
+      + `<span class="sync-chip sync-chip--${kind}">${this.iconSvg(kind)}</span>`
+      + '<span class="sync-legend__text">'
+      + `<span class="sync-legend__name">${name}</span>`
+      + `<span class="sync-legend__desc">${desc}</span>`
+      + '</span></li>'
+    ).join('');
+  },
+
   /** 画面に出す状態 */
   status() {
     if (!this.enabled()) return { kind: 'off', text: '' };

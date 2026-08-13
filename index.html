@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=7d202de2">
-<meta name="app-version" content="61f55d8f">
+<link rel="stylesheet" href="css/style.css?v=07add72b">
+<meta name="app-version" content="40e262e8">
 </head>
 <body>
 
@@ -86,7 +86,10 @@
     <!-- 配達記録は「別のアプリ」なので、ボタンではなくリンクです。
          現場スタッフが使う T3 Works には出しません（.mine-only）。
          店舗のタブレットには、この drive/ を直接ホーム画面に追加します -->
-    <a class="stores-big-btn mine-only" id="storesDriveBtn" href="drive/">
+    <!-- ?from=mine … 配達記録の側で「マインから来た」と分かるようにする印。
+         これが付いているときだけ、あちらにホームへ戻るボタンが出ます
+         （店舗のタブレットから直接開いたときは出ません） -->
+    <a class="stores-big-btn mine-only" id="storesDriveBtn" href="drive/?from=mine">
       <span class="stores-big-btn__icon" aria-hidden="true">🛵</span>
       <span class="stores-big-btn__text">
         <span class="stores-big-btn__name">配達記録（バグる）</span>
@@ -540,6 +543,9 @@
         <button type="button" class="btn" id="syncNow">今すぐ同期</button>
         <button type="button" class="btn" id="pinChange">PINを入れ直す</button>
       </div>
+      <!-- ヘッダーの丸いしるしの意味。中身は Sync.legendHtml() が入れます -->
+      <p class="sync-legend__head">ヘッダーのしるしの見かた</p>
+      <ul class="sync-legend" id="syncLegend"></ul>
     </div>
 
     <!-- ここに T3 Works Manage の案内は置きません。
@@ -564,8 +570,8 @@
 
 <script src="js/config.js?v=93506d2d"></script>
 <script src="js/storage.js?v=c163d4c1"></script>
-<script src="js/sync.js?v=90eb50b9"></script>
+<script src="js/sync.js?v=a633c4c7"></script>
 <script src="js/update.js?v=da1d6bfe"></script>
-<script src="js/app.js?v=da6dd1f1"></script>
+<script src="js/app.js?v=edb443f8"></script>
 </body>
 </html>

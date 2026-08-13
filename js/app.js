@@ -42,6 +42,7 @@ const el = {
   submitBtn: $('submitBtn'), unsubmitBtn: $('unsubmitBtn'),
   reportDate: $('reportDate'), reportSummary: $('reportSummary'), reportList: $('reportList'),
   syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncField: $('syncField'),
+  syncLegend: $('syncLegend'),
   pinModal: $('pinModal'), pinInput: $('pinInput'), pinError: $('pinError'),
   dayNum: $('dayNum'), dayDow: $('dayDow'), dayRollover: $('dayRollover'),
   progressBar: $('dayProgressBar'), progressText: $('dayProgressText'),
@@ -2340,6 +2341,8 @@ async function submitPin() {
  * ============================================================ */
 function openModal() {
   renderSyncStatus();
+  // ヘッダーのしるしが何を表しているかの一覧（実物と同じ絵を並べます）
+  el.syncLegend.innerHTML = Sync.legendHtml();
   // 版の番号。困ったときに「この番号を教えて」と聞くためのものです
   const v = Updater.current();
   el.appVersionText.innerHTML = v

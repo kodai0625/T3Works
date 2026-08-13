@@ -35,11 +35,12 @@ const el = {
   drvDate: $('drvDate'), drvNames: $('drvNames'),
   drvLegs: $('drvLegs'), drvAddLeg: $('drvAddLeg'), drvHint: $('drvHint'),
   driveFormTitle: $('driveFormTitle'), driveSave: $('driveSave'),
-  modal: $('modal'), syncChip: $('syncChip'), syncInfo: $('syncInfo'),
+  modal: $('modal'), syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncLegend: $('syncLegend'),
   pinModal: $('pinModal'), pinInput: $('pinInput'), pinError: $('pinError'),
   appVersionText: $('appVersionText'),
   confirmDialog: $('confirmDialog'), confirmItem: $('confirmItem'),
   confirmMessage: $('confirmMessage'), confirmOk: $('confirmOk'),
+  toOwnerBtn: $('toOwnerBtn'),
 };
 
 /* 画像の置き場所（drive/ は1つ下の階層なので ../ が付きます） */
@@ -548,6 +549,8 @@ function bindEvents() {
   /* 設定 */
   $('settingsBtn').addEventListener('click', () => {
     renderSyncStatus();
+    // ヘッダーのしるしが何を表しているかの一覧（実物と同じ絵を並べます）
+    el.syncLegend.innerHTML = Sync.legendHtml();
     const v = Updater.current();
     el.appVersionText.innerHTML = v
       ? `いま入っているのは <b>${v}</b> です。`
@@ -599,6 +602,12 @@ function bindEvents() {
   img.src = ASSET_BASE + DRIVE_ICON;
   el.driveLogo.appendChild(img);
   if (shop) el.driveLogo.style.setProperty('--chip-color', shop.color);
+
+  /* マイン（?from=mine）から開いたときだけ、ホームに戻るボタンを出します。
+     店舗のタブレットは配達記録だけを入れるので、戻り先がありません */
+  if (/(^|[?&])from=mine([&#]|$)/.test(location.search)) {
+    el.toOwnerBtn.classList.remove('is-hidden');
+  }
 
   bindEvents();
   render();

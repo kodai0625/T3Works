@@ -12,8 +12,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/drive-icon-512.png?v=7c78116c">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/drive-icon-64.png?v=7088d4ae">
 <title>配達記録｜バグる</title>
-<link rel="stylesheet" href="../css/style.css?v=7d202de2">
-<meta name="app-version" content="61f55d8f">
+<link rel="stylesheet" href="../css/style.css?v=07add72b">
+<meta name="app-version" content="40e262e8">
 </head>
 <body class="no-daytabs app-drive" data-assets="../">
 
@@ -29,6 +29,11 @@
     </div>
     <div class="header-actions">
       <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ同期"></button>
+      <!-- マイン（?from=mine）から来たときだけ出します。
+           店舗のタブレットは配達記録しか使わないので、戻り先がありません -->
+      <a class="settings-btn is-hidden" id="toOwnerBtn" href="../owner/" title="ホーム（アプリを選ぶ画面）に戻る">
+        <span aria-hidden="true">🏠</span><span>ホーム</span>
+      </a>
       <button class="settings-btn" id="settingsBtn" type="button">
         <span aria-hidden="true">⚙</span><span>設定</span>
       </button>
@@ -185,6 +190,9 @@
         <button type="button" class="btn" id="syncNow">今すぐ同期</button>
         <button type="button" class="btn" id="pinChange">PINを入れ直す</button>
       </div>
+      <!-- ヘッダーの丸いしるしの意味。中身は Sync.legendHtml() が入れます -->
+      <p class="sync-legend__head">ヘッダーのしるしの見かた</p>
+      <ul class="sync-legend" id="syncLegend"></ul>
     </div>
 
     <div class="field">
@@ -207,9 +215,9 @@
 
 <script src="../js/config.js?v=93506d2d"></script>
 <script src="../js/storage.js?v=c163d4c1"></script>
-<script src="../js/sync.js?v=90eb50b9"></script>
+<script src="../js/sync.js?v=a633c4c7"></script>
 <script src="../js/update.js?v=da1d6bfe"></script>
-<script src="js/drive.js?v=ff926579"></script>
+<script src="js/drive.js?v=f27df9b0"></script>
 
 </body>
 </html>

@@ -176,6 +176,8 @@ body.no-daytabs .update-bar {
   text-decoration: none; /* リンクでもボタンと同じ見た目にする（下線を出さない） */
 }
 .settings-btn:active { background: rgba(255,255,255,.2); }
+/* クラスを2つ重ねること。.is-hidden だけだと上の display: inline-flex に負けます */
+.settings-btn.is-hidden { display: none; }
 
 /* T3 Works Manage への切り替えボタン。
    スタッフが使う T3 Works では隠したままにし、
@@ -653,6 +655,46 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 
 .sync-info { margin: 0 0 10px; font-size: 12.5px; color: var(--text-sub); }
+
+/* ---- しるしの見かた（設定の中） ----
+   ヘッダーは濃い色の上なので、上の .sync-chip--◯ は白っぽい色で作ってあります。
+   ここは白い紙の上なので、同じ色では見えません。塗り直しています。 */
+.sync-legend__head {
+  margin: 14px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--line-2);
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+}
+.sync-legend {
+  list-style: none; margin: 9px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 11px;
+}
+.sync-legend__row { display: flex; align-items: flex-start; gap: 11px; }
+.sync-legend .sync-chip { cursor: default; }
+.sync-legend .sync-chip--ok {
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+  color: var(--ok); border-color: color-mix(in srgb, var(--ok) 32%, var(--line));
+}
+.sync-legend .sync-chip--busy {
+  background: var(--surface-2); color: var(--text-sub); border-color: var(--line);
+}
+.sync-legend .sync-chip--pending {
+  background: color-mix(in srgb, #e8a33d 16%, var(--surface));
+  color: #b3771c; border-color: color-mix(in srgb, #e8a33d 38%, var(--line));
+}
+.sync-legend .sync-chip--error {
+  background: color-mix(in srgb, var(--ng) 14%, var(--surface));
+  color: var(--ng); border-color: color-mix(in srgb, var(--ng) 32%, var(--line));
+}
+/* 見本なので回しません（動くと本物と紛らわしいため） */
+.sync-legend .sync-chip--busy svg { animation: none; }
+.sync-legend__text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sync-legend__name { font-size: 13.5px; font-weight: 800; line-height: 1.35; }
+.sync-legend__desc { font-size: 12px; color: var(--text-sub); line-height: 1.55; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sync-legend .sync-chip--pending { color: #e5a94f; }
+}
+:root[data-theme="dark"] .sync-legend .sync-chip--pending { color: #e5a94f; }
+
 .field.is-hidden, .modal__note.is-hidden { display: none; }
 .pin-error { margin: 8px 0 0; font-size: 12.5px; color: var(--ng); min-height: 1em; }
 .pin-row { display: flex; gap: 8px; align-items: stretch; }
