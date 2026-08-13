@@ -916,37 +916,6 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   margin: 16px 2px 0; font-size: 12px; color: var(--text-sub); line-height: 1.8;
 }
 
-/* ---- 支払いリスト（月末・月初に出す1枚） ---- */
-.payout-btn {
-  display: flex; align-items: center; gap: 12px; width: 100%;
-  margin: 0 0 14px; padding: 13px 14px;
-  background: var(--surface);
-  border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--line));
-  border-radius: var(--radius); box-shadow: var(--shadow);
-  font: inherit; color: var(--text); text-align: left; cursor: pointer;
-}
-.payout-btn.is-hidden { display: none; }
-.payout-btn:active { background: var(--surface-2); }
-.payout-btn > span[aria-hidden] { flex: 0 0 auto; font-size: 22px; line-height: 1; }
-.payout-btn__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.payout-btn__main { font-size: 15px; font-weight: 800; line-height: 1.25; }
-.payout-btn__sub  { font-size: 11.5px; color: var(--text-sub); line-height: 1.4; }
-/* 月末・月初は「いま出す時期」と分かるように、色を付けて目立たせます */
-.payout-btn.is-now {
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  border-color: var(--accent);
-}
-.payout-btn.is-now .payout-btn__sub { color: var(--accent); font-weight: 700; }
-
-/* できた画像を見せる画面 */
-.payout-preview {
-  margin: 4px 0 12px; padding: 8px;
-  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
-  max-height: 52vh; overflow: auto;
-}
-.payout-preview__img { display: block; width: 100%; height: auto; border-radius: 4px; }
-.payout-hint { margin: 0 2px 4px; font-size: 12px; color: var(--text-sub); line-height: 1.6; }
-
 /* 人ごとの合計と精算（スプレッドシートの「N月合計」にあたる表） */
 .exp-total-wrap { margin-bottom: 14px; }
 .exp-total-wrap.is-hidden { display: none; }

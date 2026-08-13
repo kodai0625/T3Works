@@ -31,7 +31,6 @@ const el = {
   driveTotalYen: $('driveTotalYen'),
   driveTotalWrap: $('driveTotalWrap'), driveTotals: $('driveTotals'),
   driveFoot: $('driveFoot'), driveList: $('driveList'), driveListHead: $('driveListHead'),
-  drivePayoutBtn: $('drivePayoutBtn'), drivePayoutSub: $('drivePayoutSub'),
   driveModal: $('driveModal'), driveError: $('driveError'),
   drvDate: $('drvDate'), drvNames: $('drvNames'),
   drvLegs: $('drvLegs'), drvAddLeg: $('drvAddLeg'), drvHint: $('drvHint'),
@@ -181,15 +180,6 @@ function render() {
     el.driveFoot.appendChild(tr);
   }
 
-  /* 支払いリストのボタン。記録がある月にだけ出します。
-     月末・月初は「出す時期です」と添えて目立たせます */
-  el.drivePayoutBtn.classList.toggle('is-hidden', !ran.length);
-  const nowPayout = Payout.isPayoutTime(state.y, state.m);
-  el.drivePayoutBtn.classList.toggle('is-now', nowPayout);
-  el.drivePayoutSub.textContent = nowPayout
-    ? 'そろそろ支払いの時期です。名前と金額をまとめた1枚（JPEG）'
-    : '名前と金額をまとめた1枚（JPEG）';
-
   /* ---- 下：人ごとの明細（走った人だけ） ---- */
   el.driveListHead.classList.toggle('is-hidden', !ran.length);
   el.driveList.innerHTML = '';
@@ -243,32 +233,6 @@ function render() {
   });
 
   renderSyncStatus();
-}
-
-/**
- * 月末・月初に配る「誰にいくら払うか」の1枚を作る
- *
- * 走った人だけを載せます（0円の人は支払いが無いため）。
- * 距離も入れておくと、金額の根拠がその場で分かります。
- */
-function makeDrivePayout() {
-  const people = driveByPerson(driveRec()).filter((p) => p.list.length);
-  if (!people.length) return;
-
-  const totalKm = driveKm(...people.map((p) => p.km));
-  const totalYen = people.reduce((t, p) => t + p.yen, 0);
-
-  const canvas = Payout.make({
-    title: `${state.y}年${state.m}月分　交通費`,
-    subtitle: 'バグる｜配達に行った分（T3Dining株式会社）',
-    head: ['名前', '走った距離', '支払う金額'],
-    align: ['left', 'right', 'right'],
-    rows: people.map((p) => [p.name, kmText(p.km), yenText(p.yen)]),
-    total: ['合計', kmText(totalKm), yenText(totalYen)],
-    note: `※ 距離は往復分。${DRIVE_RATE.km}kmごとに${DRIVE_RATE.yen}円、100円未満は切り上げ`,
-    accent: '#bf5480',
-  });
-  Payout.show(canvas, `${state.y}-${pad2(state.m)}_交通費_バグる.jpg`);
 }
 
 /** その日の記録をまとめて消す（1回だけの日は、その1件を消します） */
@@ -569,7 +533,6 @@ function bindEvents() {
   });
 
   $('driveAddBtn').addEventListener('click', () => openForm());
-  el.drivePayoutBtn.addEventListener('click', makeDrivePayout);
   el.driveSave.addEventListener('click', saveEntry);
   el.drvAddLeg.addEventListener('click', () => { addLeg(true); renderForm(); });
   document.querySelectorAll('[data-close-drive]').forEach((n) => {
