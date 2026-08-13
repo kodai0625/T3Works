@@ -1,0 +1,30 @@
+{
+  "name": "配達記録｜バグる",
+  "short_name": "配達記録",
+  "description": "デリバリーで走った距離を入れて、交通費を計算する（バグる）",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5f7",
+  "theme_color": "#bf5480",
+  "icons": [
+    {
+      "src": "../img/drive-icon-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "../img/drive-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "../img/drive-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

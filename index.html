@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=5f728318">
-<meta name="app-version" content="f2dd86c4">
+<link rel="stylesheet" href="css/style.css?v=ea4518a6">
+<meta name="app-version" content="f0e585e9">
 </head>
 <body>
 
@@ -65,6 +65,36 @@
     </div>
     <ul class="store-grid" id="storeGrid"></ul>
 
+    <!-- 店舗でも提出記録でもない「お金の話」なので、独立したかたまりにしています -->
+    <h2 class="stores-sub">お金の管理</h2>
+    <button type="button" class="stores-big-btn" id="storesExpenseBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">💴</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">現金支払管理表</span>
+        <span class="stores-big-btn__sub">買い出しなどの立て替えを記録・精算する</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </button>
+    <button type="button" class="stores-big-btn" id="storesCatchBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">📣</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">キャッチ集計</span>
+        <span class="stores-big-btn__sub">店舗ごとに、何人つれてきて いくら払ったか</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </button>
+    <!-- 配達記録は「別のアプリ」なので、ボタンではなくリンクです。
+         現場スタッフが使う T3 Works には出しません（.mine-only）。
+         店舗のタブレットには、この drive/ を直接ホーム画面に追加します -->
+    <a class="stores-big-btn mine-only" id="storesDriveBtn" href="drive/">
+      <span class="stores-big-btn__icon" aria-hidden="true">🛵</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">配達記録（バグる）</span>
+        <span class="stores-big-btn__sub">アルバイトの交通費。走った距離から金額を出す</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </a>
+
     <h2 class="stores-sub">全店舗をまとめて見る</h2>
     <button type="button" class="stores-report-btn" id="storesReportBtn">クローズの提出記録</button>
     <button type="button" class="stores-report-btn" id="storesWeekAllBtn">週間掃除の達成状況</button>
@@ -92,13 +122,18 @@
 
     <!-- いま開いている業務。タップで業務の一覧に戻ります
          （業務が増えてもここは1つのままなので、画面が狭くなりません） -->
-    <button type="button" class="task-bar" id="taskBar">
-      <span class="task-bar__arrow" aria-hidden="true">‹</span>
-      <span class="task-bar__label">
-        <span class="task-bar__name" id="taskBarName">クローズ</span>
-        <span class="task-bar__hint">タップで業務をえらぶ</span>
-      </span>
-    </button>
+    <div class="task-bar-row">
+      <button type="button" class="task-bar" id="taskBar">
+        <span class="task-bar__arrow" aria-hidden="true">‹</span>
+        <span class="task-bar__label">
+          <span class="task-bar__name" id="taskBarName">クローズ</span>
+          <span class="task-bar__hint">タップで業務をえらぶ</span>
+        </span>
+      </button>
+      <!-- 店舗選択まで一気に戻ります。ここは店舗ページ共通の場所なので、
+           これから業務のページを増やしても、そのまま付いてきます -->
+      <button type="button" class="task-bar__home" id="taskBarHome">店舗一覧</button>
+    </div>
 
     <div class="year-row">
       <button class="year-btn" id="prevYear" type="button" aria-label="前の年">‹</button>
@@ -119,6 +154,11 @@
           <span class="day-head__unit">日</span>
           <span class="day-head__dow" id="dayDow">（金）</span>
         </div>
+
+        <!-- 0時を過ぎたときだけ出る案内。
+             「日付が変わったのにページが変わらない」と迷わせないためのものです -->
+        <p class="day-rollover is-hidden" id="dayRollover"></p>
+
         <!-- 日付の下：その日の担当者 -->
         <div class="staff-row" id="staffRow">
           <label class="staff-row__label" for="dayStaff">担当者</label>
@@ -199,10 +239,144 @@
     <ul class="report-list" id="reportList"></ul>
   </section>
 
+  <!-- ===== 立替金 =====
+       買い出しなどを現金で立て替えたときの記録。お店ではなく「人」と「月」で
+       まとめます。翌月に現金を渡したら「精算済み」を押します -->
+  <section class="view view--expense is-hidden" id="viewExpense">
+    <div class="report-head">
+      <div class="report-head__row">
+        <h2 class="report-head__title">現金支払管理表</h2>
+        <button type="button" class="btn" id="expenseBack">店舗一覧に戻る</button>
+      </div>
+      <div class="report-nav">
+        <button type="button" class="year-btn" id="expensePrev" aria-label="前の月">‹</button>
+        <span class="report-nav__date" id="expenseMonth">2026年8月</span>
+        <button type="button" class="year-btn" id="expenseNext" aria-label="次の月">›</button>
+        <button type="button" class="today-btn" id="expenseThisMonth">今月</button>
+      </div>
+      <p class="report-summary" id="expenseSummary"></p>
+    </div>
+
+    <!-- 人ごとの合計と精算（スプレッドシートの「N月合計」にあたる表） -->
+    <div class="table-scroll exp-total-wrap" id="expenseTotalWrap">
+      <table class="exp-total">
+        <thead>
+          <tr><th>名前</th><th>金額</th><th>精算</th></tr>
+        </thead>
+        <tbody id="expenseTotals"></tbody>
+      </table>
+    </div>
+
+    <button type="button" class="expense-add" id="expenseAddBtn">＋ 立て替えを記録する</button>
+
+    <div id="expenseList"></div>
+    <p class="expense-note">
+      ここに入れた分が、翌月に現金で戻ります。<br>
+      渡し終わったら、その人の<b>「精算済みにする」</b>を押してください。
+    </p>
+  </section>
+
+  <!-- ===== キャッチ集計 =====
+       現金支払管理表に入れた「キャッチ」だけを取り出して、
+       店舗ごとに 人数・金額・1人あたり を出します -->
+  <section class="view view--catch is-hidden" id="viewCatch">
+    <div class="report-head">
+      <div class="report-head__row">
+        <h2 class="report-head__title">キャッチ集計</h2>
+        <button type="button" class="btn" id="catchBack">店舗一覧に戻る</button>
+      </div>
+      <div class="report-nav">
+        <button type="button" class="year-btn" id="catchPrev" aria-label="前の月">‹</button>
+        <span class="report-nav__date" id="catchMonth">2026年8月</span>
+        <button type="button" class="year-btn" id="catchNext" aria-label="次の月">›</button>
+        <button type="button" class="today-btn" id="catchThisMonth">今月</button>
+      </div>
+      <p class="report-summary" id="catchSummary"></p>
+    </div>
+
+    <div class="table-scroll">
+      <table class="exp-total catch-table">
+        <thead>
+          <tr><th>店舗</th><th>人数</th><th>金額</th></tr>
+        </thead>
+        <tbody id="catchTotals"></tbody>
+      </table>
+    </div>
+
+    <div id="catchList"></div>
+    <p class="expense-note">
+      現金支払管理表で<b>「キャッチ」</b>をえらんで入れた分が、ここに集まります。
+    </p>
+  </section>
+
+  <!-- 立て替えを1件入れる画面 -->
+  <div class="modal is-hidden" id="expenseModal">
+    <div class="modal__backdrop" data-close-expense></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="expenseFormTitle">
+      <h2 class="modal__title" id="expenseFormTitle">立て替えを記録する</h2>
+
+      <div class="field">
+        <label class="field__label" for="expDate">支払った日</label>
+        <input type="date" id="expDate" class="field__input">
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="expBy">立て替えた人</label>
+        <select id="expBy" class="field__input"></select>
+      </div>
+
+      <div class="field">
+        <span class="field__label">支払い項目</span>
+        <div class="exp-chips" id="expChips"></div>
+      </div>
+
+      <!-- 買い出し・キャッチのときだけ出ます -->
+      <div class="field is-hidden" id="expStoreField">
+        <span class="field__label">どの店舗ですか</span>
+        <div class="exp-chips" id="expStores"></div>
+      </div>
+
+      <!-- 数字の欄は type="text"。type="number" だと全角数字（１２３）を
+           弾いて空にしてしまい、半角へ直すこともできなくなるためです。
+           入れた全角は bindNumericInput が自動で半角に直します -->
+      <div class="field is-hidden" id="expPeopleField">
+        <label class="field__label" for="expPeople">連れてきた人数</label>
+        <input type="text" id="expPeople" class="field__input" inputmode="numeric"
+               autocomplete="off" placeholder="46">
+      </div>
+
+      <div class="field is-hidden" id="expFreeField">
+        <label class="field__label" for="expLabel">内容</label>
+        <input type="text" id="expLabel" class="field__input" placeholder="例）印紙代">
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="expYen">金額（円）</label>
+        <input type="text" id="expYen" class="field__input" inputmode="numeric"
+               autocomplete="off" placeholder="600">
+      </div>
+
+      <div class="field">
+        <span class="field__label">領収書</span>
+        <div class="seg" id="expReceipt">
+          <button type="button" class="seg__btn" data-receipt="1">◯ ある</button>
+          <button type="button" class="seg__btn" data-receipt="0">× ない</button>
+        </div>
+      </div>
+
+      <p class="pin-error" id="expenseError"></p>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--primary" id="expenseSave">記録する</button>
+        <button type="button" class="btn" data-close-expense>やめる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 週間掃除ビュー ===== -->
   <section class="view view--week is-hidden" id="viewWeek">
 
-    <!-- 2週間ぶんの送り戻し -->
+    <!-- 2週間分の送り戻し -->
     <div class="week-nav">
       <button type="button" class="year-btn" id="weekPrev" aria-label="前の2週間">‹</button>
       <div class="week-nav__label">
@@ -372,15 +546,6 @@
          現場スタッフには関係のない話で、かえって迷わせるためです。
          切り替えは T3 Owner（入口）から行います -->
 
-    <!-- 文字の大きさ（この端末だけ。人によって変えられます） -->
-    <div class="field">
-      <span class="field__label">文字の大きさ</span>
-      <div class="seg" id="fontSeg">
-        <button type="button" class="seg__btn" data-size="normal">標準</button>
-        <button type="button" class="seg__btn" data-size="big">大きく</button>
-      </div>
-    </div>
-
     <!-- 版の番号と、強制的に読み直すボタン。
          「画面が古いまま」というときの切り分けに使います -->
     <div class="field">
@@ -397,10 +562,10 @@
   </div>
 </div>
 
-<script src="js/config.js?v=640fabea"></script>
-<script src="js/storage.js?v=ba5ece53"></script>
-<script src="js/sync.js?v=f4816346"></script>
-<script src="js/update.js?v=131cebaa"></script>
-<script src="js/app.js?v=163fad87"></script>
+<script src="js/config.js?v=93506d2d"></script>
+<script src="js/storage.js?v=c163d4c1"></script>
+<script src="js/sync.js?v=90eb50b9"></script>
+<script src="js/update.js?v=da1d6bfe"></script>
+<script src="js/app.js?v=da6dd1f1"></script>
 </body>
 </html>

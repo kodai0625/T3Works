@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../img/owner-icon-180.png?v=cbb1087e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/owner-icon-64.png?v=ce05c3fc">
 <title>T3 Owner｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=5f728318">
+<link rel="stylesheet" href="../css/style.css?v=ea4518a6">
 <style>
 /* ============================================================
  *  切り替え画面（ホーム画面のフォルダ代わり）
@@ -19,7 +19,7 @@
  * ============================================================ */
 /* 画面の真ん中に置きます。
    iPhone の上端（ノッチ／ダイナミックアイランド）に食い込まないよう、
-   safe-area-inset ぶんの余白を必ず空けます */
+   safe-area-inset 分の余白を必ず空けます */
 body {
   min-height: 100dvh;
   display: flex;
@@ -80,7 +80,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 </style>
-<meta name="app-version" content="f2dd86c4">
+<meta name="app-version" content="f0e585e9">
 </head>
 <body class="no-daytabs">
 
@@ -112,7 +112,17 @@ body {
         <span class="hub-card__arrow" aria-hidden="true">›</span>
       </a>
     </li>
-    <!-- 3つ目はアプリではなく近道。T3 Works Mine の中の画面を直接ひらきます -->
+    <li>
+      <a class="hub-card" href="../drive/" style="--card-color:#bf5480">
+        <span class="hub-card__icon"><img src="../img/drive-icon-180.png?v=cf8bda78" alt=""></span>
+        <span class="hub-card__text">
+          <span class="hub-card__name">配達記録</span>
+          <span class="hub-card__sub">バグるの交通費（店舗タブレット用）</span>
+        </span>
+        <span class="hub-card__arrow" aria-hidden="true">›</span>
+      </a>
+    </li>
+    <!-- 4つ目はアプリではなく近道。T3 Works Mine の中の画面を直接ひらきます -->
     <li>
       <a class="hub-card hub-card--shortcut" href="../mine/#/report" style="--card-color:#55606e">
         <span class="hub-card__icon hub-card__icon--mark" aria-hidden="true">📋</span>
@@ -129,7 +139,9 @@ body {
     ホーム画面に追加するのはこの画面だけでOKです。<br>
     この画面に戻るには、T3 Works Mine の <b>🏠 ホーム</b> を押してください
     （Manage からは <b>⇄</b> でマインに移ってから）。<br>
-    現場スタッフには <b>T3 Works</b>（末尾に何も付かないURL）を渡してください。
+    現場スタッフには <b>T3 Works</b>（末尾に何も付かないURL）を渡してください。<br>
+    バグるのタブレットには <b>配達記録</b>（末尾が <b>/drive/</b> のURL）を
+    直接ホーム画面に追加してください。
   </p>
   <p class="hub__foot" id="hubFoot"></p>
 </main>

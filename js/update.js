@@ -75,12 +75,12 @@ const Updater = {
   },
 
   /**
-   * 4つのアプリが置いてある場所（…/T3Works/）を返す
-   * mine / manage / owner は1つ下の階層にあるので、その分だけ戻ります
+   * アプリが置いてある場所（…/T3Works/）を返す
+   * mine / manage / owner / drive は1つ下の階層にあるので、その分だけ戻ります
    */
   root() {
     const dir = location.pathname.replace(/[^/]*$/, '');
-    return dir.replace(/(mine|manage|owner)\/$/, '');
+    return dir.replace(/(mine|manage|owner|drive)\/$/, '');
   },
 
   /**

@@ -177,6 +177,7 @@ const Sync = {
       if (settings.checklists) localStorage.setItem(Checklists._key, JSON.stringify(settings.checklists));
       if (settings.weeklies) localStorage.setItem(Weeklies._key, JSON.stringify(settings.weeklies));
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
+      if (settings.drivers) localStorage.setItem(Drivers._key, JSON.stringify(settings.drivers));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
     }
@@ -187,7 +188,7 @@ const Sync = {
    *
    *   ok      … ✓  送り終わっている
    *   busy    … ぐるぐる  いま送っている（css でゆっくり回ります）
-   *   pending … ↑  まだ送っていないぶんがある
+   *   pending … ↑  まだ送っていない分がある
    *   error   … !  送れていない／PIN未入力
    *
    * 色だけで見分けさせると、色の見え方が違う人には伝わりません。
@@ -315,6 +316,13 @@ function summaryFor(key) {
   Staff.saveFromText = function (text) {
     const names = _saveStaff(text);
     Sync.enqueue({ t: 'setting', n: 'staffList', v: names });
+    return names;
+  };
+
+  const _saveDrivers = Drivers.saveFromText.bind(Drivers);
+  Drivers.saveFromText = function (text) {
+    const names = _saveDrivers(text);
+    Sync.enqueue({ t: 'setting', n: 'drivers', v: names });
     return names;
   };
 

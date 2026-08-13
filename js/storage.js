@@ -348,3 +348,38 @@ const Staff = {
     return names;
   },
 };
+
+/* -------- 配達する人のリスト（交通費アプリのプルダウン） --------
+ *
+ *  クローズの担当者（Staff）とは別物です。
+ *  あちらは社員、こちらはバグるのアルバイトなので、混ざらないように
+ *  分けてあります。マネージの「交通費」で編集します。
+ *
+ *  名前を消しても、過去に入れた記録はその名前のまま残ります
+ *  （記録の中に名前を書き写しているため）。
+ */
+const Drivers = {
+  _key: APP.storageKey + ':drivers',
+
+  /** 設定で保存されたリスト。未設定・空・壊れている場合は config.js の DRIVERS を使う */
+  list() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch (e) {
+      /* 壊れていたら初期値に戻す */
+    }
+    return DRIVERS.slice();
+  },
+
+  /** 改行区切りの文字列から保存（空行と重複は除く） */
+  saveFromText(text) {
+    const names = [];
+    text.split('\n').forEach((line) => {
+      const name = line.trim();
+      if (name && !names.includes(name)) names.push(name);
+    });
+    localStorage.setItem(this._key, JSON.stringify(names));
+    return names;
+  },
+};

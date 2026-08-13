@@ -180,7 +180,7 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 /* 週間掃除の見出しは決まった場所なので、名前は書き換えられません */
 .sec-card__name--fixed { cursor: default; }
 
-/* 週間掃除の行は「場所」ボタンのぶん幅が狭いので、
+/* 週間掃除の行は「場所」ボタンの分幅が狭いので、
    長い名前は途中で切らずに2行にして最後まで見せます */
 .item-row--weekly .item-row__name {
   white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.35;

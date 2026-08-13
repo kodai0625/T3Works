@@ -10,7 +10,9 @@ const pad2 = (n) => String(n).padStart(2, '0');
 const ymd = (y, m, d) => `${y}-${pad2(m)}-${pad2(d)}`;
 const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
 
-const today = new Date();
+/* 「今日」は業務上の今日です。朝6時（APP.dayStartHour）より前は前の日あつかい。
+   締めが0時をまたいでも、開くページは前の日のままになります */
+const today = businessDate();
 const TODAY = { y: today.getFullYear(), m: today.getMonth() + 1, d: today.getDate() };
 const TODAY_STR = ymd(TODAY.y, TODAY.m, TODAY.d);
 
@@ -41,7 +43,7 @@ const el = {
   reportDate: $('reportDate'), reportSummary: $('reportSummary'), reportList: $('reportList'),
   syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncField: $('syncField'),
   pinModal: $('pinModal'), pinInput: $('pinInput'), pinError: $('pinError'),
-  dayNum: $('dayNum'), dayDow: $('dayDow'),
+  dayNum: $('dayNum'), dayDow: $('dayDow'), dayRollover: $('dayRollover'),
   progressBar: $('dayProgressBar'), progressText: $('dayProgressText'),
   checklist: $('checklistArea'), note: $('dayNote'), updated: $('dayUpdated'),
   closedNotice: $('closedNotice'), noteCard: $('noteCard'), staffRow: $('staffRow'),
@@ -59,12 +61,24 @@ const el = {
   periodSubmitBtn: $('periodSubmitBtn'), periodDone: $('periodDone'),
   periodDoneMeta: $('periodDoneMeta'),
   anytimeBlock: $('anytimeBlock'), anytimeList: $('anytimeList'),
+  viewExpense: $('viewExpense'), expenseMonth: $('expenseMonth'),
+  expenseSummary: $('expenseSummary'), expenseList: $('expenseList'),
+  expenseModal: $('expenseModal'), expDate: $('expDate'), expBy: $('expBy'),
+  expLabel: $('expLabel'), expYen: $('expYen'), expChips: $('expChips'),
+  expenseTotals: $('expenseTotals'), expenseTotalWrap: $('expenseTotalWrap'),
+  viewCatch: $('viewCatch'), catchMonth: $('catchMonth'),
+  catchSummary: $('catchSummary'), catchTotals: $('catchTotals'), catchList: $('catchList'),
+  expStoreField: $('expStoreField'), expStores: $('expStores'),
+  expPeopleField: $('expPeopleField'), expPeople: $('expPeople'),
+  expFreeField: $('expFreeField'),
+  expReceiptSeg: $('expReceipt'), expenseError: $('expenseError'),
+  expenseFormTitle: $('expenseFormTitle'), expenseSave: $('expenseSave'),
   viewWeekAll: $('viewWeekAll'), weekAllRange: $('weekAllRange'),
   weekAllSummary: $('weekAllSummary'), weekAllList: $('weekAllList'),
   doerModal: $('doerModal'), doerItem: $('doerItem'), doerWeek: $('doerWeek'),
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
   settingsBtn: $('settingsBtn'), modal: $('modal'),
-  fontSeg: $('fontSeg'), appVersionText: $('appVersionText'), forceUpdate: $('forceUpdate'),
+  appVersionText: $('appVersionText'), forceUpdate: $('forceUpdate'),
   confirmDialog: $('confirmDialog'), confirmItem: $('confirmItem'),
   confirmMessage: $('confirmMessage'), confirmOk: $('confirmOk'),
 };
@@ -80,7 +94,7 @@ const el = {
  *   #/report/{YYYY-MM-DD}       全店舗の提出記録（店舗に属さない）
  *   #/weekall/{YYYY-MM-DD}      全店舗の週間掃除 達成状況
  */
-const ALL_STORE_VIEWS = ['report', 'weekall'];
+const ALL_STORE_VIEWS = ['report', 'weekall', 'expense', 'catch'];
 
 function readHash() {
   const parts = (location.hash || '').replace(/^#\/?/, '').split('/').filter((s) => s !== '');
@@ -216,7 +230,7 @@ function renderStoreTabs() {
  * ---------------------------------------------------------- */
 /* 画像の置き場所。
    mine/ のように1つ下の階層に置いた版では、公開用を作る.py が
-   body に data-assets="../" を付けるので、そのぶんだけ前に足します */
+   body に data-assets="../" を付けるので、その分だけ前に足します */
 const ASSET_BASE = document.body.dataset.assets || '';
 
 /* 画面に出すアプリ名。
@@ -321,6 +335,17 @@ function renderDayView() {
   el.dayNum.textContent = state.d;
   el.dayDow.textContent = `（${DOW[dow]}）`;
   el.dayDow.className = 'day-head__dow' + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '');
+
+  /* --- 0時を過ぎたときの案内 ---
+     カレンダーの日付と、業務上の今日がズレているあいだだけ出します */
+  const real = new Date();
+  const realStr = ymd(real.getFullYear(), real.getMonth() + 1, real.getDate());
+  const rollover = dateStr === TODAY_STR && realStr !== TODAY_STR;
+  el.dayRollover.classList.toggle('is-hidden', !rollover);
+  if (rollover) {
+    el.dayRollover.textContent =
+      `日付は変わりましたが、朝${APP.dayStartHour}時までは ${state.m}/${state.d} の分として開いています。`;
+  }
 
   /* --- 定休日 --- */
   // 定休日は確認不要。ただし過去に入力があった日は隠さずそのまま出す
@@ -636,6 +661,392 @@ function renderTaskPicker() {
 }
 
 /* ------------------------------------------------------------
+ *  立替金
+ *
+ *  お店ではなく「人」と「月」でまとめます。
+ *  1件＝1つの項目として  _expense/2026-08  の中に入るので、
+ *  同期の仕組み（スプレッドシート）はそのまま使えます。
+ * ---------------------------------------------------------- */
+/** いま見ている月の記録 */
+function expenseRec() {
+  return Store.getDay(EXPENSE_STORE, expenseMonthKey(state.y, state.m));
+}
+
+/** 1件分の明細だけ取り出す（精算済みの印は除く） */
+function expenseEntries(rec) {
+  const items = rec.items || {};
+  return Object.keys(items)
+    .filter((id) => !id.startsWith('paid:') && items[id] && items[id].yen)
+    .map((id) => ({ id, ...items[id] }))
+    .sort((a, b) => (a.d || '').localeCompare(b.d || '') || (a.at || '').localeCompare(b.at || ''));
+}
+
+/** 人ごとにまとめる。金額の大きい人が上 */
+function expenseByPerson(rec) {
+  const map = new Map();
+  expenseEntries(rec).forEach((e) => {
+    const name = e.by || '（名前なし）';
+    if (!map.has(name)) map.set(name, []);
+    map.get(name).push(e);
+  });
+  return [...map.entries()]
+    .map(([name, list]) => ({
+      name,
+      list,
+      total: list.reduce((t, e) => t + (Number(e.yen) || 0), 0),
+      paid: (rec.items || {})[expensePaidKey(name)] || null,
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function yenText(n) {
+  return '¥' + (Number(n) || 0).toLocaleString('ja-JP');
+}
+
+function renderExpense() {
+  const rec = expenseRec();
+  const people = expenseByPerson(rec);
+  const total = people.reduce((t, p) => t + p.total, 0);
+  const unpaid = people.filter((p) => !(p.paid && p.paid.done));
+
+  el.expenseMonth.textContent = `${state.y}年${state.m}月`;
+  el.expenseSummary.textContent = people.length
+    ? `${people.length}人 / 合計 ${yenText(total)}　未精算 ${unpaid.length}人（${yenText(unpaid.reduce((t, p) => t + p.total, 0))}）`
+    : 'この月の記録はまだありません。';
+
+  /* ---- 上の表：人ごとの合計と精算（スプレッドシートの「N月合計」） ---- */
+  el.expenseTotalWrap.classList.toggle('is-hidden', people.length === 0);
+  el.expenseTotals.innerHTML = '';
+  people.forEach((p) => {
+    const done = !!(p.paid && p.paid.done);
+    const tr = document.createElement('tr');
+    if (done) tr.className = 'is-paid';
+
+    const name = document.createElement('td');
+    name.className = 'exp-total__name';
+    name.textContent = p.name;
+
+    const yenTd = document.createElement('td');
+    yenTd.className = 'exp-total__yen';
+    yenTd.textContent = yenText(p.total);
+
+    const act = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'exp-paid-btn' + (done ? ' is-done' : '');
+    btn.textContent = done ? '済 ' + (shortDate(p.paid.at) || '') : '精算';
+    btn.title = done ? '押すと精算をとり消します' : '現金を渡したら押します';
+    btn.addEventListener('click', () => togglePaid(p));
+    act.appendChild(btn);
+
+    tr.append(name, yenTd, act);
+    el.expenseTotals.appendChild(tr);
+  });
+
+  /* ---- 下：人ごとの明細 ---- */
+  el.expenseList.innerHTML = '';
+  people.forEach((p) => {
+    const done = !!(p.paid && p.paid.done);
+    const card = document.createElement('section');
+    card.className = 'exp-card' + (done ? ' is-paid' : '');
+
+    const head = document.createElement('div');
+    head.className = 'exp-card__head';
+    head.innerHTML = `<span class="exp-card__name">${p.name}</span>`;
+    if (done) {
+      const tag = document.createElement('span');
+      tag.className = 'exp-card__paid';
+      tag.textContent = '精算済み ' + (shortDate(p.paid.at) || '');
+      head.appendChild(tag);
+    }
+    card.appendChild(head);
+
+    const list = document.createElement('ul');
+    list.className = 'exp-rows';
+    p.list.forEach((e) => {
+      const li = document.createElement('li');
+      li.className = 'exp-row';
+      const [, m, d] = (e.d || '').split('-');
+      li.innerHTML =
+        `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
+        `<span class="exp-row__label"></span>` +
+        `<span class="exp-row__receipt${e.receipt ? '' : ' is-none'}">${e.receipt ? '◯' : '×'}</span>` +
+        `<span class="exp-row__yen">${yenText(e.yen)}</span>`;
+      li.querySelector('.exp-row__label').textContent = e.label || '（項目なし）';
+      // 精算が済むまでは、間違えて入れたものを直したり消したりできます
+      if (!done) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'row-edit';
+        edit.textContent = '編集';
+        edit.title = 'この1件を直す';
+        edit.addEventListener('click', () => openExpenseForm(e));
+        li.appendChild(edit);
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'exp-row__del';
+        del.textContent = '×';
+        del.title = 'この1件を消す';
+        del.addEventListener('click', () => removeExpense(e));
+        li.appendChild(del);
+      }
+      list.appendChild(li);
+    });
+    card.appendChild(list);
+    el.expenseList.appendChild(card);
+  });
+}
+
+async function togglePaid(p) {
+  const key = expenseMonthKey(state.y, state.m);
+  const done = !!(p.paid && p.paid.done);
+  if (done) {
+    const ok = await askConfirm(p.name, '精算済みをとり消します。よろしいですか？');
+    if (!ok) return;
+    Store.setItem(EXPENSE_STORE, key, expensePaidKey(p.name), { done: false, by: '' });
+  } else {
+    const ok = await askConfirm(
+      `${p.name}　${yenText(p.total)}`,
+      `${state.m}月分を現金で渡したことにします。よろしいですか？`
+    );
+    if (!ok) return;
+    Store.setItem(EXPENSE_STORE, key, expensePaidKey(p.name), { done: true, by: p.name });
+  }
+  renderExpense();
+  renderSyncStatus();
+}
+
+async function removeExpense(e) {
+  const ok = await askConfirm(`${e.label}　${yenText(e.yen)}`, 'この1件を消します。よろしいですか？');
+  if (!ok) return;
+  // 金額を0にすると一覧から外れます（消したことも同期で全端末に伝わります）
+  Store.setItem(EXPENSE_STORE, expenseMonthKey(state.y, state.m), e.id, { yen: 0, done: false });
+  renderExpense();
+  renderSyncStatus();
+}
+
+/* ---- 入力画面 ----
+ *
+ *  何も渡さなければ「新しく入れる」画面、
+ *  一覧の「編集」から1件を渡すと「直す」画面になります。
+ *  直したときは同じ番号に上書きするので、二重にはなりません。
+ */
+let expReceipt = true;
+let expKind = '';     // 支払い項目の種類（parking / buy / catch / change / other）
+let expStore = '';    // 買い出し・キャッチのときの店舗
+let expEditing = null; // 直しているとき、その1件
+
+function openExpenseForm(entry) {
+  expEditing = entry || null;
+  el.expDate.value = expEditing ? expEditing.d : ymd(TODAY.y, TODAY.m, TODAY.d);
+  el.expLabel.value = '';
+  el.expYen.value = expEditing ? expEditing.yen : '';
+  el.expPeople.value = expEditing && expEditing.people ? expEditing.people : '';
+  el.expenseError.textContent = '';
+  expReceipt = expEditing ? !!expEditing.receipt : true;
+  expKind = expEditing ? (expEditing.kind || '') : '';
+  expStore = expEditing ? (expEditing.store || '') : '';
+  // 「その他」は内容を自由に書いているので、その文字も戻します
+  if (expEditing && getExpenseKind(expKind) && getExpenseKind(expKind).free) {
+    el.expLabel.value = expEditing.label || '';
+  }
+  renderReceiptSeg();
+
+  el.expenseFormTitle.textContent = expEditing ? '記録を直す' : '立て替えを記録する';
+  el.expenseSave.textContent = expEditing ? '直す' : '記録する';
+
+  const names = Staff.list();
+  // 担当者リストから消された人の記録を直すときも、その名前を残しておきます
+  if (expEditing && expEditing.by && !names.includes(expEditing.by)) names.push(expEditing.by);
+  el.expBy.innerHTML = '<option value="">選んでください</option>';
+  names.forEach((n) => {
+    const o = document.createElement('option');
+    o.value = n;
+    o.textContent = n;
+    el.expBy.appendChild(o);
+  });
+  if (expEditing) el.expBy.value = expEditing.by || '';
+
+  /* 支払い項目のボタン */
+  el.expChips.innerHTML = '';
+  EXPENSE_KINDS.forEach((kind) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'exp-chip';
+    b.dataset.kind = kind.id;
+    b.textContent = kind.name;
+    b.addEventListener('click', () => { expKind = kind.id; renderExpenseForm(); });
+    el.expChips.appendChild(b);
+  });
+
+  /* 店舗のボタン（買い出し・キャッチのときだけ出ます） */
+  el.expStores.innerHTML = '';
+  STORES.forEach((s) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'exp-chip';
+    b.dataset.store = s.id;
+    // 略さない名前を出します（「おいでん」ではなく「おいでんテラス」）
+    b.textContent = s.name;
+    b.addEventListener('click', () => { expStore = s.id; renderExpenseForm(); });
+    el.expStores.appendChild(b);
+  });
+
+  renderExpenseForm();
+  el.expenseModal.classList.remove('is-hidden');
+}
+
+/** えらんだ項目に合わせて、下の入力欄を出し入れします */
+function renderExpenseForm() {
+  const kind = getExpenseKind(expKind);
+  [...el.expChips.children].forEach((b) => b.classList.toggle('is-on', b.dataset.kind === expKind));
+  [...el.expStores.children].forEach((b) => b.classList.toggle('is-on', b.dataset.store === expStore));
+
+  el.expStoreField.classList.toggle('is-hidden', !(kind && kind.store));
+  el.expPeopleField.classList.toggle('is-hidden', !(kind && kind.people));
+  el.expFreeField.classList.toggle('is-hidden', !(kind && kind.free));
+}
+
+function renderReceiptSeg() {
+  [...el.expReceiptSeg.querySelectorAll('.seg__btn')].forEach((b) => {
+    b.classList.toggle('is-on', (b.dataset.receipt === '1') === expReceipt);
+  });
+}
+
+function saveExpense() {
+  const d = el.expDate.value;
+  const by = el.expBy.value;
+  const kind = getExpenseKind(expKind);
+  // 全角で入っていても読めるよう、ここでも半角に直してから数字にします
+  const people = Math.round(Number(toHalfWidthNumber(el.expPeople.value)));
+  const y = Math.round(Number(toHalfWidthNumber(el.expYen.value)));
+  const label = expenseLabelOf(expKind, expStore, people, el.expLabel.value);
+
+  if (!d) { el.expenseError.textContent = '支払った日を入れてください。'; return; }
+  if (!by) { el.expenseError.textContent = '立て替えた人を選んでください。'; return; }
+  if (!kind) { el.expenseError.textContent = '支払い項目をえらんでください。'; return; }
+  if (kind.store && !expStore) { el.expenseError.textContent = 'どの店舗かをえらんでください。'; return; }
+  if (kind.people && (!people || people <= 0)) { el.expenseError.textContent = '人数を入れてください。'; return; }
+  if (!label) { el.expenseError.textContent = '内容を入れてください。'; return; }
+  if (!y || y <= 0) { el.expenseError.textContent = '金額を入れてください。'; return; }
+
+  // 入れ先は「支払った日の月」。月をまたいで入れても、正しい月に入ります
+  const [yy, mm] = d.split('-').map(Number);
+  const key = expenseMonthKey(yy, mm);
+  const id = expEditing ? expEditing.id
+    : 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // 直すときに日付を別の月へ動かした場合は、元の月から取り除いてから移します
+  if (expEditing) {
+    const from = expenseMonthKey(state.y, state.m);
+    if (from !== key) Store.setItem(EXPENSE_STORE, from, id, { yen: 0, done: false });
+  }
+
+  Store.setItem(EXPENSE_STORE, key, id, {
+    done: true, d, by, label, yen: y, receipt: expReceipt,
+    // あとから店舗ごとに集計できるよう、えらんだ内容もそのまま残します
+    kind: expKind, store: expStore || '', people: kind.people ? people : 0,
+  });
+
+  // 入れた月を表示する（先月分を入れたときも、その場で確かめられます）
+  state.y = yy;
+  state.m = mm;
+  el.expenseModal.classList.add('is-hidden');
+  writeHash();
+  renderExpense();
+  renderSyncStatus();
+}
+
+/* ------------------------------------------------------------
+ *  キャッチ集計
+ *
+ *  現金支払管理表に入れた「キャッチ」だけを取り出して、
+ *  その月に 店舗ごとで 何人つれてきて いくら払ったか を出します。
+ * ---------------------------------------------------------- */
+function catchByStore() {
+  const entries = expenseEntries(expenseRec()).filter((e) => e.kind === 'catch');
+
+  const map = new Map();
+  const add = (id) => {
+    if (!map.has(id)) map.set(id, { id, list: [], people: 0, yen: 0 });
+    return map.get(id);
+  };
+  CATCH_STORES.forEach(add);                 // 0人の月でも行を出すため、先に並べておく
+  entries.forEach((e) => {
+    const row = add(e.store || '');
+    row.list.push(e);
+    row.people += Number(e.people) || 0;
+    row.yen += Number(e.yen) || 0;
+  });
+
+  return [...map.values()].filter((r) => r.id || r.list.length);
+}
+
+function renderCatch() {
+  const rows = catchByStore();
+  const people = rows.reduce((t, r) => t + r.people, 0);
+  const total = rows.reduce((t, r) => t + r.yen, 0);
+
+  el.catchMonth.textContent = `${state.y}年${state.m}月`;
+  el.catchSummary.textContent = people
+    ? `合計 ${people}名 / ${yenText(total)}`
+    : 'この月のキャッチの記録はまだありません。';
+
+  el.catchTotals.innerHTML = '';
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    if (!r.people) tr.className = 'is-paid';   // 0人の店舗は色を落とす
+
+    const name = document.createElement('td');
+    name.className = 'exp-total__name';
+    name.textContent = r.id ? getStore(r.id).name : '（店舗なし）';
+
+    const p = document.createElement('td');
+    p.className = 'exp-total__yen';
+    p.textContent = r.people ? `${r.people}名` : '—';
+
+    const y = document.createElement('td');
+    y.className = 'exp-total__yen';
+    y.textContent = r.yen ? yenText(r.yen) : '—';
+
+    tr.append(name, p, y);
+    el.catchTotals.appendChild(tr);
+  });
+
+  /* ---- 店舗ごとの明細 ---- */
+  el.catchList.innerHTML = '';
+  rows.filter((r) => r.list.length).forEach((r) => {
+    const card = document.createElement('section');
+    card.className = 'exp-card';
+
+    const head = document.createElement('div');
+    head.className = 'exp-card__head';
+    head.innerHTML =
+      '<span class="exp-card__name"></span>' +
+      `<span class="exp-card__total">${r.people}名 / ${yenText(r.yen)}</span>`;
+    head.querySelector('.exp-card__name').textContent = r.id ? getStore(r.id).name : '（店舗なし）';
+    card.appendChild(head);
+
+    const list = document.createElement('ul');
+    list.className = 'exp-rows';
+    r.list.forEach((e) => {
+      const li = document.createElement('li');
+      li.className = 'exp-row';
+      const [, m, d] = (e.d || '').split('-');
+      li.innerHTML =
+        `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
+        '<span class="exp-row__label"></span>' +
+        `<span class="exp-row__yen">${yenText(e.yen)}</span>`;
+      li.querySelector('.exp-row__label').textContent = `${e.people || 0}名　${e.by || ''}`;
+      list.appendChild(li);
+    });
+    card.appendChild(list);
+    el.catchList.appendChild(card);
+  });
+}
+
+/* ------------------------------------------------------------
  *  全店舗提出記録
  * ---------------------------------------------------------- */
 function renderReport() {
@@ -707,6 +1118,16 @@ function shiftDay(diff) {
   state.y = dt.getFullYear();
   state.m = dt.getMonth() + 1;
   state.d = dt.getDate();
+  writeHash();
+  render();
+}
+
+/** 表示中の月を前後にずらす（立替金の画面で使います） */
+function shiftMonth(diff) {
+  const dt = new Date(state.y, state.m - 1 + diff, 1);
+  state.y = dt.getFullYear();
+  state.m = dt.getMonth() + 1;
+  state.d = Math.min(state.d, daysInMonth(state.y, state.m));
   writeHash();
   render();
 }
@@ -817,11 +1238,15 @@ function buildItemRow(storeId, dateStr, item, data) {
       input.type = 'text';
       input.inputMode = 'decimal';
       input.placeholder = '数値を入力';
+      // 全角の数字（１２３）で入れても半角に直します
+      bindNumericInput(input);
     } else {
       input.type = 'text';
       input.placeholder = '内容を入力';
     }
     input.addEventListener('change', () => {
+      // 数値の項目は、貼り付けなどで全角のまま残った場合もここで直します
+      if (item.type === 'number') input.value = toHalfWidthNumber(input.value);
       Store.setItem(storeId, dateStr, item.id, { value: input.value });
       renderDayTabs(false);
     });
@@ -1121,7 +1546,7 @@ function donut(rate, { size = 96, stroke = 10, color = 'var(--store)', label = '
   title.textContent = `${label}達成率 ${rate}%`;
   svg.appendChild(title);
 
-  // 下地の輪（100%ぶんの目盛り）
+  // 下地の輪（100%分の目盛り）
   const track = document.createElementNS(NS, 'circle');
   track.setAttribute('class', 'donut__track');
   track.setAttribute('cx', size / 2);
@@ -1130,7 +1555,7 @@ function donut(rate, { size = 96, stroke = 10, color = 'var(--store)', label = '
   track.setAttribute('stroke-width', stroke);
   svg.appendChild(track);
 
-  // 進んだぶんの輪。12時から時計回りに伸びます
+  // 進んだ分の輪。12時から時計回りに伸びます
   if (pct > 0) {
     const arc = document.createElementNS(NS, 'circle');
     arc.setAttribute('class', 'donut__arc');
@@ -1707,6 +2132,8 @@ function render() {
   const isDay = state.view === 'day';
   const isWeek = state.view === 'week';
   const isWeekAll = state.view === 'weekall';
+  const isExpense = state.view === 'expense';
+  const isCatch = state.view === 'catch';
 
   /* ---- 業務選択画面：店舗の見出しだけ出して、業務の中身は出さない ---- */
   if (isTasks) {
@@ -1723,6 +2150,8 @@ function render() {
     el.viewWeekAll.classList.add('is-hidden');
     el.viewMonth.classList.add('is-hidden');
     el.viewReport.classList.add('is-hidden');
+    el.viewExpense.classList.add('is-hidden');
+    el.viewCatch.classList.add('is-hidden');
     el.viewTasks.classList.remove('is-hidden');
     renderStoreTabs();
     renderTaskPicker();
@@ -1744,6 +2173,8 @@ function render() {
     el.viewWeekAll.classList.add('is-hidden');
     el.viewMonth.classList.add('is-hidden');
     el.viewReport.classList.add('is-hidden');
+    el.viewExpense.classList.add('is-hidden');
+    el.viewCatch.classList.add('is-hidden');
     el.viewStores.classList.remove('is-hidden');
     renderStorePicker();
     renderSyncStatus();
@@ -1751,9 +2182,9 @@ function render() {
   }
 
   el.viewStores.classList.add('is-hidden');
-  el.storeTabs.classList.toggle('is-hidden', isWeekAll);
+  el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch);
   // 週間掃除は週ごとに送って見る画面なので、日タブは出しません
-  const noDays = isReport || isWeek || isWeekAll;
+  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch;
   el.dayTabs.classList.toggle('is-hidden', noDays);
   document.body.classList.toggle('no-daytabs', noDays);
 
@@ -1775,7 +2206,7 @@ function render() {
   renderDayTabs();
 
   // 全店舗の画面は店舗に属さないので、店舗見出しごと隠す
-  el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll);
+  el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch);
   // 週間掃除は2週間ずつ送るので、年・月タブは使いません
   el.storeHead.classList.toggle('is-weekview', isWeek);
   // いま開いている業務の名前（タップで業務の一覧に戻ります）
@@ -1787,8 +2218,12 @@ function render() {
   el.viewWeekAll.classList.toggle('is-hidden', !isWeekAll);
   el.viewMonth.classList.toggle('is-hidden', state.view !== 'month');
   el.viewReport.classList.toggle('is-hidden', !isReport);
+  el.viewExpense.classList.toggle('is-hidden', !isExpense);
+  el.viewCatch.classList.toggle('is-hidden', !isCatch);
 
-  if (isReport) renderReport();
+  if (isCatch) renderCatch();
+  else if (isExpense) renderExpense();
+  else if (isReport) renderReport();
   else if (isDay) renderDayView();
   else if (isWeek) renderWeekView();
   else if (isWeekAll) renderWeekAll();
@@ -1885,7 +2320,8 @@ function openPinModal(message) {
 }
 
 async function submitPin() {
-  const pin = el.pinInput.value.trim();
+  // 全角で入れても通るように、半角に直してから確かめます
+  const pin = toHalfWidth(el.pinInput.value).trim();
   if (!pin) { el.pinError.textContent = 'PINを入力してください。'; return; }
   el.pinError.textContent = '確認中…';
   Sync.setPin(pin);
@@ -1900,45 +2336,10 @@ async function submitPin() {
 }
 
 /* ============================================================
- *  文字の大きさ（この端末だけの設定）
- *
- *  画面ぜんぶを拡大すると、貼り付いた見出しや日タブの位置がずれるので、
- *  body に is-big を付けて「読むところの文字」だけを大きくします
- *  （どこを大きくするかは css/style.css の body.is-big を見てください）。
- * ============================================================ */
-const FONT_KEY = APP.storageKey + ':fontSize';
-
-function fontSize() {
-  try {
-    return localStorage.getItem(FONT_KEY) === 'big' ? 'big' : 'normal';
-  } catch (e) {
-    return 'normal';
-  }
-}
-
-function applyFontSize() {
-  document.body.classList.toggle('is-big', fontSize() === 'big');
-}
-
-function setFontSize(size) {
-  try { localStorage.setItem(FONT_KEY, size); } catch (e) { /* 保存できなくても見た目は変わります */ }
-  applyFontSize();
-  renderFontSeg();
-}
-
-function renderFontSeg() {
-  const now = fontSize();
-  [...el.fontSeg.querySelectorAll('.seg__btn')].forEach((b) => {
-    b.classList.toggle('is-on', b.dataset.size === now);
-  });
-}
-
-/* ============================================================
  *  設定モーダル
  * ============================================================ */
 function openModal() {
   renderSyncStatus();
-  renderFontSeg();
   // 版の番号。困ったときに「この番号を教えて」と聞くためのものです
   const v = Updater.current();
   el.appVersionText.innerHTML = v
@@ -1958,6 +2359,8 @@ function closeModal() {
 function bindEvents() {
   /* 業務の一覧へ戻る */
   $('taskBar').addEventListener('click', goTasks);
+  // 業務のページから、店舗選択まで一気に戻る
+  $('taskBarHome').addEventListener('click', goHome);
   $('tasksBackBtn').addEventListener('click', goHome);
 
   /* 年送り */
@@ -2069,6 +2472,40 @@ function bindEvents() {
   $('reportBack').addEventListener('click', goHome);
   $('homeBtn').addEventListener('click', goHome);
   $('storesReportBtn').addEventListener('click', () => openAllStores('report'));
+
+  /* 立替金 */
+  $('storesExpenseBtn').addEventListener('click', () => openAllStores('expense'));
+  $('expenseBack').addEventListener('click', goHome);
+  $('expenseAddBtn').addEventListener('click', () => openExpenseForm());
+  el.expenseSave.addEventListener('click', saveExpense);
+  // 全角の数字で入れても半角に直します（日本語キーボードのままでも入力できる）
+  bindNumericInput(el.expYen);
+  bindNumericInput(el.expPeople);
+  el.expenseModal.querySelectorAll('[data-close-expense]').forEach((n) =>
+    n.addEventListener('click', () => el.expenseModal.classList.add('is-hidden'))
+  );
+  el.expReceiptSeg.addEventListener('click', (e) => {
+    const b = e.target.closest('.seg__btn');
+    if (!b) return;
+    expReceipt = b.dataset.receipt === '1';
+    renderReceiptSeg();
+  });
+  /* キャッチ集計 */
+  $('storesCatchBtn').addEventListener('click', () => openAllStores('catch'));
+  $('catchBack').addEventListener('click', goHome);
+  $('catchPrev').addEventListener('click', () => shiftMonth(-1));
+  $('catchNext').addEventListener('click', () => shiftMonth(1));
+  $('catchThisMonth').addEventListener('click', () => {
+    state.y = TODAY.y; state.m = TODAY.m;
+    writeHash(); render();
+  });
+
+  $('expensePrev').addEventListener('click', () => shiftMonth(-1));
+  $('expenseNext').addEventListener('click', () => shiftMonth(1));
+  $('expenseThisMonth').addEventListener('click', () => {
+    state.y = TODAY.y; state.m = TODAY.m;
+    writeHash(); render();
+  });
   $('reportPrev').addEventListener('click', () => shiftDay(-1));
   $('reportNext').addEventListener('click', () => shiftDay(1));
   $('reportToday').addEventListener('click', () => {
@@ -2089,6 +2526,7 @@ function bindEvents() {
   $('pinChange').addEventListener('click', () => { closeModal(); openPinModal(); });
   $('pinOk').addEventListener('click', submitPin);
   el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  bindHalfWidthInput(el.pinInput, 'code');
   // 貼り付けた内容が正しいか目で確かめられるようにする
   $('pinReveal').addEventListener('click', () => {
     const show = el.pinInput.type === 'password';
@@ -2098,12 +2536,6 @@ function bindEvents() {
 
   /* 設定（この端末の設定のみ。項目・担当者・定休日は管理アプリで） */
   el.settingsBtn.addEventListener('click', () => openModal());
-
-  // 文字の大きさ（標準／大きく）
-  el.fontSeg.addEventListener('click', (e) => {
-    const btn = e.target.closest('.seg__btn');
-    if (btn) setFontSize(btn.dataset.size);
-  });
 
   // 「今すぐ最新にする」…控えを捨てて読み直します
   el.forceUpdate.addEventListener('click', () => {
@@ -2131,7 +2563,6 @@ function bindEvents() {
  *  起動
  * ============================================================ */
 function init() {
-  applyFontSize();
   readHash();
   writeHash(true);
   bindEvents();

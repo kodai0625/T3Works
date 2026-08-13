@@ -19,8 +19,94 @@ const APP = {
   //   SETUP.md の手順で取得したURLをここに貼ると共有版になります。
   syncUrl: 'https://script.google.com/macros/s/AKfycbzzLm89vm45kaMHcAMPb9DsrYxFeZwW-Q6UDo2NITHEPBUK3hSslVWiLONEPGxpPCVW/exec',
 
+  // ★「今日」が切り替わる時刻（時）
+  //   締め作業が0時をまたぐことが多いので、朝までは前の日あつかいにします。
+  //   6 … 朝6時に翌日へ切り替わる（0 にすると 0時ちょうどで切り替わります）
+  dayStartHour: 6,
+
   storageKey: 't3d-check-v1', // ← 変更するとデータが分かれるので通常は触らない
 };
+
+/**
+ * 業務上の「今日」
+ *
+ * 朝 APP.dayStartHour 時より前は、前の日として扱います。
+ * 例）8月14日の 1:00 → 「8月13日」。
+ *     26時までの締め作業でも、開くページは前の日のままです。
+ */
+function businessDate(now) {
+  const d = now ? new Date(now) : new Date();
+  d.setHours(d.getHours() - (APP.dayStartHour || 0));
+  return d;
+}
+
+/* ------------------------------------------------------------
+ *  全角で入れたものを半角に直す
+ *
+ *  iPhone や iPad の日本語キーボードのままだと「１２．６」のように
+ *  全角で入ってしまい、そのままでは数字として読めません。
+ *  数字を入れる欄では、入力中に半角へ直しています。
+ *
+ *  ※ そのために、数字の欄は type="number" ではなく type="text" です。
+ *    type="number" は全角が入った瞬間に中身を空にしてしまい、
+ *    こちらから読み取って直すことすらできないためです。
+ *
+ *  ※ 日本語を書く欄（備考・項目名・名前など）は直しません。
+ *    文章の中の全角は、書いた人がそのつもりで書いているためです。
+ * ---------------------------------------------------------- */
+
+/**
+ * 全角の英数字・記号を半角にする
+ *   ＡＢＣ１２３ → ABC123 ／ 全角スペース → 半角スペース
+ * ひらがな・カタカナ・漢字はそのままです。
+ */
+function toHalfWidth(text) {
+  return String(text == null ? '' : text)
+    // 全角の ！ 〜 ～ は、半角の ! 〜 ~ より 0xFEE0 だけ後ろに並んでいます
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ');
+}
+
+/**
+ * 数字として読めるように直す
+ *   １２．６ → 12.6 ／ ６。２ → 6.2 ／ ３，３８０ → 3380
+ */
+function toHalfWidthNumber(text) {
+  return toHalfWidth(text)
+    .replace(/。/g, '.')          // 句点 → 小数点（テンキーで出やすい）
+    .replace(/[、,]/g, '')        // 桁区切り → 取り除く
+    .replace(/[‐―ー−]/g, '-')    // 全角のハイフンいろいろ
+    .replace(/\s/g, '');          // 空白は取り除く
+}
+
+/**
+ * 入力欄に「全角で入れても半角に直す」動きを付ける
+ * （入力中と、欄から離れたときの2回直します）
+ *
+ *   kind = 'number' … 数字の欄（桁区切りや空白も落とします）
+ *   kind = 'code'   … PINなど、半角で書くと決まっている欄
+ */
+function bindHalfWidthInput(input, kind) {
+  if (!input) return;
+  const conv = kind === 'number' ? toHalfWidthNumber : toHalfWidth;
+  const fix = () => {
+    const fixed = conv(input.value);
+    if (fixed === input.value) return;
+    const atEnd = input.selectionStart === input.value.length;
+    input.value = fixed;
+    // 途中を直しているときにカーソルが飛ばないよう、末尾のときだけ戻します
+    if (atEnd) {
+      try { input.setSelectionRange(fixed.length, fixed.length); } catch (e) { /* 対応していない欄 */ }
+    }
+  };
+  input.addEventListener('input', fix);
+  input.addEventListener('blur', fix);
+}
+
+/** 数字の欄むけ（いちばんよく使うので短く呼べるようにしています） */
+function bindNumericInput(input) {
+  bindHalfWidthInput(input, 'number');
+}
 
 /* ------------------------------------------------------------
  *  1) 店舗一覧
@@ -257,7 +343,7 @@ const CHECKLIST_OVERRIDES = {
         { id: 'kj-k15', label: '台上食材の確認' },
         { id: 'kj-k18', label: 'ディスペンサー補充、しまってあるか', addedAt: '2026-08-12' },
         { id: 'kj-k19', label: '乾物補充', addedAt: '2026-08-12' },
-        { id: 'kj-k20', label: '揚場補充', addedAt: '2026-08-12' },
+        { id: 'kj-k20', label: '揚げ場補充', addedAt: '2026-08-12' },
         { id: 'kj-k21', label: '油補充', addedAt: '2026-08-12' },
         { id: 'kj-k22', label: 'レンジ拭き', addedAt: '2026-08-12' },
         { id: 'kj-k09', label: 'ドリンクサーバー電源' },
@@ -341,7 +427,7 @@ const CHECKLIST_OVERRIDES = {
         { id: 'sm-k02', label: '台上食材の確認' },
         { id: 'sm-k10', label: 'ディスペンサー補充、しまってあるか' },
         { id: 'sm-k11', label: '乾物補充' },
-        { id: 'sm-k12', label: '揚場補充' },
+        { id: 'sm-k12', label: '揚げ場補充' },
         { id: 'sm-k16', label: '油補充' },
         { id: 'sm-k19', label: 'レンジ拭き' },
         { id: 'sm-k20', label: 'コンロ掃除' },
@@ -424,7 +510,7 @@ const CHECKLIST_OVERRIDES = {
         { id: 'ch-a05', label: '台上食材の確認' },
         { id: 'ch-a18', label: 'ディスペンサー補充、しまってあるか' },
         { id: 'ch-a19', label: '乾物補充' },
-        { id: 'ch-a21', label: '揚場補充' },
+        { id: 'ch-a21', label: '揚げ場補充' },
         { id: 'ch-a26', label: '油補充' },
         { id: 'ch-d06', label: '余り米、冷凍or他店舗に渡す', onlyDows: [6] },
         { id: 'ch-a29', label: 'レンジ拭き' },
@@ -827,6 +913,160 @@ const ANYTIME_KEY = 'ANYTIME';
  *  「その店舗のいまの状況」を業務選択画面に出すため、
  *  status(storeId) は app.js の taskStatus() が担当します。
  * ---------------------------------------------------------- */
+
+/* ------------------------------------------------------------
+ *  4-3) 立替金（買い出しなどを現金で立て替えたとき）
+ *
+ *  お店に紐づかない話なので、店舗ではなく「月」でまとめます。
+ *  記録の入れ先は  _expense/2026-08  のような形です。
+ *  （店舗idの場所に _expense を置いているだけで、仕組みは他と同じ。
+ *    日付の形ではないので、提出記録シートには出ません）
+ *
+ *  1件分の中身
+ *    d       : 支払った日（'YYYY-MM-DD'）
+ *    by      : 立て替えた人
+ *    label   : 支払い項目
+ *    yen     : 金額
+ *    receipt : 領収書があるか（true / false）
+ *
+ *  「精算済み（現金を渡した）」は  paid:名前  という項目で持ちます。
+ * ---------------------------------------------------------- */
+const EXPENSE_STORE = '_expense';
+
+/**
+ * 支払い項目のえらび方
+ *   id    : 記録に残す種類
+ *   name  : ボタンに出る文字
+ *   store : true … どの店舗かをえらぶ
+ *   people: true … 何人かを入れる（キャッチ用）
+ *   free  : true … 内容を自由に書く
+ */
+const EXPENSE_KINDS = [
+  { id: 'parking', name: '駐車場代' },
+  { id: 'buy',     name: '買い出し',   store: true },
+  { id: 'catch',   name: 'キャッチ',   store: true, people: true },
+  { id: 'change',  name: '両替手数料' },
+  { id: 'other',   name: 'その他',     free: true },
+];
+
+function getExpenseKind(id) {
+  return EXPENSE_KINDS.find((k) => k.id === id) || null;
+}
+
+/**
+ * 一覧に出る名前を組み立てる
+ *   買い出し＋こじゃれ        → 買い出し（こじゃれ）
+ *   キャッチ＋こじゃれ＋46人  → こじゃれキャッチ 46名
+ */
+function expenseLabelOf(kindId, storeId, people, free) {
+  const kind = getExpenseKind(kindId);
+  if (!kind) return (free || '').trim();
+  if (kind.free) return (free || '').trim();
+  const store = storeId ? getStore(storeId).name : '';
+  if (kind.people) return `${store}キャッチ ${people || 0}名`;
+  if (kind.store) return `${kind.name}（${store}）`;
+  return kind.name;
+}
+
+/** その月の記録の入れ先（'2026-08' → _expense/2026-08） */
+function expenseMonthKey(y, m) {
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+/** 精算済みの印を入れる項目名 */
+function expensePaidKey(name) {
+  return `paid:${name}`;
+}
+
+/**
+ * キャッチをやっている店舗
+ * ここに書いた順で、キャッチ集計の表に並びます（0人の月でも行は出ます）。
+ * 書いていない店舗でも、記録があればその下に足して出します。
+ */
+const CATCH_STORES = ['kojare', 'sumimaro', 'chacoru', 'popo', 'oiden'];
+
+/* ------------------------------------------------------------
+ *  交通費（配達記録）… バグる専用。別アプリ（drive/）で使います
+ *
+ *  デリバリーに行ったアルバイトが「お店から配達先までの距離（片道）」を
+ *  入れると、往復分に直して足していきます。
+ *  支払う金額は、日ごとの金額を足すのではなく
+ *  「その月の合計距離」から一度だけ計算します。
+ *
+ *  記録の入れ先は  _drive/2026-08  のような形です。
+ *  （店舗idではないので、提出記録シートには出ません）
+ *
+ *  1日に何回行っても大丈夫です。1回＝1件として並べて残します。
+ *
+ *  1件分の中身
+ *    d    : 走った日（'YYYY-MM-DD'）
+ *    by   : 走った人
+ *    one  : 片道の距離（km）… 入力した数字そのもの
+ *    km   : 往復の距離（km）… one の2倍。合計はこちらで足します
+ * ---------------------------------------------------------- */
+const DRIVE_STORE = '_drive';
+
+/** この機能を使う店舗（マネージの設定ページもこの店舗にだけ出ます） */
+const DRIVE_SHOP = 'baguru';
+
+/** 交通費の単価。5km ごとに 100円 */
+const DRIVE_RATE = { km: 5, yen: 100 };
+
+/** 配達する人の初期値（マネージの「交通費」で追加・削除できます） */
+const DRIVERS = [
+  '山本将大',
+  '植山剛輝',
+  '石川翔',
+  '辻堂由美子',
+  '塩崎早紀',
+  '大前彩美',
+  '酒井紗菜子',
+  '小野田照之',
+  '山下穂乃樺',
+  '石川友麻',
+  '岡村みづき',
+  '鈴木沙弥',
+  '谷内綾音',
+  '松本颯',
+  '酒井皓大',
+];
+
+/** その月の記録の入れ先（'2026-08' → _drive/2026-08） */
+function driveMonthKey(y, m) {
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * 距離の足し算
+ *
+ * 0.1km 単位で入れるので、そのまま足すと
+ * 12.6 + 45.8 が 58.400000000000006 のようになります。
+ * 表示にも計算にも響くので、必ず小数第1位に丸めてから返します。
+ */
+function driveKm(...values) {
+  const sum = values.reduce((t, v) => t + (Number(v) || 0), 0);
+  return Math.round(sum * 10) / 10;
+}
+
+/** 片道 → 往復 */
+function driveRound(oneway) {
+  return driveKm((Number(oneway) || 0) * 2);
+}
+
+/**
+ * 合計距離から支払う金額を出す
+ *
+ * 5km ごとに 100円。100円に満たない端数は切り上げます
+ * （例：116.8km → 23.36 → 24 → ¥2,400）。
+ * ★四捨五入に変えたい場合は Math.ceil を Math.round にしてください。
+ */
+function driveYen(totalKm) {
+  const units = (Number(totalKm) || 0) / DRIVE_RATE.km;
+  // 60 ÷ 5 が 12.000000000000002 になることがあるので、先に誤差を落とします
+  const n = Math.ceil(Number(units.toFixed(6)));
+  return Math.max(n, 0) * DRIVE_RATE.yen;
+}
+
 const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
   // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します

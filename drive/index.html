@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="配達記録">
+<meta name="theme-color" content="#1c1f26">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="../img/drive-icon-180.png?v=cf8bda78">
+<link rel="icon" type="image/png" sizes="512x512" href="../img/drive-icon-512.png?v=7c78116c">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/drive-icon-64.png?v=7088d4ae">
+<title>配達記録｜バグる</title>
+<link rel="stylesheet" href="../css/style.css?v=ea4518a6">
+<meta name="app-version" content="f0e585e9">
+</head>
+<body class="no-daytabs app-drive" data-assets="../">
+
+<!-- ===== ヘッダー ===== -->
+<header class="app-header">
+  <div class="app-header__inner">
+    <div class="app-title">
+      <span class="logo-chip logo-chip--app" id="driveLogo"></span>
+      <span class="app-title__text">
+        <span class="app-title__main">配達記録</span>
+        <span class="app-title__sub">バグる｜交通費</span>
+      </span>
+    </div>
+    <div class="header-actions">
+      <button class="sync-chip is-hidden" id="syncChip" type="button" title="タップで今すぐ同期"></button>
+      <button class="settings-btn" id="settingsBtn" type="button">
+        <span aria-hidden="true">⚙</span><span>設定</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ===== その月のまとめ（この画面の主役） ===== -->
+  <section class="drive-hero">
+    <div class="drive-hero__nav">
+      <button type="button" class="drive-hero__arrow" id="drivePrev" aria-label="前の月">‹</button>
+      <span class="drive-hero__month" id="driveMonth">2026年8月</span>
+      <button type="button" class="drive-hero__arrow" id="driveNext" aria-label="次の月">›</button>
+      <button type="button" class="drive-hero__today" id="driveThisMonth">今月</button>
+    </div>
+
+    <div class="drive-hero__figures">
+      <p class="drive-hero__label">この月の交通費</p>
+      <p class="drive-hero__yen" id="driveTotalYen">¥0</p>
+      <p class="drive-hero__sub" id="driveSummary"></p>
+    </div>
+
+    <!-- flex の子は必ず span でくくること。
+         地の文と <b> を並べると、それぞれが別の箱になって変な折り返しになります -->
+    <p class="drive-hero__rule">
+      <span class="drive-hero__badge">片道</span>
+      <span>入れるのは<b>片道だけ</b>。往復分は自動で2倍にします</span>
+    </p>
+  </section>
+
+  <!-- いちばん使うボタンなので、表より上に置いています -->
+  <button type="button" class="drive-add" id="driveAddBtn">
+    <span class="drive-add__icon" aria-hidden="true">🛵</span>
+    <span class="drive-add__text">
+      <span class="drive-add__main">片道の距離を入れる</span>
+      <span class="drive-add__sub">配達に行ったら、その都度ここから</span>
+    </span>
+    <span class="drive-add__plus" aria-hidden="true">＋</span>
+  </button>
+
+  <!-- 名前・合計距離・合計金額（Numbersの「N月合計」にあたる表） -->
+  <h2 class="drive-sub"><span aria-hidden="true">📋</span>名前ごとの合計</h2>
+  <div class="table-scroll drive-total-wrap" id="driveTotalWrap">
+    <table class="exp-total catch-table drive-table">
+      <thead>
+        <tr><th>名前</th><th>合計距離</th><th>合計金額</th></tr>
+      </thead>
+      <tbody id="driveTotals"></tbody>
+      <tfoot id="driveFoot"></tfoot>
+    </table>
+  </div>
+
+  <!-- 月末・月初に「誰にいくら払うか」を1枚の画像にします -->
+  <button type="button" class="payout-btn is-hidden" id="drivePayoutBtn">
+    <span aria-hidden="true">🧾</span>
+    <span class="payout-btn__text">
+      <span class="payout-btn__main">支払いリストを画像で出す</span>
+      <span class="payout-btn__sub" id="drivePayoutSub">名前と金額をまとめた1枚（JPEG）</span>
+    </span>
+  </button>
+
+  <h2 class="drive-sub is-hidden" id="driveListHead"><span aria-hidden="true">🧾</span>1回ずつの記録</h2>
+  <div id="driveList"></div>
+
+  <p class="expense-note">
+    金額は、1回ごとではなく<b>その月の合計距離</b>から計算しています
+    （5kmごとに100円・100円未満は切り上げ）。<br>
+    名前の追加・削除は <b>T3 Works Manage</b>（バグる → 交通費）で行います。
+  </p>
+</main>
+
+<!-- ===== 新しい版のお知らせ ===== -->
+<div class="update-bar is-hidden" id="updateBar" role="status">
+  <span class="update-bar__text">新しい版があります</span>
+  <button type="button" class="update-bar__btn">更新する</button>
+</div>
+
+<!-- ===== 1件入れる画面 ===== -->
+<div class="modal is-hidden" id="driveModal">
+  <div class="modal__backdrop" data-close-drive></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="driveFormTitle">
+    <h2 class="modal__title" id="driveFormTitle">片道の距離を入れる</h2>
+
+    <div class="field">
+      <label class="field__label" for="drvDate">走った日</label>
+      <input type="date" id="drvDate" class="field__input">
+    </div>
+
+    <div class="field">
+      <span class="field__label">名前</span>
+      <div class="doer-grid" id="drvNames"></div>
+    </div>
+
+    <!-- 1日に何回も行くので、その分だけ欄を増やせるようにしています -->
+    <div class="field">
+      <span class="field__label">
+        <b class="drive-oneway">片道</b>の距離（km）
+      </span>
+      <!-- 往復で入れてしまう間違いがいちばん起きやすいので、ここで念を押します -->
+      <p class="drive-callout">
+        <span class="drive-callout__mark" aria-hidden="true">🏠→📍</span>
+        <span><b>お店から配達先まで</b>の距離だけを入れてください。<br>
+        <b>帰り分は足さなくて大丈夫です</b>（アプリが2倍にします）</span>
+      </p>
+      <div class="drive-legs" id="drvLegs"></div>
+      <button type="button" class="drive-legs__add" id="drvAddLeg">＋ もう1回分入れる</button>
+      <p class="drive-hint" id="drvHint">1回目の片道の距離を入れてください</p>
+    </div>
+
+    <p class="pin-error" id="driveError"></p>
+
+    <div class="modal__actions">
+      <button type="button" class="btn btn--primary" id="driveSave">記録する</button>
+      <button type="button" class="btn" data-close-drive>やめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 確認ダイアログ ===== -->
+<div class="modal is-hidden" id="confirmDialog">
+  <div class="modal__backdrop" data-confirm-cancel></div>
+  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 class="modal__title" id="confirmTitle">確認</h2>
+    <p class="confirm__item" id="confirmItem"></p>
+    <p class="confirm__message" id="confirmMessage"></p>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-confirm-cancel>キャンセル</button>
+      <button type="button" class="btn btn--primary" id="confirmOk">はい</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PIN入力 ===== -->
+<div class="modal is-hidden" id="pinModal">
+  <div class="modal__backdrop"></div>
+  <div class="modal__panel modal__panel--confirm" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+    <h2 class="modal__title" id="pinTitle">合言葉（PIN）を入力してください</h2>
+    <p class="confirm__message">記録を全員で共有するために必要です。<br>一度入力すれば、この端末では次回から不要です。</p>
+    <div class="pin-row">
+      <input type="password" id="pinInput" class="field__input" autocomplete="off"
+             autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="PIN">
+      <button type="button" class="pin-reveal" id="pinReveal" title="入力内容を表示">表示</button>
+    </div>
+    <p class="pin-error" id="pinError"></p>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn btn--primary" id="pinOk">開く</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 設定 ===== -->
+<div class="modal is-hidden" id="modal">
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 class="modal__title" id="modalTitle">この端末の設定</h2>
+
+    <div class="field">
+      <span class="field__label">共有の状態</span>
+      <p class="sync-info" id="syncInfo"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="syncNow">今すぐ同期</button>
+        <button type="button" class="btn" id="pinChange">PINを入れ直す</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field__label">アプリの版</span>
+      <p class="app-version" id="appVersionText"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="forceUpdate">今すぐ最新にする</button>
+      </div>
+    </div>
+
+    <p class="expense-note">
+      名前の追加・削除は <b>T3 Works Manage</b>（バグる → 交通費）で行います。
+    </p>
+
+    <div class="modal__actions">
+      <button type="button" class="btn" data-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js?v=93506d2d"></script>
+<script src="../js/storage.js?v=c163d4c1"></script>
+<script src="../js/sync.js?v=90eb50b9"></script>
+<script src="../js/update.js?v=da1d6bfe"></script>
+<script src="../js/payout.js?v=14d11415"></script>
+<script src="js/drive.js?v=96d9d171"></script>
+
+</body>
+</html>

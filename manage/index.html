@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=5f728318">
-<link rel="stylesheet" href="css/admin.css?v=c59ffcd1">
-<meta name="app-version" content="f2dd86c4">
+<link rel="stylesheet" href="../css/style.css?v=ea4518a6">
+<link rel="stylesheet" href="css/admin.css?v=234f2929">
+<meta name="app-version" content="f0e585e9">
 </head>
 <body class="no-daytabs">
 
@@ -93,13 +93,17 @@
 </section>
 
 <!-- ===== いま開いている設定（タップでメニューに戻る） ===== -->
-<button type="button" class="task-bar is-hidden" id="pageBar">
-  <span class="task-bar__arrow" aria-hidden="true">‹</span>
-  <span class="task-bar__label">
-    <span class="task-bar__name" id="pageBarName">クローズ</span>
-    <span class="task-bar__hint">タップで設定をえらぶ</span>
-  </span>
-</button>
+<div class="task-bar-row is-hidden" id="pageBarRow">
+  <button type="button" class="task-bar" id="pageBar">
+    <span class="task-bar__arrow" aria-hidden="true">‹</span>
+    <span class="task-bar__label">
+      <span class="task-bar__name" id="pageBarName">クローズ</span>
+      <span class="task-bar__hint">タップで設定をえらぶ</span>
+    </span>
+  </button>
+  <!-- 店舗選択まで一気に戻ります（現場アプリと同じ場所・同じ見た目） -->
+  <button type="button" class="task-bar__home" id="pageBarHome">店舗一覧</button>
+</div>
 
 <!-- ===== クローズ（閉店時の確認項目） ===== -->
 <section class="view is-hidden" id="viewItems">
@@ -146,6 +150,58 @@
     </p>
 
     <div id="weeklyEditor"></div>
+  </section>
+</section>
+
+<!-- ===== 交通費（配達記録アプリ・バグるだけ） ===== -->
+<section class="view is-hidden" id="viewDrive">
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">交通費 ― 配達する人</h2>
+      <span class="admin-count" id="driversCount"></span>
+    </div>
+    <p class="admin-note">
+      1行に1人。<b>配達記録アプリ</b>の名前ボタンに、この順番で並びます。<br>
+      クローズの担当者とは別のリストです（あちらは社員、こちらはバグるのアルバイト）。<br>
+      名前を消しても、その人の<b>過去の記録は残ります</b>。
+    </p>
+    <textarea id="driversInput" class="field__input field__input--area" rows="14"
+      placeholder="山本将大&#10;植山剛輝&#10;石川翔"></textarea>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveDrivers">名前を保存</button>
+      <span class="admin-saved is-hidden" id="driversSaved">保存しました</span>
+    </div>
+
+    <h3 class="admin-sub">計算のきまり</h3>
+    <p class="admin-note">
+      入れるのは<b>片道の距離</b>だけで、往復分（2倍）は自動で計算します。<br>
+      支払う金額は、1回ごとではなく<b>その月の合計距離</b>から出します。
+      <b>5kmごとに100円</b>で、100円に満たない端数は<b>切り上げ</b>です。<br>
+      例）116.8km → 116.8 ÷ 5 ＝ 23.36 → 24 → <b>¥2,400</b><br>
+      きまりを変えるときは、<b>js/config.js</b> の <b>DRIVE_RATE</b> と <b>driveYen</b> を直してください。
+    </p>
+
+    <details class="admin-tool">
+      <summary>Numbers の2026年分を取り込む</summary>
+      <p class="admin-note">
+        「2026_バグる_アルバイト_配達記録表」に入っていた
+        <b>1月〜8月の219件</b>を、そのままアプリに入れます。<br>
+        何度押しても<b>二重には増えません</b>（同じ番号に上書きするため）。<br>
+        すでにアプリで入れた記録は消えません。
+      </p>
+      <p class="admin-note">
+        ⚠ 支払い済みの月にご注意ください。Numbers では
+        <b>7月だけが切り上げ、ほかの月は四捨五入</b>で計算されていました。
+        アプリは全部<b>切り上げ</b>なので、1〜6月と8月を取り込むと
+        <b>当時の金額より少しだけ高く出ます</b>（8か月分で合計 +¥2,200／22人分）。<br>
+        すでに払った月の金額を動かしたくなければ、<b>8月だけ</b>を取り込んでください。
+      </p>
+      <div class="admin-actions">
+        <button type="button" class="btn btn--primary" id="driveImportLast">8月だけ取り込む</button>
+        <button type="button" class="btn" id="driveImport">1〜8月ぜんぶ取り込む</button>
+      </div>
+      <p class="admin-note" id="driveImportNote"></p>
+    </details>
   </section>
 </section>
 
@@ -244,10 +300,12 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=640fabea"></script>
-<script src="../js/storage.js?v=ba5ece53"></script>
-<script src="../js/sync.js?v=f4816346"></script>
-<script src="../js/update.js?v=131cebaa"></script>
-<script src="js/admin.js?v=46baafca"></script>
+<script src="../js/config.js?v=93506d2d"></script>
+<script src="../js/storage.js?v=c163d4c1"></script>
+<script src="../js/sync.js?v=90eb50b9"></script>
+<script src="../js/update.js?v=da1d6bfe"></script>
+<!-- Numbers から持ってきた2026年分の記録（取り込みが済んだら消してOK） -->
+<script src="js/drive-import.js?v=c87d5902"></script>
+<script src="js/admin.js?v=7018993a"></script>
 </body>
 </html>

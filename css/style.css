@@ -182,7 +182,13 @@ body.no-daytabs .update-bar {
    T3 Works Mine（mine/）でだけ出します */
 .mine-only { display: none; }
 body[data-mode="mine"] .mine-only { display: inline-flex; }
-/* ボタンが1つ増えるぶん、ヘッダーの間隔を詰めてアプリ名が切れないようにする */
+/* 店舗選択に並ぶ大きなボタン（配達記録）の場合。
+   ・.stores-big-btn は下のほうで display:flex を指定しているので、
+     クラスを2つ重ねて（＝強くして）から隠さないと効きません
+   ・出すときも inline-flex ではなく flex。横幅いっぱいに広げるためです */
+.stores-big-btn.mine-only { display: none; }
+body[data-mode="mine"] .stores-big-btn.mine-only { display: flex; }
+/* ボタンが1つ増える分、ヘッダーの間隔を詰めてアプリ名が切れないようにする */
 body[data-mode="mine"] .app-header__inner { gap: 8px; }
 body[data-mode="mine"] .header-actions { gap: 5px; }
 @media (max-width: 520px) {
@@ -245,14 +251,29 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
 }
 /* ---- いま開いている業務（タップで業務の一覧へ戻る） ----
    業務が何個に増えてもここは1つのままなので、画面が狭くなりません */
+/* 「いま開いている業務」と「店舗一覧へ戻る」を横に並べた帯。
+   店舗ページ共通の場所なので、業務のページを増やしても付いてきます */
+.task-bar-row { display: flex; align-items: stretch; gap: 8px; margin: 12px 0 0; }
+.task-bar-row.is-hidden { display: none; }
+
 .task-bar {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  margin: 12px 0 0; padding: 9px 12px;
+  display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0;
+  padding: 9px 12px;
   background: var(--surface-2);
   border: 1px solid var(--line); border-radius: 11px;
   font: inherit; color: var(--text); cursor: pointer; text-align: left;
 }
-/* クラス2つぶんなので上の display: flex より優先されます */
+/* 店舗選択まで一気に戻るボタン */
+.task-bar__home {
+  flex: 0 0 auto;
+  padding: 9px 14px;
+  background: var(--surface); color: var(--text-sub);
+  border: 1px solid var(--line); border-radius: 11px;
+  font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.2;
+  cursor: pointer; white-space: nowrap;
+}
+.task-bar__home:active { background: var(--line-2); }
+/* クラス2つ分なので上の display: flex より優先されます */
 .task-bar.is-hidden { display: none; }
 .task-bar:active { background: var(--line-2); }
 .task-bar__arrow { font-size: 20px; line-height: 1; color: var(--text-weak); flex: 0 0 auto; }
@@ -293,8 +314,8 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
   border: 1px solid var(--line-2);
 }
 .task-card__main { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.task-card__name { font-size: 15.5px; font-weight: 700; line-height: 1.3; }
-.task-card__sub { font-size: 11px; color: var(--text-sub); line-height: 1.35; }
+.task-card__name { font-size: 17px; font-weight: 700; line-height: 1.3; }
+.task-card__sub { font-size: 12.5px; color: var(--text-sub); line-height: 1.35; }
 /* margin-top:auto ＝ 説明が2行になっても、しるしは必ずカードの下にそろう */
 .task-card__status {
   margin-top: auto; font-size: 11.5px; font-weight: 700;
@@ -344,8 +365,14 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
 .day-head__left { display: flex; flex-direction: column; gap: 8px; }
 .day-head__date { display: flex; align-items: baseline; gap: 3px; }
 .day-head__num  { font-size: 30px; font-weight: 800; line-height: 1; }
-.day-head__unit { font-size: 14px; color: var(--text-sub); }
-.day-head__dow  { font-size: 14px; color: var(--text-sub); margin-left: 2px; }
+.day-head__unit { font-size: 15.5px; color: var(--text-sub); }
+/* 0時を過ぎたときだけ出る案内 */
+.day-rollover {
+  margin: 4px 0 0; font-size: 11.5px; font-weight: 700; line-height: 1.5;
+  color: var(--accent);
+}
+.day-rollover.is-hidden { display: none; }
+.day-head__dow  { font-size: 15.5px; color: var(--text-sub); margin-left: 2px; }
 .day-head__dow.is-sat { color: #2b7fd4; }
 .day-head__dow.is-sun { color: #d64545; }
 
@@ -427,8 +454,8 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
 .section.is-folded .section__chevron { transform: rotate(-90deg); }
 .section.is-folded .item { display: none; }
 .section.is-folded .section__head { border-bottom: 0; }
-.section__title { font-size: 14px; font-weight: 700; margin: 0; margin-right: auto; }
-.section__count { font-size: 12px; font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.section__title { font-size: 15.5px; font-weight: 700; margin: 0; margin-right: auto; }
+.section__count { font-size: 13px; font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .section__count.is-done { color: var(--ok); }
 
 .item {
@@ -455,8 +482,8 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
   transform: rotate(42deg);
 }
 .item__body { flex: 1; min-width: 0; }
-.item__label { font-size: 14.5px; font-weight: 600; cursor: pointer; display: block; }
-.item__hint  { font-size: 12px; color: var(--text-weak); margin-top: 1px; }
+.item__label { font-size: 16.5px; font-weight: 600; cursor: pointer; display: block; }
+.item__hint  { font-size: 13.5px; color: var(--text-weak); margin-top: 1px; }
 
 .item__value { display: flex; align-items: center; gap: 6px; margin-top: 7px; }
 .item__input {
@@ -537,7 +564,7 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
 .report-item--todo   { border-left-color: var(--ng); }
 .report-item--closed { border-left-color: var(--text-weak); opacity: .72; }
 
-.report-item__name { flex: 1; font-size: 15px; font-weight: 700; min-width: 0; }
+.report-item__name { flex: 1; font-size: 16.5px; font-weight: 700; min-width: 0; }
 .report-item__status { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .report-item__badge { font-size: 13px; font-weight: 800; }
 .report-item--done   .report-item__badge { color: var(--ok); }
@@ -571,7 +598,7 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
   width: 74px; height: 74px; padding: 5px;
   border: 1px solid var(--line-2);
 }
-.store-card__name { font-size: 15.5px; font-weight: 700; text-align: center; line-height: 1.3; }
+.store-card__name { font-size: 17px; font-weight: 700; text-align: center; line-height: 1.3; }
 .store-card__status {
   font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 11px;
 }
@@ -719,7 +746,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
    （それでも足りないときだけ .table-scroll が横スクロールします） */
 .week-table {
   border-collapse: separate; border-spacing: 0;
-  font-size: 12px; width: 100%;
+  font-size: 13.5px; width: 100%;
 }
 /* 罫線は薄い線ではなく、はっきり見える線を使います */
 .week-table th, .week-table td {
@@ -748,7 +775,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   position: sticky; left: 0; z-index: 3;
   background: var(--surface); text-align: left; font-weight: 600;
   width: 40%; min-width: 118px; white-space: normal;
-  padding: 6px 7px; line-height: 1.3; font-size: 11.5px;
+  padding: 6px 7px; line-height: 1.3; font-size: 13px;
   border-right: 1px solid var(--line);
 }
 .week-table thead .col-item {
@@ -778,7 +805,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 
 .week-group__label {
   display: inline-flex; align-items: center; gap: 8px;
-  font-size: 15.5px; font-weight: 900; letter-spacing: .06em; color: var(--text);
+  font-size: 17px; font-weight: 900; letter-spacing: .06em; color: var(--text);
 }
 /* 店舗の色の短い棒。見出しだと一目で分かるようにするための目印です */
 .week-group__label::before {
@@ -794,7 +821,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
    2週に1回の項目には印を付けません（マスが1つにつながっているので分かります） */
 .week-every {
   display: inline-block; margin-left: 5px;
-  font-size: 9.5px; font-weight: 800; white-space: nowrap; letter-spacing: .04em;
+  font-size: 10.5px; font-weight: 800; white-space: nowrap; letter-spacing: .04em;
   color: #fff; background: var(--every); border: 0;
   border-radius: 999px; padding: 1px 7px; vertical-align: 1px;
 }
@@ -818,47 +845,19 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .week-btn:active { background: color-mix(in srgb, var(--store) 12%, transparent); }
 .week-btn__mark { font-size: 16px; font-weight: 800; line-height: 1; color: var(--text-weak); flex: 0 0 auto; }
 .week-btn__name {
-  font-size: 11px; font-weight: 700; line-height: 1.1;
+  font-size: 12.5px; font-weight: 700; line-height: 1.1;
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 .week-btn__date {
-  font-size: 10.5px; font-weight: 600; line-height: 1.1;
+  font-size: 12px; font-weight: 600; line-height: 1.1;
   font-variant-numeric: tabular-nums; flex: 0 0 auto;
 }
 .week-btn.is-done .week-btn__mark { color: var(--ok); }
 .week-btn.is-done .week-btn__name { color: var(--text-sub); }
 .week-btn.is-done .week-btn__date { color: var(--text-weak); }
 
-/* ===================== 文字を大きく =====================
-   設定の「文字の大きさ → 大きく」で body に is-big が付きます。
-   画面全体を拡大すると、貼り付いた見出しや日タブの位置がずれるので、
-   ★読むところの文字だけ★ を大きくしています。
-   項目を増やしたときは、ここにも足してください。 */
-body.is-big .item__label      { font-size: 16.5px; }
-body.is-big .item__hint       { font-size: 13.5px; }
-body.is-big .section__title   { font-size: 15.5px; }
-body.is-big .section__count   { font-size: 13px; }
-body.is-big .day-head__unit,
-body.is-big .day-head__dow    { font-size: 15.5px; }
-
-body.is-big .week-table            { font-size: 13.5px; }
-body.is-big .week-table .col-item  { font-size: 13px; }
-body.is-big .week-btn__name        { font-size: 12.5px; }
-body.is-big .week-btn__date        { font-size: 12px; }
-body.is-big .week-every            { font-size: 10.5px; }
-body.is-big .week-group__label     { font-size: 17px; }
-
-body.is-big .anytime-row__name { font-size: 16px; }
-body.is-big .anytime-row__ago  { font-size: 14.5px; }
-body.is-big .anytime-row__note { font-size: 11.5px; }
-
-body.is-big .task-card__name   { font-size: 17px; }
-body.is-big .task-card__sub    { font-size: 12.5px; }
-body.is-big .store-card__name  { font-size: 17px; }
-body.is-big .report-item__name { font-size: 16.5px; }
-body.is-big .doer-btn          { font-size: 16px; }
-
-/* 文字の大きさをえらぶボタン（設定の中） */
+/* ===================== 設定の中の切り替えボタン ===================== */
+/* ◯ある／×ない のような2択ボタン */
 .seg { display: flex; gap: 8px; }
 .seg__btn {
   flex: 1 1 0;
@@ -877,6 +876,412 @@ body.is-big .doer-btn          { font-size: 16px; }
   font-variant-numeric: tabular-nums;
 }
 .app-version b { color: var(--text); letter-spacing: .04em; }
+
+/* 店舗選択の下に置く、大きめの入口ボタン（現金支払管理表）。
+   店舗でも提出記録でもない別のかたまりなので、見た目も分けています */
+.stores-big-btn {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  margin: 0 0 4px; padding: 15px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  font: inherit; color: var(--text); text-align: left; cursor: pointer;
+  text-decoration: none; /* リンクで使う場合もボタンと同じ見た目にする */
+}
+.stores-big-btn:active { background: var(--surface-2); }
+.stores-big-btn__icon {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 12px; font-size: 22px; line-height: 1;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  border: 1px solid var(--line-2);
+}
+.stores-big-btn__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.stores-big-btn__name { font-size: 16.5px; font-weight: 800; line-height: 1.2; }
+.stores-big-btn__sub  { font-size: 11.5px; color: var(--text-sub); line-height: 1.35; }
+.stores-big-btn__arrow { flex: 0 0 auto; font-size: 24px; color: var(--text-weak); line-height: 1; }
+
+/* ===================== 立替金（現金支払管理表） =====================
+   人ごとに1枚のカード。上に名前と合計、下に明細 */
+.expense-add {
+  display: block; width: 100%; margin: 4px 0 14px;
+  background: var(--accent); color: #fff; border: 0;
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 14px; font: inherit; font-size: 15px; font-weight: 800;
+  cursor: pointer;
+}
+.expense-add:active { opacity: .85; }
+
+.expense-note {
+  margin: 16px 2px 0; font-size: 12px; color: var(--text-sub); line-height: 1.8;
+}
+
+/* ---- 支払いリスト（月末・月初に出す1枚） ---- */
+.payout-btn {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  margin: 0 0 14px; padding: 13px 14px;
+  background: var(--surface);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  font: inherit; color: var(--text); text-align: left; cursor: pointer;
+}
+.payout-btn.is-hidden { display: none; }
+.payout-btn:active { background: var(--surface-2); }
+.payout-btn > span[aria-hidden] { flex: 0 0 auto; font-size: 22px; line-height: 1; }
+.payout-btn__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.payout-btn__main { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.payout-btn__sub  { font-size: 11.5px; color: var(--text-sub); line-height: 1.4; }
+/* 月末・月初は「いま出す時期」と分かるように、色を付けて目立たせます */
+.payout-btn.is-now {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border-color: var(--accent);
+}
+.payout-btn.is-now .payout-btn__sub { color: var(--accent); font-weight: 700; }
+
+/* できた画像を見せる画面 */
+.payout-preview {
+  margin: 4px 0 12px; padding: 8px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+  max-height: 52vh; overflow: auto;
+}
+.payout-preview__img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.payout-hint { margin: 0 2px 4px; font-size: 12px; color: var(--text-sub); line-height: 1.6; }
+
+/* 人ごとの合計と精算（スプレッドシートの「N月合計」にあたる表） */
+.exp-total-wrap { margin-bottom: 14px; }
+.exp-total-wrap.is-hidden { display: none; }
+.exp-total { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; }
+.exp-total th, .exp-total td {
+  border-bottom: 1px solid var(--line); padding: 9px 10px; text-align: left;
+}
+.exp-total thead th {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+}
+.exp-total tr:last-child td { border-bottom: 0; }
+.exp-total__name { font-weight: 700; }
+/* td.〜 と書かないと、上の「.exp-total th, .exp-total td」に負けて
+   左そろえのままになります（見出しと数字がズレる原因でした） */
+.exp-total td.exp-total__yen {
+  text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.exp-total td:last-child { text-align: right; width: 1%; white-space: nowrap; }
+/* キャッチ集計は4列（店舗・人数・金額・1人）。数字の列は右そろえ */
+.catch-table th:not(:first-child) { text-align: right; }
+.catch-table td { white-space: nowrap; }
+/* 精算が済んだ行は色を落とす */
+.exp-total tr.is-paid .exp-total__name,
+.exp-total tr.is-paid .exp-total__yen { color: var(--text-weak); }
+
+.exp-paid-btn {
+  border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--accent); color: #fff;
+  font: inherit; font-size: 12.5px; font-weight: 800;
+  padding: 6px 14px; cursor: pointer; white-space: nowrap;
+}
+.exp-paid-btn.is-done {
+  background: var(--surface-2); border-color: var(--line);
+  color: var(--ok); font-weight: 700;
+}
+
+.exp-card {
+  margin-bottom: 12px; padding: 12px 12px 10px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+/* 精算が済んだ人は、ひと目で分かるように色を落とします */
+.exp-card.is-paid { opacity: .72; }
+
+.exp-card__head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.exp-card__name  { font-size: 16px; font-weight: 800; }
+.exp-card__total {
+  margin-left: auto; font-size: 17px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.exp-card__paid {
+  flex: 0 0 100%;
+  font-size: 11.5px; font-weight: 700; color: var(--ok);
+}
+.exp-card__btn { width: 100%; margin-top: 10px; }
+
+.exp-rows { list-style: none; margin: 10px 0 0; padding: 0; }
+.exp-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 2px; border-top: 1px solid var(--line-2);
+  font-size: 13px;
+}
+.exp-row__date {
+  flex: 0 0 auto; min-width: 34px;
+  color: var(--text-sub); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.exp-row__label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.exp-row__receipt { flex: 0 0 auto; font-size: 12px; font-weight: 800; color: var(--ok); }
+.exp-row__receipt.is-none { color: var(--text-weak); }
+.exp-row__yen {
+  flex: 0 0 auto; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.exp-row__del {
+  flex: 0 0 auto; width: 26px; height: 26px;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--surface); color: var(--text-weak);
+  font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
+}
+/* 入れた1件を後から直すボタン。消す（×）の左に並びます */
+.row-edit {
+  flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--text-sub);
+  font: inherit; font-size: 11.5px; font-weight: 700;
+  padding: 4px 10px; cursor: pointer; white-space: nowrap;
+}
+.row-edit:active { background: var(--surface-2); }
+
+/* ===================== 配達記録（交通費・バグる専用の別アプリ） =====================
+   人ごとに 合計距離 と 合計金額 を出します。
+
+   このアプリだけ、差し色をバグるの色にしています。
+   他のアプリと同じ青のままだと「T3 Works の一部」に見えてしまい、
+   タブレットのアルバイトが別物だと気づきにくいためです。 */
+.app-drive {
+  --accent: #bf5480;
+  --drive-deep: #8d3a5e;   /* 見出しなど、濃いほうの色 */
+  /* 白い文字を載せる面の色。ここだけは明暗どちらでも同じ濃さにします。
+     ダークで明るいピンクにすると、白文字のコントラストが 1.9 まで落ちて読めません */
+  --drive-solid: #bf5480;
+  --drive-solid-2: #8d3a5e;
+}
+@media (prefers-color-scheme: dark) {
+  .app-drive { --accent: #d97aa4; --drive-deep: #f0a6c4; }
+}
+:root[data-theme="dark"] .app-drive { --accent: #d97aa4; --drive-deep: #f0a6c4; }
+
+/* ヘッダーの下に差し色の線を1本。アプリの見分けが付きます */
+.app-drive .app-header { border-bottom: 3px solid var(--accent); }
+.app-drive .page { padding-top: 16px; }
+
+/* ---- その月のまとめ（この画面の主役） ---- */
+.drive-hero {
+  position: relative; overflow: hidden;
+  margin-bottom: 16px; padding: 14px 16px 15px;
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 120% at 100% 0%,
+      color-mix(in srgb, var(--accent) 26%, var(--surface)) 0%,
+      color-mix(in srgb, var(--accent) 9%, var(--surface)) 55%,
+      var(--surface) 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  box-shadow: 0 2px 14px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.drive-hero__nav { display: flex; align-items: center; gap: 8px; }
+.drive-hero__arrow {
+  flex: 0 0 auto; width: 32px; height: 32px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 50%;
+  background: var(--surface); color: var(--accent);
+  font: inherit; font-size: 17px; line-height: 1; cursor: pointer;
+}
+.drive-hero__arrow:active { background: var(--surface-2); }
+.drive-hero__month {
+  font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+.drive-hero__today {
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 999px; padding: 5px 13px;
+  background: var(--surface); color: var(--accent);
+  font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+
+.drive-hero__figures { margin-top: 12px; }
+.drive-hero__label {
+  margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .08em;
+  color: var(--drive-deep); text-transform: none;
+}
+/* 主役の数字。ここだけ思い切り大きくして、ひと目で分かるようにします */
+.drive-hero__yen {
+  margin: 1px 0 0; font-size: 40px; font-weight: 800; line-height: 1.1;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  color: var(--text);
+}
+.drive-hero__sub {
+  margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.drive-hero__rule {
+  display: flex; align-items: center; gap: 9px;
+  margin: 13px 0 0; padding-top: 11px;
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 32%, var(--line));
+  font-size: 12px; line-height: 1.5; color: var(--text-sub);
+}
+.drive-hero__badge {
+  flex: 0 0 auto;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--drive-solid); color: #fff;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .04em;
+}
+
+/* ---- 記録するボタン（この画面でいちばん押されるもの） ---- */
+.drive-add {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  margin: 0 0 20px; padding: 14px 16px;
+  border: 0; border-radius: 16px;
+  background: linear-gradient(135deg, var(--drive-solid), var(--drive-solid-2));
+  color: #fff; font: inherit; text-align: left; cursor: pointer;
+  box-shadow: 0 3px 14px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+.drive-add:active { transform: translateY(1px); box-shadow: none; }
+.drive-add__icon {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 13px; font-size: 23px; line-height: 1;
+  background: rgba(255, 255, 255, .22);
+}
+.drive-add__text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.drive-add__main { font-size: 17px; font-weight: 800; line-height: 1.2; }
+.drive-add__sub  { font-size: 11.5px; opacity: .82; line-height: 1.35; }
+.drive-add__plus { flex: 0 0 auto; font-size: 26px; font-weight: 300; line-height: 1; opacity: .9; }
+
+/* ---- 小見出し ---- */
+.drive-sub {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 2px 9px; font-size: 13px; font-weight: 800;
+  color: var(--drive-deep); letter-spacing: .02em;
+}
+.drive-sub.is-hidden { display: none; }
+
+.drive-total-wrap {
+  margin-bottom: 22px; padding: 2px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: var(--shadow);
+}
+
+/* 名前の下に、その人の距離を長さで表した細い帯を敷きます。
+   数字を読まなくても「誰がいちばん走っているか」が見て分かります */
+.drive-table td { position: relative; }
+.drive-table__bar {
+  position: absolute; left: 10px; bottom: 6px; height: 3px;
+  border-radius: 2px; background: var(--accent); opacity: .5;
+}
+/* 走っていない人は、名前も数字も落ち着かせる */
+.drive-table tr.is-zero .exp-total__name,
+.drive-table tr.is-zero .exp-total__yen { color: var(--text-weak); font-weight: 600; }
+
+/* いちばん下の合計行。上の行と地続きに見えないよう、線を1本足します */
+.exp-total tr.drive-foot td {
+  border-top: 2px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.exp-total tr.drive-foot td:first-child { border-bottom-left-radius: 12px; }
+.exp-total tr.drive-foot td:last-child { border-bottom-right-radius: 12px; }
+
+/* 明細カードの見出しに出す「3回」 */
+.drive-card__count {
+  padding: 2px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface-2));
+  color: var(--drive-deep);
+  font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.exp-card--drive { border-left: 4px solid color-mix(in srgb, var(--accent) 55%, var(--line)); }
+
+/* 明細の距離。margin-left:auto で、日付との間を空けて右側にまとめます */
+.drive-row__km { margin-left: auto; }
+/* 2回以上行った日に出る「3回」。その日の合計であることが分かるようにします */
+.drive-row__times {
+  flex: 0 0 auto;
+  padding: 1px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  color: var(--drive-deep);
+  font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+/* 入力中に「3回分 / 往復 合計 24.8km として記録します」と出る行 */
+.drive-hint {
+  margin: 9px 2px 0; font-size: 12px; color: var(--text-sub); line-height: 1.5;
+}
+.drive-hint.is-on { color: var(--accent); font-weight: 800; font-size: 13px; }
+
+/* 「片道」を強調する。往復で入れてしまう間違いがいちばん起きやすいので、
+   見出し・注意書き・各行の3か所で念を押しています */
+.drive-oneway {
+  padding: 1px 7px; margin-right: 1px; border-radius: 6px;
+  background: var(--drive-solid); color: #fff; font-weight: 800;
+}
+.drive-callout {
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 0 12px; padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  font-size: 12.5px; line-height: 1.55; color: var(--text);
+}
+.drive-callout__mark { flex: 0 0 auto; font-size: 15px; white-space: nowrap; }
+
+/* ---- 入力画面：1日に何回も行く分の欄 ----
+   欄はいくつでも増やせます。1つだけのときは消すボタンを出しません */
+.drive-legs { display: flex; flex-direction: column; gap: 9px; }
+.drive-leg { display: flex; align-items: center; gap: 8px; }
+.drive-leg__no {
+  flex: 0 0 auto; min-width: 44px;
+  font-size: 12.5px; font-weight: 800; color: var(--drive-deep);
+  font-variant-numeric: tabular-nums;
+}
+.drive-leg__input {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.drive-leg__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+/* 入れた数字が往復で何kmになるか、その行にすぐ出します */
+.drive-leg__round {
+  flex: 0 0 auto; min-width: 76px; text-align: right;
+  font-size: 12px; font-weight: 800; color: var(--accent);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.drive-leg__round:empty::before { content: '往復 —'; color: var(--text-weak); font-weight: 600; }
+.drive-leg__del {
+  flex: 0 0 auto; width: 32px; height: 32px;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--surface); color: var(--text-weak);
+  font: inherit; font-size: 15px; line-height: 1; cursor: pointer;
+}
+.drive-legs.is-single .drive-leg__del { visibility: hidden; }
+
+.drive-legs__add {
+  display: block; width: 100%; margin-top: 10px; padding: 11px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--accent);
+  font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.drive-legs__add:active { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+/* 狭い画面では「往復 12.4km」の場所が足りなくなるので、少し詰めます */
+@media (max-width: 380px) {
+  .drive-leg__no { min-width: 36px; font-size: 11.5px; }
+  .drive-leg__round { min-width: 64px; font-size: 11px; }
+  .drive-hero__yen { font-size: 34px; }
+}
+
+/* 入力画面：よく使う項目のボタン */
+.exp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.exp-chip {
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface-2); color: var(--text-sub);
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 5px 12px; cursor: pointer;
+}
+.exp-chip:active { background: var(--line-2); }
+/* えらんだもの */
+.exp-chip.is-on {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.field.is-hidden { display: none; }
 
 /* ===================== 随時掃除 =====================
    週間掃除ページの下に置く、別物のかたまり。
@@ -923,18 +1328,18 @@ body.is-big .doer-btn          { font-size: 16px; }
 .anytime-row.is-never { border-left-color: var(--ng); }
 
 .anytime-row__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.anytime-row__name { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.anytime-row__name { font-size: 16px; font-weight: 700; line-height: 1.3; }
 .anytime-row__note {
   align-self: flex-start;
-  font-size: 10.5px; font-weight: 700; color: var(--text-sub);
+  font-size: 11.5px; font-weight: 700; color: var(--text-sub);
   background: var(--line-2); border-radius: 999px; padding: 1px 8px;
 }
 .anytime-row__last {
   flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
   text-align: right;
 }
-.anytime-row__ago { font-size: 13px; font-weight: 800; color: var(--text); white-space: nowrap; }
-.anytime-row.is-never .anytime-row__ago { font-size: 11.5px; font-weight: 700; color: var(--ng); }
+.anytime-row__ago { font-size: 14.5px; font-weight: 800; color: var(--text); white-space: nowrap; }
+.anytime-row.is-never .anytime-row__ago { font-size: 12.5px; font-weight: 700; color: var(--ng); }
 .anytime-row__date {
   font-size: 11px; font-weight: 600; color: var(--text-weak); white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -963,7 +1368,7 @@ body.is-big .doer-btn          { font-size: 16px; }
 .doer-btn {
   border: 1px solid var(--line); border-radius: 9px;
   background: var(--surface-2); color: var(--text);
-  font: inherit; font-size: 14.5px; font-weight: 700;
+  font: inherit; font-size: 16px; font-weight: 700;
   padding: 11px 4px; cursor: pointer; text-align: center;
 }
 .doer-btn:active { background: var(--line-2); }

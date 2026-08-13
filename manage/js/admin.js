@@ -33,12 +33,14 @@ const el = {};
   'appLogo', 'homeBtn', 'storeTabs', 'syncChip',
   'viewStores', 'storeGrid',
   'viewMenu', 'menuTitle', 'menuGrid', 'menuBackBtn',
-  'pageBar', 'pageBarName',
-  'viewItems', 'viewWeekly', 'viewClosed',
+  'pageBar', 'pageBarName', 'pageBarRow', 'pageBarHome',
+  'viewItems', 'viewWeekly', 'viewClosed', 'viewDrive',
   'itemsStoreName', 'itemsCount', 'checklistEditor', 'addSection', 'importDefaults',
   'undoImport', 'importNote',
   'weeklyStoreName', 'weeklyCount', 'weeklyEditor',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
+  'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
+  'driveImport', 'driveImportLast', 'driveImportNote',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
   'pauseModal', 'pauseItem', 'pauseFrom', 'pauseTo', 'pauseAdd', 'pauseHint', 'pauseList',
@@ -52,12 +54,14 @@ const el = {};
 const p2 = (n) => String(n).padStart(2, '0');
 const ymd = (y, m, d) => `${y}-${p2(m)}-${p2(d)}`;
 
+/* 現場アプリと同じ「業務上の今日」を使います（朝6時で切り替わる）。
+   深夜に項目を足しても、その日のページにちゃんと出ます */
 function todayStr() {
-  const t = new Date();
+  const t = businessDate();
   return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate());
 }
 function tomorrowStr() {
-  const t = new Date();
+  const t = businessDate();
   t.setDate(t.getDate() + 1);
   return ymd(t.getFullYear(), t.getMonth() + 1, t.getDate());
 }
@@ -968,6 +972,61 @@ function saveStaff() {
 }
 
 /* ============================================================
+ *  交通費（配達記録アプリ）
+ * ============================================================ */
+function renderDrivers() {
+  const names = Drivers.list();
+  el.driversInput.value = names.join('\n');
+  el.driversCount.textContent = `${names.length}人`;
+  el.driveImportNote.textContent = '';
+}
+
+function saveDrivers() {
+  Drivers.saveFromText(el.driversInput.value);
+  renderDrivers();
+  el.driversSaved.classList.remove('is-hidden');
+  setTimeout(() => el.driversSaved.classList.add('is-hidden'), 2500);
+}
+
+/**
+ * Numbers に入っていた2026年分を取り込む
+ *
+ * 項目の番号を「imp-2026-01-0」のように決め打ちにしてあるので、
+ * 何度押しても同じところに上書きされ、二重には増えません。
+ */
+async function importDriveRecords(only) {
+  const all = Object.keys(DRIVE_IMPORT);
+  const months = only ? [all[all.length - 1]] : all;
+  const total = months.reduce((n, m) => n + DRIVE_IMPORT[m].length, 0);
+
+  const ok = await askConfirm({
+    item: months.length === 1
+      ? `${months[0]}　${total}件`
+      : `${months[0]} 〜 ${months[months.length - 1]}　${total}件`,
+    message: 'Numbers に入っていた配達の記録を、配達記録アプリに入れます。よろしいですか？',
+    okLabel: '取り込む',
+  });
+  if (!ok) return;
+
+  months.forEach((month) => {
+    DRIVE_IMPORT[month].forEach((row, i) => {
+      const [d, by, one, km] = row;
+      Store.setItem(DRIVE_STORE, month, `imp-${month}-${i}`, {
+        done: true, d, by, one, km,
+      });
+    });
+  });
+
+  const km = months.reduce(
+    (t, m) => driveKm(t, ...DRIVE_IMPORT[m].map((r) => r[3])), 0
+  );
+  el.driveImportNote.textContent =
+    `${total}件（${months.length}か月分・合計 ${km.toFixed(1)}km）を取り込みました。`
+    + '配達記録アプリで確かめてください。';
+  renderSyncStatus();
+}
+
+/* ============================================================
  *  定休日
  * ============================================================ */
 function renderClosed() {
@@ -1130,10 +1189,24 @@ const ADMIN_PAGES = [
   { id: 'items',  name: 'クローズ', sub: '閉店時の確認項目',   icon: '🌙' },
   { id: 'weekly', name: '週間掃除', sub: '2週間ごとの掃除項目', icon: '🧹' },
   { id: 'closed', name: '定休日',   sub: '曜日と臨時の休業',   icon: '🗓' },
+  // 交通費（配達記録アプリ）は、デリバリーをやっているバグるだけに出します
+  {
+    id: 'drive', name: '交通費', sub: '配達記録アプリの名前', icon: '🛵',
+    when: (storeId) => storeId === DRIVE_SHOP,
+  },
 ];
 
-function getPage(id) {
-  return ADMIN_PAGES.find((p) => p.id === id) || null;
+/** その店舗で使えるページだけ */
+function pageList(storeId) {
+  return ADMIN_PAGES.filter((p) => typeof p.when !== 'function' || p.when(storeId));
+}
+
+function getPage(id, storeId) {
+  const page = ADMIN_PAGES.find((p) => p.id === id) || null;
+  if (!page) return null;
+  // 使えない店舗のURLを直接開かれた場合は、無いものとして扱います
+  if (storeId && typeof page.when === 'function' && !page.when(storeId)) return null;
+  return page;
 }
 
 function writeHash() {
@@ -1151,7 +1224,7 @@ function readHash() {
     return;
   }
   state.storeId = id;
-  state.view = getPage(page) ? page : 'menu';
+  state.view = getPage(page, id) ? page : 'menu';
 }
 
 /* ============================================================
@@ -1204,6 +1277,7 @@ function pageStatus(pageId, storeId) {
     return (dows.length ? `毎週${dows.map((d) => DOW[d]).join('・')}曜` : '定休日なし')
       + (ex ? ` / 臨時${ex}日` : '');
   }
+  if (pageId === 'drive') return `${Drivers.list().length}人`;
   return '';
 }
 
@@ -1212,7 +1286,7 @@ function renderMenu() {
   el.menuTitle.textContent = store.name;
   el.menuGrid.innerHTML = '';
 
-  ADMIN_PAGES.forEach((page) => {
+  pageList(store.id).forEach((page) => {
     const li = document.createElement('li');
     const b = document.createElement('button');
     b.type = 'button';
@@ -1263,15 +1337,16 @@ function goMenu() {
 function renderAll() {
   const isStores = state.view === 'stores';
   const isMenu = state.view === 'menu';
-  const page = getPage(state.view);
+  const page = getPage(state.view, state.storeId);
 
   el.viewStores.classList.toggle('is-hidden', !isStores);
   el.viewMenu.classList.toggle('is-hidden', !isMenu);
   el.storeTabs.classList.toggle('is-hidden', isStores);
-  el.pageBar.classList.toggle('is-hidden', !page);
+  el.pageBarRow.classList.toggle('is-hidden', !page);
   el.viewItems.classList.toggle('is-hidden', state.view !== 'items');
   el.viewWeekly.classList.toggle('is-hidden', state.view !== 'weekly');
   el.viewClosed.classList.toggle('is-hidden', state.view !== 'closed');
+  el.viewDrive.classList.toggle('is-hidden', state.view !== 'drive');
 
   if (isStores) {
     document.documentElement.style.setProperty('--store', '#2b7fd4');
@@ -1299,6 +1374,8 @@ function renderAll() {
     renderWeeklyEditor();
   } else if (state.view === 'closed') {
     renderClosed();
+  } else if (state.view === 'drive') {
+    renderDrivers();
   }
 }
 
@@ -1328,7 +1405,8 @@ function openPinModal() {
 }
 
 async function submitPin() {
-  const pin = el.pinInput.value.trim();
+  // 全角で入れても通るように、半角に直してから確かめます
+  const pin = toHalfWidth(el.pinInput.value).trim();
   if (!pin) { el.pinError.textContent = 'PINを入力してください。'; return; }
 
   el.pinError.textContent = '確認しています…';
@@ -1386,6 +1464,8 @@ function bindEvents() {
   el.homeBtn.addEventListener('click', goHome);
   el.menuBackBtn.addEventListener('click', goHome);
   el.pageBar.addEventListener('click', goMenu);
+  // 設定のページから、店舗選択まで一気に戻る
+  el.pageBarHome.addEventListener('click', goHome);
   window.addEventListener('hashchange', () => { readHash(); renderAll(); });
 
   el.addSection.addEventListener('click', addSection);
@@ -1395,6 +1475,9 @@ function bindEvents() {
   el.pauseModal.querySelectorAll('[data-pause-close]').forEach((n) =>
     n.addEventListener('click', () => el.pauseModal.classList.add('is-hidden')));
   el.saveStaff.addEventListener('click', saveStaff);
+  el.saveDrivers.addEventListener('click', saveDrivers);
+  el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
+  el.driveImport.addEventListener('click', () => importDriveRecords(false));
   el.exAdd.addEventListener('click', addClosedException);
   el.exportBtn.addEventListener('click', exportJson);
   el.importFile.addEventListener('change', (e) => {
@@ -1405,6 +1488,7 @@ function bindEvents() {
   el.syncChip.addEventListener('click', () => Sync.flush());
   el.pinOk.addEventListener('click', submitPin);
   el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  bindHalfWidthInput(el.pinInput, 'code');
   el.pinReveal.addEventListener('click', () => {
     const shown = el.pinInput.type === 'text';
     el.pinInput.type = shown ? 'password' : 'text';
