@@ -1206,12 +1206,41 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   color: var(--drive-deep);
   font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
 }
+/* 2倍にしていない記録が入っている日の印。
+   あとから見返したときに「まとめて回った日」だと分かります */
+.drive-row__plain {
+  flex: 0 0 auto;
+  padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  color: var(--text-sub); font-size: 11px; font-weight: 700;
+}
 
 /* 入力中に「3回分 / 往復 合計 24.8km として記録します」と出る行 */
 .drive-hint {
   margin: 9px 2px 0; font-size: 12px; color: var(--text-sub); line-height: 1.5;
 }
 .drive-hint.is-on { color: var(--accent); font-weight: 800; font-size: 13px; }
+
+/* 切り替え忘れの疑いがあるときの注意。
+   入力中からずっと出しておいて、記録する前に気づけるようにします */
+.drive-warn {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 10px 0 0; padding: 10px 12px;
+  border: 1px solid #e8a33d; border-radius: 11px;
+  background: color-mix(in srgb, #e8a33d 12%, var(--surface));
+  font-size: 12.5px; line-height: 1.6; color: var(--text);
+}
+.drive-warn.is-hidden { display: none; }
+.drive-warn > span[aria-hidden] { flex: 0 0 auto; font-size: 14px; }
+
+/* 注意書きの中の「例）」。字を落として、読む順番が分かるようにします */
+.drive-callout__eg {
+  display: block; margin-top: 7px; padding-top: 7px;
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--line));
+  font-size: 12px; line-height: 1.7; color: var(--text-sub);
+}
+.drive-callout__eg b { color: var(--text); }
+.drive-callout__ng { display: block; margin-top: 3px; color: var(--ng); }
 
 /* 「片道」を強調する。往復で入れてしまう間違いがいちばん起きやすいので、
    見出し・注意書き・各行の3か所で念を押しています */
@@ -1228,6 +1257,8 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-size: 12.5px; line-height: 1.55; color: var(--text);
 }
 .drive-callout__mark { flex: 0 0 auto; font-size: 15px; white-space: nowrap; }
+/* 2つ目（何か所か回ったとき）は続けて出すので、上の余白を詰めます */
+.drive-callout--multi { margin-top: -6px; }
 
 /* ---- 入力画面：1日に何回も行く分の欄 ----
    欄はいくつでも増やせます。1つだけのときは消すボタンを出しません */
@@ -1247,13 +1278,23 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
-/* 入れた数字が往復で何kmになるか、その行にすぐ出します */
-.drive-leg__round {
-  flex: 0 0 auto; min-width: 76px; text-align: right;
-  font-size: 12px; font-weight: 800; color: var(--accent);
+/* 2倍にするかどうかの切り替え。押した結果の距離もここに出します。
+   ボタンだと分かるよう、枠と背景を付けています */
+.drive-leg__mode {
+  flex: 0 0 auto; min-width: 104px;
+  padding: 7px 9px; border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--accent);
+  font: inherit; font-size: 11.5px; font-weight: 800;
   font-variant-numeric: tabular-nums; white-space: nowrap;
+  cursor: pointer; text-align: center;
 }
-.drive-leg__round:empty::before { content: '往復 —'; color: var(--text-weak); font-weight: 600; }
+.drive-leg__mode:active { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+/* 「そのまま」のときは、2倍にしていないことが分かるよう色を落とします */
+.drive-leg__mode.is-plain {
+  border-color: var(--line); background: var(--surface-2); color: var(--text-sub);
+}
 .drive-leg__del {
   flex: 0 0 auto; width: 32px; height: 32px;
   border: 1px solid var(--line); border-radius: 50%;
@@ -1272,10 +1313,18 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 .drive-legs__add:active { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
 
-/* 狭い画面では「往復 12.4km」の場所が足りなくなるので、少し詰めます */
+/* 狭い画面では1行に収まらないので、切り替えボタンを次の行へ折り返します
+   （1行目＝番号・数字・消す ／ 2行目＝切り替え）。
+   数字を入れる欄を狭くしてしまうと、そちらのほうが困るためです */
 @media (max-width: 380px) {
-  .drive-leg__no { min-width: 36px; font-size: 11.5px; }
-  .drive-leg__round { min-width: 64px; font-size: 11px; }
+  .drive-leg { flex-wrap: wrap; row-gap: 6px; }
+  .drive-leg__no { min-width: 34px; font-size: 11.5px; }
+  .drive-leg__input { flex: 1 1 120px; }
+  .drive-leg__del { order: 3; }
+  .drive-leg__mode {
+    order: 4; flex: 1 1 100%; min-width: 0;
+    margin-left: 42px; text-align: left; font-size: 11.5px;
+  }
   .drive-hero__yen { font-size: 34px; }
 }
 

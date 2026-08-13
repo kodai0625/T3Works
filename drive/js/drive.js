@@ -33,7 +33,7 @@ const el = {
   driveFoot: $('driveFoot'), driveList: $('driveList'), driveListHead: $('driveListHead'),
   driveModal: $('driveModal'), driveError: $('driveError'),
   drvDate: $('drvDate'), drvNames: $('drvNames'),
-  drvLegs: $('drvLegs'), drvAddLeg: $('drvAddLeg'), drvHint: $('drvHint'),
+  drvLegs: $('drvLegs'), drvAddLeg: $('drvAddLeg'), drvHint: $('drvHint'), drvWarn: $('drvWarn'),
   driveFormTitle: $('driveFormTitle'), driveSave: $('driveSave'),
   modal: $('modal'), syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncLegend: $('syncLegend'),
   pinModal: $('pinModal'), pinInput: $('pinInput'), pinError: $('pinError'),
@@ -204,10 +204,13 @@ function render() {
       const li = document.createElement('li');
       li.className = 'exp-row';
       const [, m, d] = (g.d || '').split('-');
+      // 2倍にしていない記録が混ざっている日は、あとから見て分かるように印を出します
+      const plain = g.list.filter((e) => e.round === false).length;
       li.innerHTML =
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
         // 2回以上行った日だけ、回数を出します
         (g.list.length > 1 ? `<span class="drive-row__times">${g.list.length}回</span>` : '') +
+        (plain ? '<span class="drive-row__plain" title="2倍にしていない記録が入っています">通し</span>' : '') +
         `<span class="exp-row__yen drive-row__km">${kmText(g.km)}</span>`;
 
       // 入れ間違いは後から直せます（消してから入れ直す必要はありません）
@@ -241,7 +244,7 @@ async function removeDay(g) {
   const [, m, d] = (g.d || '').split('-');
   const times = g.list.length > 1 ? `${g.list.length}回 ` : '';
   const ok = await askConfirm({
-    item: `${g.by || ''}　${+m}/${+d}　${times}往復 ${kmText(g.km)}`,
+    item: `${g.by || ''}　${+m}/${+d}　${times}${kmText(g.km)}`,
     message: g.list.length > 1
       ? 'この日の記録をまとめて消します。よろしいですか？'
       : 'この記録を消します。よろしいですか？',
@@ -264,6 +267,12 @@ async function removeDay(g) {
  *    1日に何回も配達に行くので、距離の欄は増やせるようにしています。
  *    「＋ もう1回分入れる」で欄が1つ増え、入れた分はそのまま残ります。
  *    記録するときは、1つの欄＝1件として別々に残します。
+ *
+ *  1つの欄には「⇄往復」と「→そのまま」の2とおりがあります
+ *    ⇄往復   … 1か所だけの配達。片道を入れて、アプリが2倍にします
+ *    →そのまま … 何か所か回った配達。実際に走った距離をそのまま使います
+ *              （店→A→B→店 のようなとき、A・Bを片道で入れると
+ *                A〜Bのあいだに存在しない復路が入ってしまうため）
  *
  *  すでに入れたものを直すとき（一覧の「編集」）
  *    その日の記録をまとめて開きます。3回行った日なら欄が3つ並び、
@@ -298,13 +307,15 @@ function openForm(group) {
   el.drvLegs.innerHTML = '';
   if (drvEditing) {
     drvEditing.list.forEach((e) => {
-      addLeg(false, e.id).value = e.one || driveKm(e.km / 2);
+      // round が無い古い記録は「往復」（それまではすべて2倍していたため）
+      const isRound = e.round !== false;
+      addLeg(false, e.id, isRound).value = e.one || driveKm(isRound ? e.km / 2 : e.km);
     });
   } else {
     addLeg();
   }
 
-  el.driveFormTitle.textContent = drvEditing ? '記録を直す' : '片道の距離を入れる';
+  el.driveFormTitle.textContent = drvEditing ? '記録を直す' : '走った距離を入れる';
   el.driveSave.textContent = drvEditing ? '直す' : '記録する';
 
   renderForm();
@@ -317,10 +328,12 @@ function openForm(group) {
  * id を渡すと「すでに入れてある記録の欄」になります。
  * その欄を直せば同じ記録が書き換わり、×で消せばその記録だけ消えます。
  */
-function addLeg(focus, id) {
+function addLeg(focus, id, isRound) {
   const row = document.createElement('div');
   row.className = 'drive-leg';
   if (id) row.dataset.id = id;
+  // 既定は「⇄往復」。1か所だけの配達がいちばん多いためです
+  row.dataset.round = isRound === false ? '0' : '1';
 
   const num = document.createElement('span');
   num.className = 'drive-leg__no';
@@ -336,9 +349,15 @@ function addLeg(focus, id) {
   bindNumericInput(input);
   input.addEventListener('input', renderForm);
 
-  // その場で「往復 12.4km」と出して、入れたのが片道だと分かるようにします
-  const round = document.createElement('span');
-  round.className = 'drive-leg__round';
+  // 2倍にするかどうかの切り替え。押した結果の距離もここに出すので、
+  // 「入れた数字がどう扱われるか」がその場で分かります
+  const round = document.createElement('button');
+  round.type = 'button';
+  round.className = 'drive-leg__mode';
+  round.addEventListener('click', () => {
+    row.dataset.round = row.dataset.round === '0' ? '1' : '0';
+    renderForm();
+  });
 
   const del = document.createElement('button');
   del.type = 'button';
@@ -358,49 +377,82 @@ function addLeg(focus, id) {
   return input;
 }
 
+/** 1件ぶんの距離。⇄往復なら2倍、→そのままならそのまま */
+function legKm(r) {
+  return r.round ? driveRound(r.one) : driveKm(r.one);
+}
+
 /** いま欄に入っているもの（0より大きいものだけ）。id は元の記録の番号 */
 function legValues() {
   return [...el.drvLegs.children]
     .map((row) => ({
       id: row.dataset.id || '',
+      round: row.dataset.round !== '0',
       // 全角で入っていても読めるよう、半角に直してから数字にします
       one: Number(toHalfWidthNumber(row.querySelector('.drive-leg__input').value)),
     }))
     .filter((r) => r.one > 0);
 }
 
-/** えらんだ名前と、入れた距離の往復分を出します */
+/** えらんだ名前と、その行が何kmになるかを出します */
 function renderForm() {
   [...el.drvNames.children].forEach((b) => b.classList.toggle('is-current', b.dataset.name === drvName));
 
-  // 何回目かの番号を振り直し、その行の往復距離も出し直す
+  // 何回目かの番号を振り直し、その行が何kmになるかも出し直す
   [...el.drvLegs.children].forEach((row, i) => {
     row.querySelector('.drive-leg__no').textContent = `${i + 1}回目`;
+    const isRound = row.dataset.round !== '0';
     const one = Number(toHalfWidthNumber(row.querySelector('.drive-leg__input').value));
-    row.querySelector('.drive-leg__round').textContent =
-      one > 0 ? `往復 ${kmText(driveRound(one))}` : '';
+    const mode = row.querySelector('.drive-leg__mode');
+    mode.classList.toggle('is-plain', !isRound);
+    mode.title = isRound
+      ? '1か所だけの配達（片道を2倍にします）。押すと「そのまま」に変わります'
+      : '何か所か回った配達（2倍にしません）。押すと「往復」に変わります';
+    mode.textContent = (isRound ? '⇄ 往復' : '→ そのまま')
+      + (one > 0 ? ' ' + kmText(isRound ? driveRound(one) : driveKm(one)) : '');
   });
   // 欄が1つだけのときは消すボタンを出さない
   el.drvLegs.classList.toggle('is-single', el.drvLegs.children.length === 1);
 
   const list = legValues();
-  const total = driveKm(...list.map((r) => driveRound(r.one)));
-  if (!list.length) el.drvHint.textContent = '1回目の片道の距離を入れてください';
-  else if (drvEditing) el.drvHint.textContent = `この日は ${list.length}回 ／ 往復 合計 ${kmText(total)} に直します`;
-  else el.drvHint.textContent = `${list.length}回分 ／ 往復 合計 ${kmText(total)} として記録します`;
+  const total = driveKm(...list.map(legKm));
+  if (!list.length) el.drvHint.textContent = '1回目の距離を入れてください';
+  else if (drvEditing) el.drvHint.textContent = `この日は ${list.length}回 ／ 合計 ${kmText(total)} に直します`;
+  else el.drvHint.textContent = `${list.length}回分 ／ 合計 ${kmText(total)} として記録します`;
   el.drvHint.classList.toggle('is-on', list.length > 0);
+
+  // 切り替え忘れがいちばん起きるのは「まとめて回ったのに、1件ずつ往復で入れた」とき。
+  // 2件以上ぜんぶ往復のときだけ、入力中から声をかけます
+  el.drvWarn.classList.toggle('is-hidden', !allRoundMulti(list));
 }
 
-function saveEntry() {
+/** 2件以上あって、ぜんぶ「⇄往復」になっているか（切り替え忘れの疑い） */
+function allRoundMulti(list) {
+  return list.length >= 2 && list.every((r) => r.round);
+}
+
+async function saveEntry() {
   const d = el.drvDate.value;
   const list = legValues();
 
   if (!d) { el.driveError.textContent = '走った日を入れてください。'; return; }
   if (!drvName) { el.driveError.textContent = '名前をえらんでください。'; return; }
-  if (!list.length) { el.driveError.textContent = '片道の距離を入れてください。'; return; }
+  if (!list.length) { el.driveError.textContent = '走った距離を入れてください。'; return; }
   if (list.some((r) => r.one > 200)) {
-    el.driveError.textContent = '片道200kmを超えています。入れ間違いではありませんか？';
+    el.driveError.textContent = '200kmを超えています。入れ間違いではありませんか？';
     return;
+  }
+
+  // 切り替え忘れの疑いがあるときは、記録する前に一度だけ確かめます。
+  // （毎回聞くと読まずに押すようになるので、疑わしいときだけにしています）
+  if (allRoundMulti(list)) {
+    const ok = await askConfirm({
+      item: `${list.length}回とも「⇄ 往復」になっています`,
+      message: '1か所ずつ行って、そのつど店に戻ったのなら、このままでOKです。\n'
+        + 'まとめて何か所か回ったのなら、「キャンセル」を押して →そのまま に変えてください。',
+      okLabel: '1か所ずつです',
+    });
+    if (!ok) return;
   }
 
   // 入れ先は「走った日の月」。前の月分を入れても、正しい月に入ります
@@ -427,8 +479,9 @@ function saveEntry() {
       done: true,
       d,
       by: drvName,
-      one: driveKm(r.one),
-      km: driveRound(r.one),
+      one: driveKm(r.one),   // 入れた数字そのもの
+      km: legKm(r),          // 実際に走った距離（合計はこちらで足します）
+      round: r.round,        // 2倍にしたかどうか（編集で開き直すときに使います）
     });
   });
 

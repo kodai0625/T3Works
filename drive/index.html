@@ -12,8 +12,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/drive-icon-512.png?v=7c78116c">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/drive-icon-64.png?v=7088d4ae">
 <title>配達記録｜バグる</title>
-<link rel="stylesheet" href="../css/style.css?v=07add72b">
-<meta name="app-version" content="40e262e8">
+<link rel="stylesheet" href="../css/style.css?v=1e12b364">
+<meta name="app-version" content="2931f8da">
 </head>
 <body class="no-daytabs app-drive" data-assets="../">
 
@@ -122,18 +122,32 @@
 
     <!-- 1日に何回も行くので、その分だけ欄を増やせるようにしています -->
     <div class="field">
-      <span class="field__label">
-        <b class="drive-oneway">片道</b>の距離（km）
-      </span>
+      <span class="field__label">走った距離（km）</span>
       <!-- 往復で入れてしまう間違いがいちばん起きやすいので、ここで念を押します -->
       <p class="drive-callout">
         <span class="drive-callout__mark" aria-hidden="true">🏠→📍</span>
-        <span><b>お店から配達先まで</b>の距離だけを入れてください。<br>
-        <b>帰り分は足さなくて大丈夫です</b>（アプリが2倍にします）</span>
+        <span><b>1か所だけ</b>なら、お店から配達先までの<b>片道</b>を入れてください。<br>
+        帰り分は足さなくて大丈夫です（<b>⇄往復</b>のまま。アプリが2倍にします）</span>
+      </p>
+      <p class="drive-callout drive-callout--multi">
+        <span class="drive-callout__mark" aria-hidden="true">🏠→📍→📍</span>
+        <span><b>何か所か回った</b>ときは、その行の <b>⇄往復</b> を押して
+        <b>→そのまま</b> に変えて、<b>実際に走った距離</b>を入れてください（2倍にしません）
+        <span class="drive-callout__eg">
+          例）バグる → Aさん → Bさん → バグる と回って <b>15.4km</b> 走った<br>
+          → <b>15.4</b> と入れて <b>→そのまま</b>。1回ぶんの記録になります<br>
+          <span class="drive-callout__ng">✗ AとBを別々に片道で入れると、通っていない道が2回分入ります</span>
+        </span></span>
       </p>
       <div class="drive-legs" id="drvLegs"></div>
       <button type="button" class="drive-legs__add" id="drvAddLeg">＋ もう1回分入れる</button>
-      <p class="drive-hint" id="drvHint">1回目の片道の距離を入れてください</p>
+      <p class="drive-hint" id="drvHint">1回目の距離を入れてください</p>
+      <!-- 2件以上ぜんぶ「往復」のときだけ出ます（切り替え忘れの疑い） -->
+      <p class="drive-warn is-hidden" id="drvWarn">
+        <span aria-hidden="true">⚠️</span>
+        <span>ぜんぶ <b>⇄往復</b>（2倍）になっています。<br>
+        <b>1回の配達でまとめて回った</b>のなら、<b>→そのまま</b> に変えてください</span>
+      </p>
     </div>
 
     <p class="pin-error" id="driveError"></p>
@@ -217,7 +231,7 @@
 <script src="../js/storage.js?v=c163d4c1"></script>
 <script src="../js/sync.js?v=a633c4c7"></script>
 <script src="../js/update.js?v=da1d6bfe"></script>
-<script src="js/drive.js?v=f27df9b0"></script>
+<script src="js/drive.js?v=11f0928b"></script>
 
 </body>
 </html>
