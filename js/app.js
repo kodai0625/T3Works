@@ -1519,8 +1519,9 @@ const MEETING_MODES = {
       main: (v) => v.labor, sub: (v) => (v.ex ? v.labor / v.ex : null) },
     { label: 'F/L', mainKind: 'pct', goodWhen: 'down',
       main: (v) => (v.ex ? (v.cost + v.labor) / v.ex : null) },
-    // キャッチだけは、差の下段を「増減率」ではなく「人数の差」にします
-    { label: 'キャッチ', mainKind: 'yen', subKind: 'num', subUnit: '人', diffSub: 'sub',
+    // キャッチだけは、差の下段を「増減率」ではなく「人数の差」にします。
+    // 人数も会議で見る数字なので、金額と同じ大きさで出します（big）
+    { label: 'キャッチ', mainKind: 'yen', subKind: 'num', subUnit: '人', diffSub: 'sub', big: true,
       main: (v) => v.katch, sub: (v) => v.katchPeople },
   ],
   util: [
@@ -1771,7 +1772,7 @@ function renderMeetingMonths() {
     b.className = 'meeting-month';
     b.classList.toggle('is-on', m === state.m);
     b.classList.toggle('is-filled', !!meetingOf(state.y, m));
-    b.textContent = m;
+    b.textContent = `${m}月`;
     b.addEventListener('click', () => {
       flushMeetingNotes();
       state.m = m;
@@ -1933,8 +1934,16 @@ function goalCard({ name, color, now, goal, big }, pace) {
   const card = document.createElement('section');
   card.className = 'goal-card' + (big ? ' goal-card--big' : '');
   card.style.setProperty('--goal-color', color);
-  // 目安の線を置く角度（12時から時計回り）
+  // 目安の印を置く角度（12時から時計回り）
   const a = (pace * 2 * Math.PI) - Math.PI / 2;
+
+  /* 目安との差。「いまの時期なら ここまで」に対して
+     さきに進んでいるか、おくれているかを言葉で出します */
+  const gap = (ratio - pace) * 100;
+  const late = gap < 0;
+  const gapText = Math.abs(gap) < 0.05
+    ? '目安どおり'
+    : `${Math.abs(gap).toFixed(1)}% ${late ? 'おくれ' : 'さき'}`;
 
   card.innerHTML = `
     <svg class="goal-ring" viewBox="0 0 100 100" role="img" aria-label="${name} ${Math.round(ratio * 100)}%">
@@ -1943,16 +1952,22 @@ function goalCard({ name, color, now, goal, big }, pace) {
               stroke-dasharray="${(C * shown).toFixed(1)} ${C.toFixed(1)}"
               transform="rotate(-90 50 50)"></circle>
       <line class="goal-ring__pace"
-            x1="${(50 + (R - 8) * Math.cos(a)).toFixed(1)}" y1="${(50 + (R - 8) * Math.sin(a)).toFixed(1)}"
-            x2="${(50 + (R + 8) * Math.cos(a)).toFixed(1)}" y2="${(50 + (R + 8) * Math.sin(a)).toFixed(1)}"></line>
+            x1="${(50 + (R - 9) * Math.cos(a)).toFixed(1)}" y1="${(50 + (R - 9) * Math.sin(a)).toFixed(1)}"
+            x2="${(50 + (R + 9) * Math.cos(a)).toFixed(1)}" y2="${(50 + (R + 9) * Math.sin(a)).toFixed(1)}"></line>
       <text class="goal-ring__pct" x="50" y="54">${(ratio * 100).toFixed(1)}%</text>
     </svg>
     <p class="goal-card__name"></p>
     <p class="goal-card__yen">${yenMarkup(now)}</p>
-    <p class="goal-card__goal">目標 ${yenMarkup(goal)}</p>
-    <p class="goal-card__left">${now >= goal
-      ? '目標をこえました'
-      : `のこり ${yenMarkup(goal - now)}`}</p>
+    <dl class="goal-card__rows">
+      <div class="goal-row"><dt>目標</dt><dd>${yenMarkup(goal)}</dd></div>
+      <div class="goal-row goal-row--left"><dt>残り</dt><dd>${now >= goal
+        ? '<span class="goal-done">目標をこえました</span>'
+        : yenMarkup(goal - now)}</dd></div>
+    </dl>
+    <p class="goal-card__pace">
+      <span class="goal-gap ${late ? 'is-late' : 'is-ahead'}">${gapText}</span>
+      <span class="goal-card__paceLabel">目安 ${Math.round(pace * 100)}%</span>
+    </p>
   `;
   card.querySelector('.goal-card__name').textContent = name;
   return card;

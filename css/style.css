@@ -1644,11 +1644,11 @@ body.is-wide .page { max-width: 1700px; }
   padding-left: 12px; border-left: 1px solid var(--line);
 }
 .meeting-month {
-  flex: 1 1 0; min-width: 26px;
+  flex: 1 1 0; min-width: 42px;
   border: 1px solid var(--line); background: var(--surface-2);
   color: var(--text-weak);
   border-radius: 8px; padding: 6px 0;
-  font: inherit; font-size: 12.5px; font-weight: 700;
+  font: inherit; font-size: 13px; font-weight: 700;
   font-variant-numeric: tabular-nums; cursor: pointer; text-align: center;
 }
 /* 数字が入っている月は濃く。まだの月はうすいままにします */
@@ -1691,17 +1691,19 @@ body.is-wide .page { max-width: 1700px; }
   cursor: pointer;
 }
 .meeting-last__go:active { background: var(--line-2); }
-/* 見出しの行だけを横に並べます。多い月でも2〜3行におさまります */
+/* 見出しの行だけを並べます。文章の長さがばらばらでも列がそろうよう、
+   幅を決めた枠に入れます（1行に入らないものは2行になります）*/
 .meeting-last__list {
   list-style: none; margin: 0; padding: 0;
-  display: flex; flex-wrap: wrap; gap: 6px 8px;
+  display: grid; gap: 6px 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 .meeting-last__item {
-  display: flex; align-items: baseline; gap: 6px;
-  max-width: 100%;
+  display: flex; align-items: baseline; gap: 7px;
+  min-width: 0;
   background: var(--surface-2); border: 1px solid var(--line-2);
-  border-radius: 999px; padding: 4px 11px 4px 7px;
-  font-size: 12.5px; line-height: 1.5;
+  border-radius: 9px; padding: 6px 10px 6px 8px;
+  font-size: 12.5px; line-height: 1.55;
 }
 .meeting-last__no {
   flex: 0 0 auto;
@@ -1770,18 +1772,19 @@ body.is-wide .page { max-width: 1700px; }
   background: color-mix(in srgb, var(--money) 11%, var(--surface));
   border-bottom: 1px solid color-mix(in srgb, var(--money) 30%, var(--line));
   padding-top: 8px; padding-bottom: 6px;
-  font-size: 11.5px; font-weight: 800; letter-spacing: .04em;
+  font-size: 13.5px; font-weight: 800; letter-spacing: .04em;
   color: color-mix(in srgb, var(--money) 80%, var(--text-sub));
   text-align: center;
 }
-/* 下段＝2026年 / 昨年 / 比 */
+/* 下段＝2026年 / 昨年 / 差 */
 .meeting-head-sub th {
   background: color-mix(in srgb, var(--money) 7%, var(--surface));
   border-bottom: 2px solid color-mix(in srgb, var(--money) 45%, var(--line));
-  padding-top: 4px; padding-bottom: 5px;
-  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  padding-top: 5px; padding-bottom: 6px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .04em;
   color: var(--text-sub);
 }
+.meeting-head-sub th.is-last { color: var(--text-weak); }
 /* 項目と項目のあいだに、細い縦線を1本（見出しの上段と、差の列の右）*/
 .meeting-head-top th + th,
 .meeting-head-sub th.is-vs,
@@ -1835,7 +1838,7 @@ body.is-wide .page { max-width: 1700px; }
 .meeting-table .meeting-th-name {
   background: color-mix(in srgb, var(--money) 9%, var(--surface));
   color: color-mix(in srgb, var(--money) 80%, var(--text-sub));
-  font-size: 11.5px; letter-spacing: .04em; z-index: 2;
+  font-size: 13px; letter-spacing: .04em; z-index: 2;
 }
 .meeting-table tbody th.meeting-td-name { color: var(--row-color, var(--text)); }
 
@@ -1897,7 +1900,7 @@ body.is-wide .page { max-width: 1700px; }
      店舗の数より枠のほうが多いときに右側が空いたまま残ります */
 .meeting-goals {
   display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 .meeting-goals.is-hidden { display: none; }
 .goal-card {
@@ -1917,25 +1920,68 @@ body.is-wide .page { max-width: 1700px; }
   fill: none; stroke: var(--goal-color, var(--money));
   stroke-width: 10; stroke-linecap: round;
 }
-/* 「いまの時期ならここまで」の目安。輪をまたぐ短い線です */
-.goal-ring__pace { stroke: var(--text-sub); stroke-width: 2; opacity: .55; }
+/* 「いまの時期ならここまで」の目安。輪をまたぐ短い線です。
+   うすいと何の線か分からないので、はっきりした濃さにしています */
+.goal-ring__pace { stroke: var(--text-sub); stroke-width: 3; stroke-linecap: round; }
 .goal-ring__pct {
   fill: var(--text); font-size: 19px; font-weight: 800;
   text-anchor: middle; font-variant-numeric: tabular-nums;
 }
 .goal-card--big .goal-ring { max-width: 150px; }
 .goal-card__name {
-  margin: 0; font-size: 13px; font-weight: 800; color: var(--goal-color, var(--money));
+  margin: 0; font-size: 13.5px; font-weight: 800; color: var(--goal-color, var(--money));
 }
 .goal-card__yen {
-  margin: 3px 0 0; font-size: 14px; font-weight: 800;
+  margin: 3px 0 0; font-size: 15px; font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.goal-card__goal, .goal-card__left {
-  margin: 1px 0 0; font-size: 11px; color: var(--text-sub);
+/* 目標と残りは会議で口に出す金額なので、大きく出します。
+   ★見出しと金額は横に並べないこと。1枚が150px前後しかないので、
+     横に並べると「目標 ¥205,000,000」が枠からはみ出します */
+.goal-card__rows {
+  margin: 9px 0 0; padding-top: 8px;
+  border-top: 1px solid var(--line-2);
+  display: grid; gap: 7px;
+}
+.goal-row { text-align: center; }
+.goal-row dt {
+  display: block;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  color: var(--text-weak); white-space: nowrap;
+}
+.goal-row dd {
+  display: block; margin: 1px 0 0;
+  font-size: 15px; font-weight: 800;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* 残りは「あといくら足りないか」なので、いちばん目に入るようにします */
+.goal-row--left dt { color: var(--goal-color, var(--money)); }
+.goal-row--left dd { font-size: 17px; color: var(--goal-color, var(--money)); }
+.goal-done { font-size: 13px; color: var(--ok); }
+
+/* 目安との差。輪の外に立っている短い線と同じ意味を、言葉でも出します */
+.goal-card__pace {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  margin: 9px 0 0; padding-top: 8px;
+  border-top: 1px solid var(--line-2);
+}
+.goal-card__paceLabel {
+  font-size: 11px; font-weight: 700; color: var(--text-weak);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.goal-gap {
+  font-size: 12.5px; font-weight: 800; white-space: nowrap;
+  padding: 3px 10px; border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
-.goal-card__left { color: var(--text-weak); }
+.goal-gap.is-ahead {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: color-mix(in srgb, var(--ok) 78%, var(--text));
+}
+.goal-gap.is-late {
+  background: color-mix(in srgb, var(--ng) 16%, transparent);
+  color: color-mix(in srgb, var(--ng) 78%, var(--text));
+}
 
 /* -------- 議事録 --------
    横向きで見るページなので、幅があるときは2列・3列に折り返します */
