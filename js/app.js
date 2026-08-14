@@ -67,8 +67,20 @@ const el = {
   expenseModal: $('expenseModal'), expDate: $('expDate'), expBy: $('expBy'),
   expLabel: $('expLabel'), expYen: $('expYen'), expChips: $('expChips'),
   expenseTotals: $('expenseTotals'), expenseTotalWrap: $('expenseTotalWrap'),
+  expenseFoot: $('expenseFoot'), expenseTotalYen: $('expenseTotalYen'),
+  expenseUnpaidYen: $('expenseUnpaidYen'), expenseUnpaidBox: $('expenseUnpaidBox'),
+  expensePeople: $('expensePeople'),
   viewCatch: $('viewCatch'), catchMonth: $('catchMonth'),
   catchSummary: $('catchSummary'), catchTotals: $('catchTotals'), catchList: $('catchList'),
+  catchFoot: $('catchFoot'), catchPeopleTotal: $('catchPeopleTotal'),
+  catchYenTotal: $('catchYenTotal'), catchPerHead: $('catchPerHead'),
+  viewSettle: $('viewSettle'), settleYear: $('settleYear'), settleSummary: $('settleSummary'),
+  settleLockBtn: $('settleLockBtn'),
+  settleRows: $('settleRows'), settleFoot: $('settleFoot'),
+  settleModal: $('settleModal'), settleFormTitle: $('settleFormTitle'),
+  settleFormYen: $('settleFormYen'), settleDate: $('settleDate'),
+  settleAccounts: $('settleAccounts'), settleAccount: $('settleAccount'),
+  settleError: $('settleError'), settleSave: $('settleSave'), settleClear: $('settleClear'),
   expStoreField: $('expStoreField'), expStores: $('expStores'),
   expPeopleField: $('expPeopleField'), expPeople: $('expPeople'),
   expFreeField: $('expFreeField'),
@@ -95,7 +107,7 @@ const el = {
  *   #/report/{YYYY-MM-DD}       全店舗の提出記録（店舗に属さない）
  *   #/weekall/{YYYY-MM-DD}      全店舗の週間掃除 達成状況
  */
-const ALL_STORE_VIEWS = ['report', 'weekall', 'expense', 'catch'];
+const ALL_STORE_VIEWS = ['report', 'weekall', 'expense', 'catch', 'settle'];
 
 function readHash() {
   const parts = (location.hash || '').replace(/^#\/?/, '').split('/').filter((s) => s !== '');
@@ -682,14 +694,35 @@ function expenseEntries(rec) {
     .sort((a, b) => (a.d || '').localeCompare(b.d || '') || (a.at || '').localeCompare(b.at || ''));
 }
 
-/** 人ごとにまとめる。金額の大きい人が上 */
+/**
+ * 人ごとにまとめる
+ *
+ * 並びは、クローズの担当者プルダウンと同じ順番です。
+ * 月が変わっても同じ場所に同じ人がいる方が、探しやすいためです
+ * （順番を変えたいときは、マネージの「担当者」で並べ替えます）。
+ *
+ * 立て替えが1件も無い人も、¥0 として行を出します。
+ * 「この人はまだ入れていないのか、それとも本当に0円なのか」が
+ * ひと目で分かるようにするためです（配達記録の表と同じ考え方）。
+ *
+ * 担当者リストに無い名前（辞めた方など）は、記録があるときだけ
+ * いちばん下に出ます。
+ */
 function expenseByPerson(rec) {
+  const order = Staff.list();
   const map = new Map();
+  order.forEach((name) => map.set(name, []));   // 0円の人も行を出すため、先に並べておく
+
   expenseEntries(rec).forEach((e) => {
     const name = e.by || '（名前なし）';
     if (!map.has(name)) map.set(name, []);
     map.get(name).push(e);
   });
+  const rank = (name) => {
+    const i = order.indexOf(name);
+    return i < 0 ? order.length : i;   // リストに無い人は下へ
+  };
+
   return [...map.entries()]
     .map(([name, list]) => ({
       name,
@@ -697,31 +730,57 @@ function expenseByPerson(rec) {
       total: list.reduce((t, e) => t + (Number(e.yen) || 0), 0),
       paid: (rec.items || {})[expensePaidKey(name)] || null,
     }))
-    .sort((a, b) => b.total - a.total);
+    // リストに無い人どうしは、金額の大きい順に並べます
+    .sort((a, b) => rank(a.name) - rank(b.name) || b.total - a.total);
 }
 
 function yenText(n) {
   return '¥' + (Number(n) || 0).toLocaleString('ja-JP');
 }
 
+/**
+ * 金額を「¥ だけ小さく、数字は大きく」出す
+ *
+ * 帳簿らしい見え方にするためのものです。¥ を消してしまうと
+ * 何の数字か分からなくなるので、消さずに控えめにしています。
+ */
+function yenMarkup(n) {
+  return `<span class="yen-mark">¥</span>${(Number(n) || 0).toLocaleString('ja-JP')}`;
+}
+
 function renderExpense() {
   const rec = expenseRec();
   const people = expenseByPerson(rec);
-  const total = people.reduce((t, p) => t + p.total, 0);
-  const unpaid = people.filter((p) => !(p.paid && p.paid.done));
+  // 立て替えがあった人だけ。人数や未精算の数は、この人たちで数えます
+  // （0円の人は「渡すものが無い」ので、精算のしようがありません）
+  const paying = people.filter((p) => p.total > 0);
+  const total = paying.reduce((t, p) => t + p.total, 0);
+  const unpaid = paying.filter((p) => !(p.paid && p.paid.done));
+
+  const unpaidYen = unpaid.reduce((t, p) => t + p.total, 0);
 
   el.expenseMonth.textContent = `${state.y}年${state.m}月`;
-  el.expenseSummary.textContent = people.length
-    ? `${people.length}人 / 合計 ${yenText(total)}　未精算 ${unpaid.length}人（${yenText(unpaid.reduce((t, p) => t + p.total, 0))}）`
-    : 'この月の記録はまだありません。';
+
+  /* ---- 表紙の数字 ---- */
+  el.expenseTotalYen.innerHTML = yenMarkup(total);
+  el.expenseUnpaidYen.innerHTML = yenMarkup(unpaidYen);
+  el.expensePeople.innerHTML =
+    `${paying.length}<span class="ledger-figure__unit">人</span>`;
+  // 渡していない分が残っている月だけ、この数字に色を付けます
+  el.expenseUnpaidBox.classList.toggle('is-on', unpaidYen > 0);
+  // 数字を出しているので、下の一文は「記録がない」ときの案内だけにします
+  el.expenseSummary.textContent = paying.length ? '' : 'この月の記録はまだありません。';
+  el.expenseSummary.classList.toggle('is-hidden', paying.length > 0);
 
   /* ---- 上の表：人ごとの合計と精算（スプレッドシートの「N月合計」） ---- */
   el.expenseTotalWrap.classList.toggle('is-hidden', people.length === 0);
   el.expenseTotals.innerHTML = '';
   people.forEach((p) => {
     const done = !!(p.paid && p.paid.done);
+    const zero = p.total === 0;
     const tr = document.createElement('tr');
     if (done) tr.className = 'is-paid';
+    else if (zero) tr.className = 'is-zero';   // 立て替えが無い人は色を落とす
 
     const name = document.createElement('td');
     name.className = 'exp-total__name';
@@ -729,31 +788,51 @@ function renderExpense() {
 
     const yenTd = document.createElement('td');
     yenTd.className = 'exp-total__yen';
-    yenTd.textContent = yenText(p.total);
+    if (zero) yenTd.textContent = '—';
+    else yenTd.innerHTML = yenMarkup(p.total);
 
     const act = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'exp-paid-btn' + (done ? ' is-done' : '');
-    btn.textContent = done ? '済 ' + (shortDate(p.paid.at) || '') : '精算';
-    btn.title = done ? '押すと精算をとり消します' : '現金を渡したら押します';
-    btn.addEventListener('click', () => togglePaid(p));
-    act.appendChild(btn);
+    // 0円の人には精算ボタンを出しません（押しても渡すものがないため）
+    if (!zero) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'exp-paid-btn' + (done ? ' is-done' : '');
+      btn.textContent = done ? '済 ' + (shortDate(p.paid.at) || '') : '精算';
+      btn.title = done ? '押すと精算をとり消します' : '現金を渡したら押します';
+      btn.addEventListener('click', () => togglePaid(p));
+      act.appendChild(btn);
+    }
 
     tr.append(name, yenTd, act);
     el.expenseTotals.appendChild(tr);
   });
 
-  /* ---- 下：人ごとの明細 ---- */
+  /* ---- いちばん下の合計行（帳簿の〆） ---- */
+  el.expenseFoot.innerHTML = '';
+  if (paying.length) {
+    const tr = document.createElement('tr');
+    tr.className = 'ledger-foot';
+    tr.innerHTML =
+      `<td class="exp-total__name">合計　<span class="ledger-foot__note">${paying.length}人</span></td>` +
+      `<td class="exp-total__yen">${yenMarkup(total)}</td><td></td>`;
+    el.expenseFoot.appendChild(tr);
+  }
+
+  /* ---- 下：人ごとの明細（立て替えがあった人だけ） ---- */
   el.expenseList.innerHTML = '';
-  people.forEach((p) => {
+  paying.forEach((p) => {
     const done = !!(p.paid && p.paid.done);
     const card = document.createElement('section');
     card.className = 'exp-card' + (done ? ' is-paid' : '');
 
     const head = document.createElement('div');
     head.className = 'exp-card__head';
-    head.innerHTML = `<span class="exp-card__name">${p.name}</span>`;
+    // 名前・件数・その人の合計。上の表を見に戻らなくても分かるようにします
+    head.innerHTML =
+      '<span class="exp-card__name"></span>' +
+      `<span class="exp-card__count">${p.list.length}件</span>` +
+      `<span class="exp-card__total">${yenMarkup(p.total)}</span>`;
+    head.querySelector('.exp-card__name').textContent = p.name;
     if (done) {
       const tag = document.createElement('span');
       tag.className = 'exp-card__paid';
@@ -772,7 +851,7 @@ function renderExpense() {
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
         `<span class="exp-row__label"></span>` +
         `<span class="exp-row__receipt${e.receipt ? '' : ' is-none'}">${e.receipt ? '◯' : '×'}</span>` +
-        `<span class="exp-row__yen">${yenText(e.yen)}</span>`;
+        `<span class="exp-row__yen">${yenMarkup(e.yen)}</span>`;
       li.querySelector('.exp-row__label').textContent = e.label || '（項目なし）';
       // 精算が済むまでは、間違えて入れたものを直したり消したりできます
       if (!done) {
@@ -803,14 +882,18 @@ async function togglePaid(p) {
   const key = expenseMonthKey(state.y, state.m);
   const done = !!(p.paid && p.paid.done);
   if (done) {
-    const ok = await askConfirm(p.name, '精算済みをとり消します。よろしいですか？');
+    const ok = await askConfirm({
+      item: p.name,
+      message: '精算済みをとり消します。よろしいですか？',
+    });
     if (!ok) return;
     Store.setItem(EXPENSE_STORE, key, expensePaidKey(p.name), { done: false, by: '' });
   } else {
-    const ok = await askConfirm(
-      `${p.name}　${yenText(p.total)}`,
-      `${state.m}月分を現金で渡したことにします。よろしいですか？`
-    );
+    const ok = await askConfirm({
+      item: `${p.name}　${yenText(p.total)}`,
+      message: `${state.m}月分を現金で渡したことにします。よろしいですか？`,
+      okLabel: '渡した',
+    });
     if (!ok) return;
     Store.setItem(EXPENSE_STORE, key, expensePaidKey(p.name), { done: true, by: p.name });
   }
@@ -819,7 +902,12 @@ async function togglePaid(p) {
 }
 
 async function removeExpense(e) {
-  const ok = await askConfirm(`${e.label}　${yenText(e.yen)}`, 'この1件を消します。よろしいですか？');
+  const ok = await askConfirm({
+    item: `${e.label}　${yenText(e.yen)}`,
+    message: 'この1件を消します。よろしいですか？',
+    okLabel: '消す',
+    danger: true,
+  });
   if (!ok) return;
   // 金額を0にすると一覧から外れます（消したことも同期で全端末に伝わります）
   Store.setItem(EXPENSE_STORE, expenseMonthKey(state.y, state.m), e.id, { yen: 0, done: false });
@@ -888,6 +976,8 @@ function openExpenseForm(entry) {
     b.type = 'button';
     b.className = 'exp-chip';
     b.dataset.store = s.id;
+    // えらんだときは、その店舗の色にします（一覧の店舗カードと同じ色）
+    b.style.setProperty('--pick-color', s.color);
     // 略さない名前を出します（「おいでん」ではなく「おいでんテラス」）
     b.textContent = s.name;
     b.addEventListener('click', () => { expStore = s.id; renderExpenseForm(); });
@@ -989,43 +1079,70 @@ function renderCatch() {
   const people = rows.reduce((t, r) => t + r.people, 0);
   const total = rows.reduce((t, r) => t + r.yen, 0);
 
+  // 1名あたり。割り切れないので四捨五入して出します（目安の数字です）
+  const perHead = (yen, n) => (n ? Math.round(yen / n) : 0);
+
   el.catchMonth.textContent = `${state.y}年${state.m}月`;
-  el.catchSummary.textContent = people
-    ? `合計 ${people}名 / ${yenText(total)}`
-    : 'この月のキャッチの記録はまだありません。';
+  el.catchPeopleTotal.innerHTML = `${people}<span class="ledger-figure__unit">名</span>`;
+  el.catchYenTotal.innerHTML = yenMarkup(total);
+  el.catchPerHead.innerHTML = people ? yenMarkup(perHead(total, people)) : '—';
+  el.catchSummary.textContent = people ? '' : 'この月のキャッチの記録はまだありません。';
+  el.catchSummary.classList.toggle('is-hidden', people > 0);
 
   el.catchTotals.innerHTML = '';
   rows.forEach((r) => {
     const tr = document.createElement('tr');
-    if (!r.people) tr.className = 'is-paid';   // 0人の店舗は色を落とす
+    if (!r.people) tr.className = 'is-zero';   // 0人の店舗は色を落とす
 
     const name = document.createElement('td');
     name.className = 'exp-total__name';
     name.textContent = r.id ? getStore(r.id).name : '（店舗なし）';
+    // 店舗の色を細い帯で添えます（一覧画面の店舗カードと同じ色）
+    if (r.id && r.people) tr.style.setProperty('--row-color', getStore(r.id).color);
 
     const p = document.createElement('td');
     p.className = 'exp-total__yen';
-    p.textContent = r.people ? `${r.people}名` : '—';
+    p.innerHTML = r.people ? `${r.people}<span class="ledger-unit">名</span>` : '—';
 
     const y = document.createElement('td');
     y.className = 'exp-total__yen';
-    y.textContent = r.yen ? yenText(r.yen) : '—';
+    y.innerHTML = r.yen ? yenMarkup(r.yen) : '—';
 
-    tr.append(name, p, y);
+    const per = document.createElement('td');
+    per.className = 'exp-total__yen catch-per';
+    per.innerHTML = r.people ? yenMarkup(perHead(r.yen, r.people)) : '—';
+
+    tr.append(name, p, y, per);
     el.catchTotals.appendChild(tr);
   });
+
+  /* ---- いちばん下の合計行 ---- */
+  el.catchFoot.innerHTML = '';
+  if (people) {
+    const tr = document.createElement('tr');
+    tr.className = 'ledger-foot';
+    tr.innerHTML =
+      '<td class="exp-total__name">合計</td>' +
+      `<td class="exp-total__yen">${people}<span class="ledger-unit">名</span></td>` +
+      `<td class="exp-total__yen">${yenMarkup(total)}</td>` +
+      `<td class="exp-total__yen catch-per">${yenMarkup(perHead(total, people))}</td>`;
+    el.catchFoot.appendChild(tr);
+  }
 
   /* ---- 店舗ごとの明細 ---- */
   el.catchList.innerHTML = '';
   rows.filter((r) => r.list.length).forEach((r) => {
     const card = document.createElement('section');
     card.className = 'exp-card';
+    // 左の帯と店舗名の色。一覧画面の店舗カードと同じ色を使います
+    if (r.id) card.style.setProperty('--card-color', getStore(r.id).color);
 
     const head = document.createElement('div');
     head.className = 'exp-card__head';
     head.innerHTML =
       '<span class="exp-card__name"></span>' +
-      `<span class="exp-card__total">${r.people}名 / ${yenText(r.yen)}</span>`;
+      `<span class="exp-card__count">${r.people}名</span>` +
+      `<span class="exp-card__total">${yenMarkup(r.yen)}</span>`;
     head.querySelector('.exp-card__name').textContent = r.id ? getStore(r.id).name : '（店舗なし）';
     card.appendChild(head);
 
@@ -1038,13 +1155,247 @@ function renderCatch() {
       li.innerHTML =
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
         '<span class="exp-row__label"></span>' +
-        `<span class="exp-row__yen">${yenText(e.yen)}</span>`;
+        `<span class="exp-row__yen">${yenMarkup(e.yen)}</span>`;
       li.querySelector('.exp-row__label').textContent = `${e.people || 0}名　${e.by || ''}`;
       list.appendChild(li);
     });
     card.appendChild(list);
     el.catchList.appendChild(card);
   });
+}
+
+/* ============================================================
+ *  精算履歴（経理担当だけ・T3 Works Mine にしか出しません）
+ *
+ *  その月分をまとめて会社の口座から払った記録です。
+ *  金額はここでは持たず、現金支払管理表から毎回計算します。
+ *  スプレッドシートで  ='1月'!C17  と参照していたのと同じで、
+ *  あとから明細を直せば、この表の金額も勝手に付いてきます。
+ * ============================================================ */
+
+/** その月の立替の合計（現金支払管理表の合計と同じ数字） */
+function expenseTotalOf(y, m) {
+  const rec = Store.getDay(EXPENSE_STORE, expenseMonthKey(y, m));
+  return expenseEntries(rec).reduce((t, e) => t + (Number(e.yen) || 0), 0);
+}
+
+/** その月の精算（まだなら null） */
+function settleOf(y, m) {
+  const rec = Store.getDay(EXPENSE_STORE, expenseMonthKey(y, m));
+  const s = (rec.items || {})[SETTLE_KEY];
+  return s && s.d ? s : null;
+}
+
+/**
+ * 精算日と出金口座を入れられる状態か
+ *
+ * 経理担当も現場の T3 Works を使うので、この画面は誰でも開けます。
+ * そのかわり、ひらいた直後は必ず「見るだけ」にしておき、
+ * 🔒 をわざと押したときだけ入力できるようにします。
+ * 画面を出入りすると false に戻ります（触りっぱなしを防ぐため）。
+ */
+let settleUnlocked = false;
+
+/** 1年12か月分の行 */
+function settleRows(y) {
+  const rows = [];
+  for (let m = 1; m <= 12; m++) {
+    rows.push({ y, m, yen: expenseTotalOf(y, m), settle: settleOf(y, m) });
+  }
+  return rows;
+}
+
+function renderSettle() {
+  const rows = settleRows(state.y);
+  const total = rows.reduce((t, r) => t + r.yen, 0);
+  const first = rows.slice(0, 6).reduce((t, r) => t + r.yen, 0);   // 上半期
+  const last = rows.slice(6).reduce((t, r) => t + r.yen, 0);       // 下半期
+  // 金額があるのに精算日が入っていない月＝まだ払っていない月
+  const yet = rows.filter((r) => r.yen && !r.settle);
+
+  el.settleYear.textContent = `${state.y}年`;
+  el.settleSummary.textContent = total
+    ? `年間 ${yenText(total)}　精算待ち ${yet.length}か月（${yenText(yet.reduce((t, r) => t + r.yen, 0))}）`
+    : 'この年の記録はまだありません。';
+
+  el.settleRows.innerHTML = '';
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    // 記録が無い月は色を落とし、精算待ちの月は目立たせます
+    if (!r.yen) tr.className = 'is-zero';
+    else if (!r.settle) tr.className = 'is-yet';
+    if (r.y === TODAY.y && r.m === TODAY.m) tr.classList.add('is-now');
+
+    const month = document.createElement('td');
+    month.className = 'exp-total__name';
+    month.textContent = `${r.m}月`;
+
+    const yen = document.createElement('td');
+    yen.className = 'exp-total__yen';
+    yen.innerHTML = r.yen ? yenMarkup(r.yen) : '—';
+
+    const date = document.createElement('td');
+    date.className = 'settle-cell';
+    if (r.yen && !r.settle) date.classList.add('is-yet');
+    const day = document.createElement('span');
+    day.textContent = r.settle ? shortDate2(r.settle.d) : (r.yen ? '未精算' : '—');
+    date.appendChild(day);
+    // スマホでは出金口座の列を出さないので、その分をここに小さく添えます
+    // （どちらを出すかは CSS が幅で決めます）
+    if (r.settle && r.settle.label) {
+      const sub = document.createElement('span');
+      sub.className = 'settle-cell__acc';
+      sub.textContent = r.settle.label;
+      date.appendChild(sub);
+    }
+
+    const acc = document.createElement('td');
+    acc.className = 'settle-cell';
+    acc.textContent = (r.settle && r.settle.label) || '—';
+
+    /* ---- 押すところ ----
+       かぎを開けたときだけ、押せる形のボタンを出します。
+       行のどこを押せばいいのか迷わないよう、
+       「未精算」の文字ではなく、はっきりしたボタンにしています */
+    const act = document.createElement('td');
+    act.className = 'settle-act';
+    if (r.yen && settleUnlocked) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'settle-btn' + (r.settle ? '' : ' is-todo');
+      // 画面が狭いときは短い方だけ出します（どちらを出すかは CSS が決めます）
+      btn.innerHTML = r.settle
+        ? '直す'
+        : '<span class="settle-btn__long">精算を入れる</span>'
+          + '<span class="settle-btn__short">入れる</span>';
+      btn.title = r.settle
+        ? '精算日と出金口座を直します'
+        : 'この月分を払ったら、精算日と出金口座を入れます';
+      btn.addEventListener('click', () => openSettleForm(r));
+      act.appendChild(btn);
+    }
+
+    tr.append(month, yen, date, acc, act);
+    el.settleRows.appendChild(tr);
+  });
+
+  /* ---- 下の合計（スプレッドシートの F7・F13・C14 にあたる行） ---- */
+  el.settleFoot.innerHTML = '';
+  const foot = (label, yen, cls) => {
+    const tr = document.createElement('tr');
+    tr.className = 'settle-foot' + (cls ? ' ' + cls : '');
+    tr.innerHTML =
+      '<td class="exp-total__name"></td>' +
+      `<td class="exp-total__yen">${yenMarkup(yen)}</td><td></td><td></td><td></td>`;
+    tr.querySelector('.exp-total__name').textContent = label;
+    el.settleFoot.appendChild(tr);
+  };
+  foot('1〜6月', first);
+  foot('7〜12月', last);
+  foot('年間合計', total, 'settle-foot--total ledger-foot');
+
+  renderSettleLock();
+}
+
+/** 🔒 のボタンの見た目 */
+function renderSettleLock() {
+  const b = el.settleLockBtn;
+  b.classList.toggle('is-on', settleUnlocked);
+  b.setAttribute('aria-pressed', settleUnlocked ? 'true' : 'false');
+  b.querySelector('.settle-lock__icon').textContent = settleUnlocked ? '✏️' : '🔒';
+  b.querySelector('.settle-lock__name').textContent = settleUnlocked
+    ? '入力できます'
+    : '見るだけになっています';
+  // スマホではボタンの文字が「入れる」に縮むので、文言は「右の緑のボタン」にしています
+  b.querySelector('.settle-lock__sub').textContent = settleUnlocked
+    ? '月の行の右にある緑のボタンを押してください（もう一度ここを押すと見るだけに戻ります）'
+    : '経理担当の方は、ここを押すと精算を入れるボタンが出ます';
+}
+
+/** 2026-08-04 → 8/4 */
+function shortDate2(str) {
+  const [, m, d] = (str || '').split('-');
+  return m ? `${+m}/${+d}` : '';
+}
+
+/* -------- 精算日と出金口座を入れる -------- */
+let settleEditing = null;   // いま直している { y, m, yen, settle }
+
+function openSettleForm(row) {
+  settleEditing = row;
+  el.settleFormTitle.textContent = `${row.y}年${row.m}月分の精算`;
+  el.settleFormYen.textContent = yenText(row.yen);
+  el.settleDate.value = (row.settle && row.settle.d) || ymd(TODAY.y, TODAY.m, TODAY.d);
+  el.settleAccount.value = (row.settle && row.settle.label) || '';
+  el.settleError.textContent = '';
+  el.settleClear.classList.toggle('is-hidden', !row.settle);
+
+  /* よく使う口座のボタン。過去に入れた口座もそのまま候補にします */
+  const used = [];
+  settleRows(row.y).forEach((r) => {
+    const name = r.settle && r.settle.label;
+    if (name && !used.includes(name)) used.push(name);
+  });
+  const names = [...new Set(SETTLE_ACCOUNTS.concat(used))];
+
+  el.settleAccounts.innerHTML = '';
+  names.forEach((name) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'exp-chip';
+    b.textContent = name;
+    b.addEventListener('click', () => {
+      el.settleAccount.value = name;
+      markSettleChips();
+    });
+    el.settleAccounts.appendChild(b);
+  });
+  markSettleChips();
+  el.settleModal.classList.remove('is-hidden');
+}
+
+/** いま入っている口座と同じボタンに色を付ける */
+function markSettleChips() {
+  const now = el.settleAccount.value.trim();
+  [...el.settleAccounts.children].forEach((b) => {
+    b.classList.toggle('is-on', b.textContent === now);
+  });
+}
+
+function saveSettle() {
+  if (!settleEditing) return;
+  const d = el.settleDate.value;
+  const account = el.settleAccount.value.trim();
+  if (!d) { el.settleError.textContent = '精算日を入れてください。'; return; }
+  if (!account) { el.settleError.textContent = '出金口座を入れてください。'; return; }
+
+  const { y, m } = settleEditing;
+  Store.setItem(EXPENSE_STORE, expenseMonthKey(y, m), SETTLE_KEY, {
+    done: true, d, label: account,
+  });
+  el.settleModal.classList.add('is-hidden');
+  renderSettle();
+  renderSyncStatus();
+}
+
+async function clearSettle() {
+  if (!settleEditing) return;
+  const { y, m } = settleEditing;
+  const ok = await askConfirm({
+    item: `${y}年${m}月分`,
+    message: '精算日と出金口座を消して、「未精算」に戻します。立て替えの記録は消えません。',
+    okLabel: '消す',
+    danger: true,
+  });
+  if (!ok) return;
+
+  // 空にすることで消えたことにします（消えたことも他の端末に伝わります）
+  Store.setItem(EXPENSE_STORE, expenseMonthKey(y, m), SETTLE_KEY, {
+    done: false, d: '', label: '',
+  });
+  el.settleModal.classList.add('is-hidden');
+  renderSettle();
+  renderSyncStatus();
 }
 
 /* ------------------------------------------------------------
@@ -2135,6 +2486,12 @@ function render() {
   const isWeekAll = state.view === 'weekall';
   const isExpense = state.view === 'expense';
   const isCatch = state.view === 'catch';
+  const isSettle = state.view === 'settle';
+
+  /* お金の画面にいるあいだは body に印を付けます。
+     入力画面や確認ダイアログは画面をまたいで使い回しているので、
+     この印を見てボタンの色を青から緑に切り替えます */
+  document.body.classList.toggle('is-money', isExpense || isCatch || isSettle);
 
   /* ---- 業務選択画面：店舗の見出しだけ出して、業務の中身は出さない ---- */
   if (isTasks) {
@@ -2153,6 +2510,7 @@ function render() {
     el.viewReport.classList.add('is-hidden');
     el.viewExpense.classList.add('is-hidden');
     el.viewCatch.classList.add('is-hidden');
+    el.viewSettle.classList.add('is-hidden');
     el.viewTasks.classList.remove('is-hidden');
     renderStoreTabs();
     renderTaskPicker();
@@ -2176,6 +2534,7 @@ function render() {
     el.viewReport.classList.add('is-hidden');
     el.viewExpense.classList.add('is-hidden');
     el.viewCatch.classList.add('is-hidden');
+    el.viewSettle.classList.add('is-hidden');
     el.viewStores.classList.remove('is-hidden');
     renderStorePicker();
     renderSyncStatus();
@@ -2183,9 +2542,9 @@ function render() {
   }
 
   el.viewStores.classList.add('is-hidden');
-  el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch);
+  el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch || isSettle);
   // 週間掃除は週ごとに送って見る画面なので、日タブは出しません
-  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch;
+  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle;
   el.dayTabs.classList.toggle('is-hidden', noDays);
   document.body.classList.toggle('no-daytabs', noDays);
 
@@ -2207,7 +2566,7 @@ function render() {
   renderDayTabs();
 
   // 全店舗の画面は店舗に属さないので、店舗見出しごと隠す
-  el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch);
+  el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch || isSettle);
   // 週間掃除は2週間ずつ送るので、年・月タブは使いません
   el.storeHead.classList.toggle('is-weekview', isWeek);
   // いま開いている業務の名前（タップで業務の一覧に戻ります）
@@ -2221,8 +2580,14 @@ function render() {
   el.viewReport.classList.toggle('is-hidden', !isReport);
   el.viewExpense.classList.toggle('is-hidden', !isExpense);
   el.viewCatch.classList.toggle('is-hidden', !isCatch);
+  el.viewSettle.classList.toggle('is-hidden', !isSettle);
 
-  if (isCatch) renderCatch();
+  // 精算履歴から離れたら、必ず「見るだけ」に戻します
+  // （ブラウザの戻るで帰ってきたときも、開けっぱなしにしないため）
+  if (!isSettle) settleUnlocked = false;
+
+  if (isSettle) renderSettle();
+  else if (isCatch) renderCatch();
   else if (isExpense) renderExpense();
   else if (isReport) renderReport();
   else if (isDay) renderDayView();
@@ -2509,6 +2874,32 @@ function bindEvents() {
     state.y = TODAY.y; state.m = TODAY.m;
     writeHash(); render();
   });
+
+  /* 精算履歴。ひらくたびに「見るだけ」に戻します */
+  $('expenseSettleBtn').addEventListener('click', () => {
+    settleUnlocked = false;
+    openAllStores('settle');
+  });
+  $('settleBack').addEventListener('click', () => {
+    settleUnlocked = false;
+    openAllStores('expense');
+  });
+  el.settleLockBtn.addEventListener('click', () => {
+    settleUnlocked = !settleUnlocked;
+    renderSettle();
+  });
+  $('settlePrev').addEventListener('click', () => { state.y -= 1; writeHash(); render(); });
+  $('settleNext').addEventListener('click', () => { state.y += 1; writeHash(); render(); });
+  $('settleThisYear').addEventListener('click', () => {
+    state.y = TODAY.y;
+    writeHash(); render();
+  });
+  el.settleSave.addEventListener('click', saveSettle);
+  el.settleClear.addEventListener('click', clearSettle);
+  el.settleAccount.addEventListener('input', markSettleChips);
+  el.settleModal.querySelectorAll('[data-close-settle]').forEach((n) =>
+    n.addEventListener('click', () => el.settleModal.classList.add('is-hidden'))
+  );
   $('reportPrev').addEventListener('click', () => shiftDay(-1));
   $('reportNext').addEventListener('click', () => shiftDay(1));
   $('reportToday').addEventListener('click', () => {

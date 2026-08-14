@@ -17,6 +17,11 @@
   --ng:        #d64545;
   /* 「毎週」の印。店舗色（赤〜橙系）とぶつからないよう紫にしています */
   --every:     #5f45d1;
+  /* お金まわりの3ページ（現金支払管理表・キャッチ集計・精算履歴）で使う色。
+     帳簿の「緑罫紙」から取っています。青の --accent とは別にしてあるので、
+     クローズや週間掃除の画面には影響しません */
+  --money:     #14795a;
+  --money-on:  #ffffff;
   --header-bg: #1c1f26;
   --header-fg: #ffffff;
   --store:     #2b7fd4; /* 選択中店舗の色。JSで書き換え */
@@ -40,6 +45,8 @@
     --text-weak: #7b828d;
     --header-bg: #0f1114;
     --every:     #7c67e6;
+    --money:     #46bd8c;
+    --money-on:  #0c1f18;
     --shadow:    none;
   }
 }
@@ -54,6 +61,8 @@
   --text-weak: #7b828d;
   --header-bg: #0f1114;
   --every:     #7c67e6;
+  --money:     #46bd8c;
+  --money-on:  #0c1f18;
   --shadow:    none;
 }
 /* 端末がダークでも、ページ側でライトを選んだらライトに戻す */
@@ -68,6 +77,8 @@
   --text-weak: #9aa1ac;
   --header-bg: #1c1f26;
   --every:     #5f45d1;
+  --money:     #14795a;
+  --money-on:  #ffffff;
   --shadow:    0 1px 2px rgba(18, 22, 30, .06), 0 1px 8px rgba(18, 22, 30, .04);
 }
 
@@ -554,6 +565,8 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
 .report-nav__date { font-size: 14.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .report-summary { margin: 10px 0 0; font-size: 13px; font-weight: 700; color: var(--text-sub); }
 .report-summary.is-all-done { color: var(--ok); }
+/* 帳簿の表紙に数字を出している画面では、この一文は記録が無いときだけ出します */
+.report-summary.is-hidden { display: none; }
 
 .report-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .report-item {
@@ -784,6 +797,20 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 
 
 
+/* iPadなど画面が広いときは、ページごと幅を絞って中央に寄せます。
+
+   この表は「掃除する場所」と「1週目・2週目」の3列しかありません。
+   画面いっぱいに伸ばすと、1週分の列が340pxもあるのに中身は小さな印ひとつ、
+   ということになり、項目名から印まで目が渡りにくくなります。
+   （現金支払管理表のように2列に割ることはできないので、こちらの手を使います） */
+@media (min-width: 800px) {
+  .view--week { max-width: 760px; margin-left: auto; margin-right: auto; }
+  /* 上の店舗カードも同じ幅にそろえます。ここだけ広いままだと、
+     カードと表の左右がずれて落ち着きません
+     （.is-weekview は週間掃除の画面のときだけ付きます） */
+  .store-head.is-weekview { max-width: 760px; margin-left: auto; margin-right: auto; }
+}
+
 /* 6週ある月でもスマホ縦画面に収まるよう、幅は画面いっぱいに分け合わせます
    （それでも足りないときだけ .table-scroll が横スクロールします） */
 .week-table {
@@ -947,7 +974,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
    人ごとに1枚のカード。上に名前と合計、下に明細 */
 .expense-add {
   display: block; width: 100%; margin: 4px 0 14px;
-  background: var(--accent); color: #fff; border: 0;
+  background: var(--money); color: var(--money-on); border: 0;
   border-radius: var(--radius); box-shadow: var(--shadow);
   padding: 14px; font: inherit; font-size: 15px; font-weight: 800;
   cursor: pointer;
@@ -985,8 +1012,8 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .exp-total tr.is-paid .exp-total__yen { color: var(--text-weak); }
 
 .exp-paid-btn {
-  border: 1px solid var(--accent); border-radius: 999px;
-  background: var(--accent); color: #fff;
+  border: 1px solid var(--money); border-radius: 999px;
+  background: var(--money); color: var(--money-on);
   font: inherit; font-size: 12.5px; font-weight: 800;
   padding: 6px 14px; cursor: pointer; white-space: nowrap;
 }
@@ -1003,11 +1030,27 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 /* 精算が済んだ人は、ひと目で分かるように色を落とします */
 .exp-card.is-paid { opacity: .72; }
 
-.exp-card__head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
-.exp-card__name  { font-size: 16px; font-weight: 800; }
+/* 明細カードの左に色の帯。現金支払管理表は緑、キャッチ集計は店舗の色です
+   （--card-color は renderCatch が店舗の色を入れます） */
+.view--expense .exp-card { border-left: 3px solid color-mix(in srgb, var(--money) 55%, var(--line)); }
+.view--catch   .exp-card { border-left: 3px solid var(--card-color, var(--money)); }
+
+/* 名前・件数・合計を1行に。帳簿の小見出しのように、下に線を引きます */
+.exp-card__head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--money) 22%, var(--line));
+}
+.exp-card__name  { font-size: 15px; font-weight: 800; letter-spacing: .01em; }
+.view--expense .exp-card__name { color: color-mix(in srgb, var(--money) 70%, var(--text)); }
+.view--catch   .exp-card__name { color: var(--card-color, var(--money)); }
+.exp-card__count {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--text-weak);
+}
 .exp-card__total {
   margin-left: auto; font-size: 17px; font-weight: 800;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
 }
 .exp-card__paid {
   flex: 0 0 100%;
@@ -1015,15 +1058,18 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 .exp-card__btn { width: 100%; margin-top: 10px; }
 
-.exp-rows { list-style: none; margin: 10px 0 0; padding: 0; }
+.exp-rows { list-style: none; margin: 2px 0 0; padding: 0; }
 .exp-row {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 2px; border-top: 1px solid var(--line-2);
   font-size: 13px;
 }
+/* いちばん上の行は、見出しの線とくっついて2本線に見えるので引きません */
+.exp-row:first-child { border-top: 0; }
 .exp-row__date {
   flex: 0 0 auto; min-width: 34px;
-  color: var(--text-sub); font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text-weak); font-weight: 700; font-variant-numeric: tabular-nums;
+  font-size: 12px;
 }
 .exp-row__label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .exp-row__receipt { flex: 0 0 auto; font-size: 12px; font-weight: 800; color: var(--ok); }
@@ -1200,9 +1246,10 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   position: absolute; left: 10px; bottom: 6px; height: 3px;
   border-radius: 2px; background: var(--accent); opacity: .5;
 }
-/* 走っていない人は、名前も数字も落ち着かせる */
-.drive-table tr.is-zero .exp-total__name,
-.drive-table tr.is-zero .exp-total__yen { color: var(--text-weak); font-weight: 600; }
+/* 走っていない人・立て替えが無い人は、名前も数字も落ち着かせる
+   （配達記録の表と、現金支払管理表の表の両方で使います） */
+.exp-total tr.is-zero .exp-total__name,
+.exp-total tr.is-zero .exp-total__yen { color: var(--text-weak); font-weight: 600; }
 
 /* いちばん下の合計行。上の行と地続きに見えないよう、線を1本足します */
 .exp-total tr.drive-foot td {
@@ -1384,6 +1431,286 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
 .field.is-hidden { display: none; }
+
+/* ===================== 帳簿の見た目 =====================
+   現金支払管理表・キャッチ集計・精算履歴の3つで使う、共通の作りです。
+   紙の帳簿のように「罫線は細く、数字は桁をそろえて大きく」を旨にしています。
+
+   ねらい
+     ・数字を主役にする（金額は太く、¥ は控えめに）
+     ・罫線を細くして、行そのものを読みやすくする
+     ・見出しは小さく字間をあけて、表の中身とはっきり分ける
+     ・いちばん下に〆の合計行を置く
+   ------------------------------------------------------ */
+
+/* -------- 色 --------
+   お金の3ページは「緑の帳簿」でそろえます。クローズ・週間掃除は青のまま。
+   画面を見た瞬間に「いま お金の話をしている」と分かるようにするためです。
+
+   ★赤（--ng）は未精算にだけ使います。緑＝ふつう／赤＝まだ渡していない、
+     という意味づけを崩さないよう、ほかの場所では赤を使いません */
+.view--expense .report-head,
+.view--catch   .report-head,
+.view--settle  .report-head {
+  border-top: 3px solid var(--money);
+}
+/* 表題にだけ色を差します（本文まで色を付けると読みにくくなるため） */
+.view--expense .report-head__title,
+.view--catch   .report-head__title,
+.view--settle  .report-head__title { color: var(--money); }
+
+/* -------- お金の画面のボタン --------
+   入力画面と確認ダイアログは、クローズなど他の画面と使い回しています。
+   そのままだと緑の画面から青いボタンが出てくるので、
+   body.is-money（app.js が付けます）のあいだだけ緑に替えます */
+body.is-money .btn--primary {
+  background: var(--money); border-color: var(--money); color: var(--money-on);
+}
+body.is-money .seg__btn.is-on,
+body.is-money .exp-chip.is-on {
+  background: var(--money); border-color: var(--money); color: var(--money-on);
+}
+/* 店舗をえらぶボタンだけは、その店舗の色にします。
+   店舗の色は濃い赤〜橙なので、文字は白のままで読めます
+   （--pick-color は openExpenseForm が入れます） */
+body.is-money .exp-chip.is-on[data-store] {
+  background: var(--pick-color); border-color: var(--pick-color); color: #fff;
+}
+/* 消す・とり消すの赤は、意味が変わるので緑にしません */
+body.is-money .btn--primary.btn--danger {
+  background: var(--ng); border-color: var(--ng); color: #fff;
+}
+
+/* -------- 2列の並び（iPadの横画面むけ） --------
+   1列のまま画面いっぱいに伸ばすと、名前と金額のあいだが
+   画面の半分以上あいてしまい、目が右まで渡れません。
+   幅があるときは横に伸ばすかわりに、「まとめと入力」と「明細」に分けます。
+   （配達記録の .drive-page と同じ考え方） */
+.ledger-page { display: flex; flex-direction: column; }
+.ledger-col { min-width: 0; }
+/* スマホ幅では見出しは要りません（すぐ下にカードが続くので分かります） */
+.ledger-col__head { display: none; }
+
+/* 800px から2列。iPadは縦（820）でも2列になり、
+   iPad mini の縦（744）とスマホは1列のままです */
+@media (min-width: 800px) {
+  .ledger-page {
+    flex-direction: row; align-items: flex-start;
+    gap: 22px; max-width: 1040px;
+  }
+  .ledger-col { flex: 1 1 0; }
+  .ledger-col__head {
+    display: block; margin: 0 2px 10px;
+    font-size: 12px; font-weight: 700; letter-spacing: .06em;
+    color: color-mix(in srgb, var(--money) 70%, var(--text-sub));
+  }
+}
+
+/* -------- 表紙の数字（合計・未精算・人数） -------- */
+.ledger-figures {
+  display: flex; flex-wrap: wrap; gap: 0;
+  margin: 12px 0 0; padding: 12px 0 2px;
+  border-top: 1px solid color-mix(in srgb, var(--money) 30%, var(--line));
+}
+.ledger-figure { flex: 1 1 0; min-width: 92px; padding-right: 12px; }
+/* 数字どうしのあいだに細い縦線。帳簿の欄の区切りに見せます */
+.ledger-figure + .ledger-figure {
+  padding-left: 12px; border-left: 1px solid var(--line-2);
+}
+.ledger-figure__label {
+  margin: 0; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; color: color-mix(in srgb, var(--money) 62%, var(--text-sub));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ledger-figure__value {
+  margin: 2px 0 0; font-size: 21px; font-weight: 800; line-height: 1.15;
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+  white-space: nowrap;
+}
+.ledger-figure__unit { font-size: 12px; font-weight: 700; color: var(--text-sub); margin-left: 1px; }
+/* 未精算が残っている月だけ、この数字に色を付けます */
+.ledger-figure--alert.is-on .ledger-figure__value { color: var(--ng); }
+.ledger-figure--alert.is-on .ledger-figure__label { color: var(--ng); }
+.ledger-figure--alert.is-on .yen-mark {
+  color: color-mix(in srgb, var(--ng) 60%, var(--text-weak));
+}
+
+/* ¥ は消さずに、数字より控えめにします（何の数字かは分かるように） */
+.yen-mark { font-size: .78em; font-weight: 700; color: var(--text-weak); margin-right: 1px; }
+.ledger-unit { font-size: .72em; font-weight: 700; color: var(--text-weak); margin-left: 1px; }
+
+/* -------- 表そのもの -------- */
+.ledger { font-size: 14px; }
+/* 見出しは、うすい緑地に緑の文字。下の線も緑にして表の頭を作ります */
+.ledger thead th {
+  background: color-mix(in srgb, var(--money) 9%, var(--surface));
+  border-bottom: 2px solid color-mix(in srgb, var(--money) 45%, var(--line));
+  padding-top: 7px; padding-bottom: 7px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+  color: color-mix(in srgb, var(--money) 78%, var(--text-sub)); white-space: nowrap;
+}
+/* 1行おきにうすい緑を敷きます（帳簿の「緑罫紙」と同じ考え方）。
+   横に長い行でも、目が となりの行に飛び移らなくなります */
+.ledger tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--money) 6%, transparent);
+}
+/* 見出しは、その列の中身と同じ側にそろえます。
+   1列目は名前なので左、それより右は数字なので右そろえです。
+   ★「thead」を書かないこと。書くと強さが上がって、
+     下の .settle-table 側の左そろえ（出金口座の列）に勝ってしまいます */
+.ledger th:not(:first-child) { text-align: right; }
+/* 行の区切りは、いちばん細い線で */
+.ledger tbody td { border-bottom: 1px solid var(--line-2); padding-top: 10px; padding-bottom: 10px; }
+.ledger tbody tr:last-child td { border-bottom: 1px solid var(--line); }
+.ledger .exp-total__name { font-size: 14px; font-weight: 700; }
+.ledger td.exp-total__yen { font-size: 15px; letter-spacing: -.01em; }
+
+/* 〆の合計行。上に2本線を引くのは紙の帳簿と同じ作法です */
+.ledger tfoot .ledger-foot td {
+  border-top: 3px double color-mix(in srgb, var(--money) 50%, var(--line));
+  border-bottom: 0;
+  padding-top: 11px; padding-bottom: 11px;
+  background: color-mix(in srgb, var(--money) 7%, var(--surface));
+}
+.ledger tfoot .ledger-foot .exp-total__name {
+  font-size: 13px; font-weight: 800;
+  color: color-mix(in srgb, var(--money) 78%, var(--text-sub));
+}
+.ledger tfoot .ledger-foot .exp-total__yen { font-size: 17px; font-weight: 800; color: var(--money); }
+.ledger tfoot .ledger-foot .yen-mark { color: color-mix(in srgb, var(--money) 55%, var(--text-weak)); }
+.ledger-foot__note { font-size: 11.5px; font-weight: 700; color: var(--text-weak); }
+
+/* キャッチ集計の「1名」列。目安の数字なので、ひかえめに */
+.ledger td.catch-per, .ledger th:last-child.catch-per { color: var(--text-sub); }
+.ledger td.catch-per { font-size: 13px; font-weight: 700; }
+/* 店舗の色を、名前の左に細い帯で添えます */
+.catch-table tbody tr[style*="--row-color"] .exp-total__name {
+  box-shadow: inset 3px 0 0 var(--row-color); padding-left: 13px;
+}
+
+@media (max-width: 480px) {
+  .ledger { font-size: 13.5px; }
+  .ledger th, .ledger td { padding-left: 8px; padding-right: 8px; }
+  .ledger-figure__value { font-size: 19px; }
+}
+
+/* ===================== 精算履歴 =====================
+   経理担当が使う表。経理担当も現場の T3 Works を使うので、
+   ワークスにもマインにも出します（隠しません）。
+   間違って触られないための手当ては、下の .settle-lock で行います */
+.settle-link {
+  display: flex;
+  width: 100%; margin-top: 10px; gap: 10px;
+  align-items: center; text-align: left;
+  padding: 10px 12px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--radius); color: inherit;
+  font: inherit; cursor: pointer;
+}
+.settle-link {
+  border-left: 3px solid color-mix(in srgb, var(--money) 55%, var(--line));
+}
+.settle-link__name { color: var(--money); }
+.settle-link:active { background: var(--line-2); }
+.settle-link__icon { flex: 0 0 auto; font-size: 20px; }
+.settle-link__text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.settle-link__name { font-size: 14px; font-weight: 800; }
+.settle-link__sub  { font-size: 11.5px; color: var(--text-sub); }
+.settle-link__arrow { flex: 0 0 auto; color: var(--text-weak); font-size: 18px; }
+
+/* かぎ：押すまで、月の行はタップしても何も起きません。
+   閉じているときは目立たせず、あけたときだけ色を付けます */
+.settle-lock {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; margin-top: 10px; padding: 9px 12px;
+  background: var(--surface-2); border: 1px dashed var(--line);
+  border-radius: var(--radius); color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.settle-lock:active { background: var(--line-2); }
+.settle-lock.is-on {
+  border-style: solid; border-color: var(--money);
+  background: color-mix(in srgb, var(--money) 10%, var(--surface));
+}
+.settle-lock__icon { flex: 0 0 auto; font-size: 17px; }
+.settle-lock__text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.settle-lock__name { font-size: 13px; font-weight: 800; color: var(--text-sub); }
+.settle-lock.is-on .settle-lock__name { color: var(--money); }
+.settle-lock__sub  { font-size: 11.5px; color: var(--text-weak); }
+
+/* 表：発生月・金額・精算日・出金口座・（ボタン）
+   ★ .exp-total には「最後の列は width:1% で右そろえ」という決まりがあります。
+     5列のこの表にそれが効くと見出しが1文字ずつ縦に折れてしまうので、
+     ここで列ごとにそろえ直します（同じ強さなら後に書いた方が勝ちます）。
+
+     どの文字も折り返しません。「未精算」が2行に割れると読みにくいためです。
+     幅が足りないときは、表ごと横にスクロールします（.table-scroll） */
+.settle-table th, .settle-table td { white-space: nowrap; }
+.settle-table th:nth-child(2), .settle-table td:nth-child(2) { text-align: right; }
+.settle-table th:nth-child(3), .settle-table td:nth-child(3) { text-align: right; }
+.settle-table th:nth-child(4), .settle-table td:nth-child(4) { text-align: left; width: auto; }
+/* ボタンの列。中身が無いときは幅を取りません */
+.settle-table th:last-child, .settle-table td:last-child {
+  width: 1%; text-align: right; padding-left: 4px;
+}
+/* スマホでは字づめを少し詰めて、横スクロールしないで収まるようにします */
+@media (max-width: 480px) {
+  .settle-table th, .settle-table td { padding-left: 7px; padding-right: 7px; }
+}
+.settle-table td.settle-cell {
+  font-size: 13px; color: var(--text-sub); font-variant-numeric: tabular-nums;
+}
+.settle-table td.settle-cell.is-yet { color: var(--ng); font-weight: 700; }
+
+/* 押すところ。行のどこを押すのか迷わないよう、はっきりボタンにします */
+.settle-act { width: 1%; }
+.settle-btn {
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface-2); color: var(--text-sub);
+  font: inherit; font-size: 12px; font-weight: 800;
+  padding: 6px 12px; cursor: pointer; white-space: nowrap;
+}
+.settle-btn:active { background: var(--line-2); }
+/* まだ精算していない月は、押してほしいので色を付けます */
+.settle-btn.is-todo {
+  background: var(--money); border-color: var(--money); color: var(--money-on);
+}
+/* 広い画面では長い方、狭い画面では短い方だけ出します */
+.settle-btn__short { display: none; }
+
+/* 出金口座は、広い画面では独立した列。
+   狭い画面では列ごと消して、精算日の下に小さく添えます
+   （5列のままだとボタンが画面からはみ出してしまうため） */
+.settle-cell__acc { display: none; }
+@media (max-width: 560px) {
+  .settle-table th:nth-child(4), .settle-table td:nth-child(4) { display: none; }
+  .settle-cell__acc {
+    display: block; margin-top: 1px;
+    font-size: 10.5px; font-weight: 700; color: var(--text-weak);
+  }
+  .settle-btn__long { display: none; }
+  .settle-btn__short { display: inline; }
+  .settle-btn { padding: 6px 10px; }
+}
+/* 今月の行は、左に印を付けて分かるようにします */
+.settle-table tr.is-now td:first-child { box-shadow: inset 3px 0 0 var(--money); }
+/* 下の合計（1〜6月・7〜12月・年間合計） */
+.settle-table tfoot .settle-foot td {
+  border-top: 1px solid var(--line); border-bottom: 0;
+  color: var(--text-sub); font-size: 13px;
+  white-space: nowrap;   /* スマホ幅で「7〜12月」が2行に折れないように */
+}
+/* 年間合計だけは〆の行なので、上に2本線（.ledger-foot と同じ作法） */
+.settle-table tfoot .settle-foot--total td {
+  color: var(--text); font-size: 15px; font-weight: 800;
+  border-top: 3px double var(--line);
+}
+.settle-form__yen {
+  margin: 0 0 4px; font-size: 26px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* 「この月の精算を消す」は、まだ精算していない月では出しません */
+.btn.is-hidden { display: none; }
 
 /* ===================== 随時掃除 =====================
    週間掃除ページの下に置く、別物のかたまり。
