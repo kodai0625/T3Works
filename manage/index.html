@@ -14,7 +14,7 @@
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=5c9611cb">
 <link rel="stylesheet" href="css/admin.css?v=234f2929">
-<meta name="app-version" content="5bd8383b">
+<meta name="app-version" content="ab9df578">
 </head>
 <body class="no-daytabs">
 
@@ -67,6 +67,37 @@
       <button type="button" class="btn btn--primary" id="saveStaff">担当者を保存</button>
       <span class="admin-saved is-hidden" id="staffSaved">保存しました</span>
     </div>
+  </section>
+
+  <!-- ===== 現金支払管理表の取り込み（全店舗で共通なので、ここに置きます） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">現金支払管理表</h2>
+    </div>
+    <details class="admin-tool">
+      <summary>スプレッドシートの2026年分を取り込む</summary>
+      <p class="admin-note">
+        「00＿2026__支払い金額管理表」に入っていた
+        <b>1月〜8月の488件</b>を、そのままアプリに入れます。<br>
+        月ごとの合計・人ごとの合計とも、<b>スプレッドシートと1円まで一致</b>することを
+        確かめてあります。<br>
+        何度押しても<b>二重には増えません</b>（同じ番号に上書きするため）。
+        すでにアプリで入れた記録は消えません。
+      </p>
+      <p class="admin-note">
+        シートに店名が書かれていなかった<b>買い出し50件・キャッチ14件</b>は
+        「店舗なし」で入ります。由本さんの6月20件は項目名の欄が空だったので
+        「（項目名なし）」で入ります。あとからアプリの<b>編集ボタン</b>で直せます。<br>
+        領収書の欄は、<b>◯だけを「あり」</b>とし、×と空欄は「なし」にしています。<br>
+        辞めた方（<b>岡田さん</b>）の記録も入りますが、<b>担当者リストには足しません</b>。
+        過去の記録はそのまま出て、新しい記録のプルダウンには出ません。
+      </p>
+      <div class="admin-actions">
+        <button type="button" class="btn btn--primary" id="expImportLast">8月だけ取り込む</button>
+        <button type="button" class="btn" id="expImport">1〜8月ぜんぶ取り込む</button>
+      </div>
+      <p class="admin-note" id="expImportNote"></p>
+    </details>
   </section>
 
   <!-- ===== バックアップ ===== -->
@@ -304,8 +335,10 @@
 <script src="../js/storage.js?v=c163d4c1"></script>
 <script src="../js/sync.js?v=a633c4c7"></script>
 <script src="../js/update.js?v=bf53b433"></script>
-<!-- Numbers から持ってきた2026年分の記録（取り込みが済んだら消してOK） -->
+<!-- Numbers / スプレッドシートから持ってきた2026年分の記録
+     （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
-<script src="js/admin.js?v=7018993a"></script>
+<script src="js/expense-import.js?v=6ebef9a0"></script>
+<script src="js/admin.js?v=56f6add9"></script>
 </body>
 </html>

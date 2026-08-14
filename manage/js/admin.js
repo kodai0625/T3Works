@@ -41,6 +41,7 @@ const el = {};
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
+  'expImport', 'expImportLast', 'expImportNote',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
   'pauseModal', 'pauseItem', 'pauseFrom', 'pauseTo', 'pauseAdd', 'pauseHint', 'pauseList',
@@ -70,11 +71,23 @@ function newId(prefix) {
   return `${prefix}-${Date.now().toString(36)}${Math.floor(Math.random() * 46656).toString(36)}`;
 }
 
-/** 誤操作を防ぐための確認。OKなら true が返ります */
-function askConfirm(itemText, message) {
+/** ¥1,234 の形にする（現場アプリの yenText と同じ） */
+function yenText(n) {
+  return '¥' + (Number(n) || 0).toLocaleString('ja-JP');
+}
+
+/**
+ * 誤操作を防ぐための確認。OKなら true が返ります
+ *
+ *   askConfirm({ item: '駐車場代', message: '…', okLabel: '取り込む' })
+ *
+ * ★現場アプリ（js/app.js）の askConfirm と同じ書き方にそろえてあります。
+ * ---------------------------------------------------------- */
+function askConfirm({ item, message, okLabel }) {
   return new Promise((resolve) => {
-    el.confirmItem.textContent = itemText;
+    el.confirmItem.textContent = item;
     el.confirmMessage.textContent = message;
+    el.confirmOk.textContent = okLabel || 'はい';
     el.confirmDialog.classList.remove('is-hidden');
 
     const close = (answer) => {
@@ -355,10 +368,10 @@ function addItem(secId) {
 }
 
 async function removeItem(sec, item) {
-  const ok = await askConfirm(
-    item.label,
-    'この項目を明日から出さないようにします。過去の記録はそのまま残ります。'
-  );
+  const ok = await askConfirm({
+    item: item.label,
+    message: 'この項目を明日から出さないようにします。過去の記録はそのまま残ります。',
+  });
   if (!ok) return;
   const next = currentSections();
   const target = next.find((s) => s.id === sec.id).items.find((it) => it.id === item.id);
@@ -527,10 +540,10 @@ function toggleWeeklyEvery(itemId) {
 }
 
 async function removeWeeklyItem(item) {
-  const ok = await askConfirm(
-    item.label,
-    'この項目を来週から出さないようにします。今週までの記録はそのまま残ります。'
-  );
+  const ok = await askConfirm({
+    item: item.label,
+    message: 'この項目を来週から出さないようにします。今週までの記録はそのまま残ります。',
+  });
   if (!ok) return;
   const next = currentWeekly();
   next.find((it) => it.id === item.id).retiredAt = tomorrowStr();
@@ -549,10 +562,10 @@ function addSection() {
 
 async function removeSection(sec) {
   const n = sec.items.filter(alive).length;
-  const ok = await askConfirm(
-    sec.title,
-    `この区分と、中の${n}項目をまとめて明日から出さないようにします。過去の記録はそのまま残ります。`
-  );
+  const ok = await askConfirm({
+    item: sec.title,
+    message: `この区分と、中の${n}項目をまとめて明日から出さないようにします。過去の記録はそのまま残ります。`,
+  });
   if (!ok) return;
   const next = currentSections();
   const target = next.find((s) => s.id === sec.id);
@@ -793,7 +806,7 @@ async function importDefaults() {
   lines.push('この画面で追加した項目は消えず、区分の最後に残ります。');
   lines.push('取り込んだあとでも「取り込みを取り消す」で元に戻せます。');
 
-  const ok = await askConfirm(store.name, lines.join('\n'));
+  const ok = await askConfirm({ item: store.name, message: lines.join('\n') });
   if (!ok) return;
 
   // 元に戻せるよう、直前の状態を控えておく
@@ -808,7 +821,10 @@ async function importDefaults() {
 async function undoImport() {
   const saved = readUndo();
   if (!saved) return;
-  const ok = await askConfirm(getStore(saved.storeId).name, '取り込む前の状態に戻します。よろしいですか？');
+  const ok = await askConfirm({
+    item: getStore(saved.storeId).name,
+    message: '取り込む前の状態に戻します。よろしいですか？',
+  });
   if (!ok) return;
   Checklists.save(saved.storeId, saved.sections);
   localStorage.removeItem(UNDO_KEY);
@@ -1023,6 +1039,50 @@ async function importDriveRecords(only) {
   el.driveImportNote.textContent =
     `${total}件（${months.length}か月分・合計 ${km.toFixed(1)}km）を取り込みました。`
     + '配達記録アプリで確かめてください。';
+  renderSyncStatus();
+}
+
+/**
+ * スプレッドシート「00＿2026__支払い金額管理表」の2026年分を取り込む
+ *
+ * 配達記録の取り込みと同じ考え方です。項目の番号を
+ * 「exp-2026-01-0」のように決め打ちにしてあるので、
+ * 何度押しても同じところに上書きされ、二重には増えません。
+ */
+async function importExpenseRecords(only) {
+  const all = Object.keys(EXPENSE_IMPORT);
+  const months = only ? [all[all.length - 1]] : all;
+  const rows = months.reduce((list, m) => list.concat(EXPENSE_IMPORT[m]), []);
+  const yen = rows.reduce((t, r) => t + r[6], 0);
+
+  const ok = await askConfirm({
+    item: months.length === 1
+      ? `${months[0]}　${rows.length}件　${yenText(yen)}`
+      : `${months[0]} 〜 ${months[months.length - 1]}　${rows.length}件　${yenText(yen)}`,
+    message: 'スプレッドシートに入っていた立替金の記録を、現金支払管理表に入れます。よろしいですか？',
+    okLabel: '取り込む',
+  });
+  if (!ok) return;
+
+  months.forEach((month) => {
+    EXPENSE_IMPORT[month].forEach((row, i) => {
+      const [d, by, kind, store, people, label, y, receipt] = row;
+      Store.setItem(EXPENSE_STORE, month, `exp-${month}-${i}`, {
+        done: true, d, by, kind, store, people, label,
+        yen: y, receipt: !!receipt,
+      });
+    });
+  });
+
+  // ★担当者リストには足しません。辞めた人の名前が
+  //   新しい記録のプルダウンに戻ってきてしまうためです。
+  //   過去の記録は e.by の名前で出るので、リストに無くても正しく並びます
+  const gone = [...new Set(rows.map((r) => r[1]))].filter((n) => !Staff.list().includes(n));
+
+  el.expImportNote.textContent =
+    `${rows.length}件（${months.length}か月分・合計 ${yenText(yen)}）を取り込みました。`
+    + (gone.length ? `${gone.join('・')} は担当者リストに無い名前ですが、過去の記録はそのまま出ます。` : '')
+    + 'アプリの現金支払管理表で確かめてください。';
   renderSyncStatus();
 }
 
@@ -1445,7 +1505,10 @@ function exportJson() {
 function importJson(file) {
   const reader = new FileReader();
   reader.onload = async () => {
-    const ok = await askConfirm(file.name, 'いまの内容に上書きします。よろしいですか？');
+    const ok = await askConfirm({
+      item: file.name,
+      message: 'いまの内容に上書きします。よろしいですか？',
+    });
     if (!ok) return;
     try {
       Store.importJson(String(reader.result));
@@ -1478,6 +1541,8 @@ function bindEvents() {
   el.saveDrivers.addEventListener('click', saveDrivers);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));
+  el.expImportLast.addEventListener('click', () => importExpenseRecords(true));
+  el.expImport.addEventListener('click', () => importExpenseRecords(false));
   el.exAdd.addEventListener('click', addClosedException);
   el.exportBtn.addEventListener('click', exportJson);
   el.importFile.addEventListener('change', (e) => {
