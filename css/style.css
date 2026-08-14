@@ -1636,32 +1636,84 @@ body.is-wide .page { max-width: 1700px; }
   .meeting-layout { grid-template-columns: minmax(0, 1fr) 360px; column-gap: 20px; }
 }
 
-/* 売上は8桁になるので、ほかの2つと横に3つ並べると入りきらず、
-   となりの「昨年比」に重なります。画面幅ごとに切り替えると境目で崩れるので、
-   会議資料では幅にかかわらず「売上だけで1行」にそろえます */
-.view--meeting .ledger-figure:first-child {
-  flex: 1 1 100%; padding-right: 0; padding-bottom: 11px;
+/* -------- 上の帯：月をえらぶところ --------
+   ‹ 2026年6月 › のとなりに1〜12月を並べ、右の余白を埋めます */
+.meeting-nav { flex-wrap: wrap; }
+.meeting-months {
+  display: flex; gap: 4px; flex: 1 1 auto; margin-left: 8px;
+  padding-left: 12px; border-left: 1px solid var(--line);
 }
-/* 行の先頭に来るので、区切りの縦線は消します */
-.view--meeting .ledger-figure:nth-child(2) { padding-left: 0; border-left: 0; }
-/* 1行つかう分、その月の売上は大きく出します */
-.view--meeting .ledger-figure:first-child .ledger-figure__value { font-size: 25px; }
-@media (max-width: 480px) {
-  .view--meeting .ledger-figure:first-child .ledger-figure__value { font-size: 22px; }
+.meeting-month {
+  flex: 1 1 0; min-width: 26px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  color: var(--text-weak);
+  border-radius: 8px; padding: 6px 0;
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums; cursor: pointer; text-align: center;
+}
+/* 数字が入っている月は濃く。まだの月はうすいままにします */
+.meeting-month.is-filled {
+  color: color-mix(in srgb, var(--money) 80%, var(--text));
+  border-color: color-mix(in srgb, var(--money) 30%, var(--line));
+  background: color-mix(in srgb, var(--money) 7%, var(--surface));
+}
+.meeting-month.is-on {
+  background: var(--money); border-color: var(--money); color: var(--money-on);
+}
+/* 狭い画面では12個を横一列に置けないので、6個ずつ2段に折り返します */
+@media (max-width: 700px) {
+  .meeting-months {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    flex: 1 1 100%; margin-left: 0; padding-left: 0;
+    border-left: 0; margin-top: 10px;
+  }
 }
 
-/* ページの幅をひろげた分、数字だけが左右に間延びしないよう幅を止めます */
-.view--meeting .ledger-figures { max-width: 560px; }
-
-/* 1月からの累計。表紙の数字の下に、細く1行だけ */
-.meeting-cum {
-  margin: 8px 0 0; font-size: 12px; line-height: 1.7; color: var(--text-sub);
+/* -------- 上の帯：先月 決めたこと --------
+   会議のはじめに「先月の持ち越し」を確かめるためのものです */
+.meeting-last {
+  margin-top: 12px; padding-top: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--money) 25%, var(--line));
 }
-.meeting-cum.is-hidden { display: none; }
+.meeting-last.is-hidden { display: none; }
+.meeting-last__head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 7px;
+}
+.meeting-last__title {
+  flex: 1 1 auto; margin: 0;
+  font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  color: color-mix(in srgb, var(--money) 72%, var(--text-sub));
+}
+.meeting-last__go {
+  flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface-2);
+  border-radius: 999px; padding: 4px 11px;
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--text-sub);
+  cursor: pointer;
+}
+.meeting-last__go:active { background: var(--line-2); }
+/* 見出しの行だけを横に並べます。多い月でも2〜3行におさまります */
+.meeting-last__list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px 8px;
+}
+.meeting-last__item {
+  display: flex; align-items: baseline; gap: 6px;
+  max-width: 100%;
+  background: var(--surface-2); border: 1px solid var(--line-2);
+  border-radius: 999px; padding: 4px 11px 4px 7px;
+  font-size: 12.5px; line-height: 1.5;
+}
+.meeting-last__no {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 999px;
+  background: color-mix(in srgb, var(--money) 14%, transparent);
+  color: var(--money); font-size: 10px; font-weight: 800;
+}
+.meeting-last__text { min-width: 0; }
+
 /* 数字の下の説明。数字が入っていない月には出しません */
 .expense-note.is-hidden { display: none; }
-.meeting-cum b { color: var(--money); font-size: 13.5px; }
-.meeting-cum .yen-mark { color: color-mix(in srgb, var(--money) 50%, var(--text-weak)); }
 
 /* 昨年比。増えていれば緑、減っていれば赤。
    文字の色は --text と混ぜているので、ダークでもうすくなりません */
@@ -1706,11 +1758,10 @@ body.is-wide .page { max-width: 1700px; }
 .meeting-table {
   border-collapse: separate; border-spacing: 0;
   width: max-content; min-width: 100%;
-  /* iPadの横（1180px）で、横スクロールなしに全部の列が入る大きさ */
-  font-size: 12.5px;
+  font-size: 14px;
 }
 .meeting-table th, .meeting-table td {
-  padding: 8px 6px; white-space: nowrap; text-align: right;
+  padding: 9px 7px; white-space: nowrap; text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1742,11 +1793,20 @@ body.is-wide .page { max-width: 1700px; }
 .meeting-table .is-last { color: var(--text-sub); }
 .meeting-table th.is-last { color: var(--text-weak); }
 
-/* 升目の中身。原価や人件費は、金額の下に率を small で添えます */
-.mt-main { display: block; }
+/* 升目の中身。上が主の数字、下が添える数字（率や増減率）*/
+.mt-main { display: block; font-weight: 700; }
 .mt-sub {
   display: block; margin-top: 1px;
-  font-size: 10.5px; font-weight: 700; color: var(--text-weak);
+  font-size: 11.5px; font-weight: 700; color: var(--text-weak);
+}
+/* 原価と人件費は、金額も率も会議でいちばん見る数字なので、両方大きく出します */
+.mt-cell--two .mt-main { font-size: 15px; font-weight: 800; }
+.mt-cell--two .mt-sub {
+  margin-top: 3px; font-size: 15px; font-weight: 800;
+  color: color-mix(in srgb, var(--money) 78%, var(--text));
+}
+.meeting-table .is-last.mt-cell--two .mt-sub {
+  color: color-mix(in srgb, var(--money) 45%, var(--text-sub));
 }
 .meeting-table .is-last .mt-sub { color: color-mix(in srgb, var(--text-weak) 70%, transparent); }
 
@@ -1755,6 +1815,7 @@ body.is-wide .page { max-width: 1700px; }
   border-right: 1px solid color-mix(in srgb, var(--money) 22%, var(--line));
 }
 .meeting-table td.is-vs { font-weight: 800; color: var(--text-sub); }
+.meeting-table td.is-vs .mt-main { font-weight: 800; }
 .meeting-table td.is-vs.is-good { color: color-mix(in srgb, var(--ok) 80%, var(--text)); }
 .meeting-table td.is-vs.is-bad  { color: color-mix(in srgb, var(--ng) 80%, var(--text)); }
 .meeting-table td.is-vs .mt-sub { color: inherit; opacity: .72; }
@@ -1790,9 +1851,10 @@ body.is-wide .page { max-width: 1700px; }
 }
 
 
-@media (max-width: 640px) {
-  .meeting-table { font-size: 12.5px; }
-  .meeting-table th, .meeting-table td { padding-left: 7px; padding-right: 7px; }
+@media (max-width: 900px) {
+  .meeting-table { font-size: 13px; }
+  .meeting-table th, .meeting-table td { padding-left: 6px; padding-right: 6px; }
+  .mt-cell--two .mt-main, .mt-cell--two .mt-sub { font-size: 13.5px; }
 }
 
 /* 表が入りきらないときだけ出る案内 */
@@ -1804,7 +1866,7 @@ body.is-wide .page { max-width: 1700px; }
 
 /* -------- 累計（別枠）と、年間目標の円グラフ -------- */
 .meeting-bar--sub { margin-top: 22px; }
-.meeting-cum-table { font-size: 13px; }
+.meeting-cum-table { font-size: 14.5px; }
 .meeting-cum-table td { padding-top: 9px; padding-bottom: 9px; }
 
 /* 〆の合計行（年間◯店舗累計）。上に2本線を引くのは紙の帳簿と同じ作法です */
