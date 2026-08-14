@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../img/owner-icon-180.png?v=cbb1087e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/owner-icon-64.png?v=ce05c3fc">
 <title>T3 Owner｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=51eed3c9">
+<link rel="stylesheet" href="../css/style.css?v=5c9611cb">
 <style>
 /* ============================================================
  *  切り替え画面（ホーム画面のフォルダ代わり）
@@ -80,7 +80,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 </style>
-<meta name="app-version" content="3888be42">
+<meta name="app-version" content="5bd8383b">
 </head>
 <body class="no-daytabs">
 
@@ -113,7 +113,9 @@ body {
       </a>
     </li>
     <li>
-      <a class="hub-card" href="../drive/" style="--card-color:#bf5480">
+      <!-- ?from=owner … 配達記録の側で「ここから来た」と分かるようにする印。
+           これがあると、配達記録のヘッダーに「ホーム」ボタンが出ます -->
+      <a class="hub-card" href="../drive/?from=owner" style="--card-color:#bf5480">
         <span class="hub-card__icon"><img src="../img/drive-icon-180.png?v=cf8bda78" alt=""></span>
         <span class="hub-card__text">
           <span class="hub-card__name">配達記録</span>

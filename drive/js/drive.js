@@ -264,11 +264,11 @@ async function removeDay(g) {
  *  入力画面
  *
  *  新しく入れるとき
- *    1日に何回も配達に行くので、1回ぶんずつ欄を増やせます。
- *    「＋ もう1回分入れる」で1回ぶん増え、入れた分はそのまま残ります。
- *    記録するときは、1回ぶん＝1件として別々に残します。
+ *    1日に何回も配達に行くので、1回分ずつ欄を増やせます。
+ *    「＋ もう1回分入れる」で1回分増え、入れた分はそのまま残ります。
+ *    記録するときは、1回分＝1件として別々に残します。
  *
- *  1回ぶんの中には「経路」が入っています（地図アプリと同じ考え方）
+ *  1回分の中には「経路」が入っています（地図アプリと同じ考え方）
  *    経由地なし … お店 → 配達先 → お店。片道を1つ入れれば、往復で2倍にします
  *    経由地あり … お店 → 1か所目 → 2か所目 → お店。区間ごとに入れて、そのまま足します
  *
@@ -304,7 +304,7 @@ function openForm(group) {
     el.drvNames.appendChild(b);
   });
 
-  /* 1回ぶんの欄。直すときは、その日に入れた回数だけ並べます */
+  /* 1回分の欄。直すときは、その日に入れた回数だけ並べます */
   el.drvLegs.innerHTML = '';
   if (drvEditing) drvEditing.list.forEach((e) => addTrip(false, e));
   else addTrip();
@@ -330,7 +330,7 @@ function legsOf(entry) {
 }
 
 /**
- * 1回ぶんの欄を増やす
+ * 1回分の欄を増やす
  *
  * entry を渡すと「すでに入れてある記録の欄」になります。
  * その欄を直せば同じ記録が書き換わり、×で消せばその記録だけ消えます。
@@ -395,7 +395,7 @@ function keepLegs(row) {
 }
 
 /**
- * 1回ぶんの経路を描く
+ * 1回分の経路を描く
  *
  *   経由地なし（区間1つ）      経由地あり（区間3つ）
  *   🏠 バグる                  🏠 バグる
@@ -486,7 +486,7 @@ function drawTrip(row) {
   stop('🏠', 'バグる');
 }
 
-/** 1回ぶんの走った距離。経由地なしなら往復で2倍、ありなら区間の合計 */
+/** 1回分の走った距離。経由地なしなら往復で2倍、ありなら区間の合計 */
 function tripKm(t) {
   return t.multi ? driveKm(...t.legs) : driveRound(t.legs[0]);
 }
@@ -526,7 +526,7 @@ function renderForm() {
         : `往復 ${kmText(km)}（入れた ${kmText(legs[0])} の2倍）`;
     row.querySelector('.drive-trip__total').classList.toggle('is-on', ok);
   });
-  // 1回ぶんしかないときは、回ごと消すボタンを出さない
+  // 1回分しかないときは、回ごと消すボタンを出さない
   el.drvLegs.classList.toggle('is-single', el.drvLegs.children.length === 1);
 
   const list = legValues();
@@ -774,18 +774,19 @@ function bindEvents() {
   el.driveLogo.appendChild(img);
   if (shop) el.driveLogo.style.setProperty('--chip-color', shop.color);
 
-  /* マイン（?from=mine）から開いたときだけ、ホームに戻るボタンを出します。
+  /* 管理側（マイン ?from=mine ／ オーナー ?from=owner）から開いたときだけ、
+     ホームに戻るボタンを出します。
      店舗のタブレットは配達記録だけを入れるので、戻り先がありません。
 
      いちど来たことは端末に覚えさせます。読み直しでURLの印が消えても
      ボタンが残るようにするためです（アプリを閉じると忘れます）。 */
-  const FROM_MINE = 'fromMine';
-  if (/(^|[?&])from=mine([&#]|$)/.test(location.search)) {
-    try { sessionStorage.setItem(FROM_MINE, '1'); } catch (e) { /* 使えない端末もあります */ }
+  const FROM_HUB = 'fromMine';
+  if (/(^|[?&])from=(mine|owner)([&#]|$)/.test(location.search)) {
+    try { sessionStorage.setItem(FROM_HUB, '1'); } catch (e) { /* 使えない端末もあります */ }
   }
-  let cameFromMine = false;
-  try { cameFromMine = sessionStorage.getItem(FROM_MINE) === '1'; } catch (e) { /* 同上 */ }
-  if (cameFromMine) el.toOwnerBtn.classList.remove('is-hidden');
+  let cameFromHub = false;
+  try { cameFromHub = sessionStorage.getItem(FROM_HUB) === '1'; } catch (e) { /* 同上 */ }
+  if (cameFromHub) el.toOwnerBtn.classList.remove('is-hidden');
 
   bindEvents();
   render();

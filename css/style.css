@@ -1282,8 +1282,8 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-size: 12.5px; line-height: 1.55; color: var(--text);
 }
 .drive-callout__mark { flex: 0 0 auto; font-size: 15px; white-space: nowrap; }
-/* ---- 入力画面：1回ぶんの経路 ----
-   1回ぶんを1枚のカードにして、その中に地図アプリのような経路を描きます。
+/* ---- 入力画面：1回分の経路 ----
+   1回分を1枚のカードにして、その中に地図アプリのような経路を描きます。
    経由地なし … お店 → 配達先 → お店（片道を1つ入れて、2倍にします）
    経由地あり … お店 → 1か所目 → … → お店（区間ごとに入れて、そのまま足します） */
 .drive-legs { display: flex; flex-direction: column; gap: 12px; }
