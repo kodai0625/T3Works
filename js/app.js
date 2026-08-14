@@ -85,13 +85,11 @@ const el = {
   meetingSalesYen: $('meetingSalesYen'), meetingVsLast: $('meetingVsLast'),
   meetingVsLastLabel: $('meetingVsLastLabel'),
   meetingGuests: $('meetingGuests'), meetingSummary: $('meetingSummary'),
-  meetingNote: $('meetingNote'),
   meetingBar: $('meetingBar'), meetingModeSeg: $('meetingMode'),
   meetingTableWrap: $('meetingTableWrap'), meetingScrollHint: $('meetingScrollHint'),
-  meetingHead: $('meetingHead'),
-  meetingBody: $('meetingBody'), meetingFoot: $('meetingFoot'),
+  meetingHead: $('meetingHead'), meetingBody: $('meetingBody'),
   meetingCumWrap: $('meetingCumWrap'), meetingCumBody: $('meetingCumBody'),
-  meetingCumFoot: $('meetingCumFoot'), meetingCumRange: $('meetingCumRange'),
+  meetingCumFoot: $('meetingCumFoot'), meetingCumTitle: $('meetingCumTitle'),
   meetingCumYearHead: $('meetingCumYearHead'),
   meetingGoals: $('meetingGoals'), meetingGoalPace: $('meetingGoalPace'),
   meetingGoalNote: $('meetingGoalNote'),
@@ -1750,7 +1748,6 @@ function renderMeeting() {
 
   el.meetingSummary.textContent = has ? '' : 'この月の数字は、まだ入っていません。';
   el.meetingSummary.classList.toggle('is-hidden', has);
-  el.meetingNote.classList.toggle('is-hidden', !has);
   el.meetingTableWrap.classList.toggle('is-hidden', !has);
   el.meetingBar.classList.toggle('is-hidden', !has);
 
@@ -1760,7 +1757,6 @@ function renderMeeting() {
     // 数字の無い月に切り替えたとき、前の月の表が残らないように空にします
     el.meetingHead.innerHTML = '';
     el.meetingBody.innerHTML = '';
-    el.meetingFoot.innerHTML = '';
     el.meetingScrollHint.classList.add('is-hidden');
   }
   renderMeetingCum();
@@ -1800,37 +1796,6 @@ function renderMeetingTable(list) {
     el.meetingBody.appendChild(tr);
   });
 
-  /* ---- いちばん下の合計行 ----
-     率は店舗ごとの率を平均するのではなく、金額を足してから割ります。
-
-     ★おいでんテラスのように昨年の数字が無い店舗があるときは、
-       合計の「差」が「今年6店舗 − 昨年5店舗」になってしまい、
-       伸びたように見えます。そこで、そういう月は合計を2行に分け、
-       比べられる5店舗だけの行を下に足します */
-  const withLast = list.filter((r) => r.last.ex);
-  const partial = withLast.length > 0 && withLast.length < list.length;
-
-  const footRow = (label, rows, noDiff) => {
-    const now = meetingSum(rows.map((r) => r.now));
-    const last = meetingSum(rows.map((r) => r.last));
-    const tr = document.createElement('tr');
-    tr.className = 'meeting-foot';
-    tr.innerHTML = '<th scope="row" class="meeting-td-name"></th>'
-      + cols.map((c) => (noDiff
-        ? meetingCell(c, now) + meetingCell(c, last, { last: true })
-          + '<td class="mt-cell is-vs">—</td>'
-        : meetingCells(c, now, last))).join('');
-    tr.querySelector('.meeting-td-name').textContent = label;
-    return tr;
-  };
-
-  el.meetingFoot.innerHTML = '';
-  el.meetingFoot.appendChild(footRow(`合計（${list.length}店舗）`, list, partial));
-  if (partial) {
-    const tr = footRow(`うち昨年もあった${withLast.length}店舗`, withLast);
-    tr.classList.add('meeting-foot--same');
-    el.meetingFoot.appendChild(tr);
-  }
 
   // 表が画面に入りきらないときだけ、横にすべらせる案内を出します
   updateMeetingScrollHint();
@@ -1849,8 +1814,7 @@ function updateMeetingScrollHint() {
 /** 1月からの累計（別枠）。店舗ごとと、6店舗・5店舗の合計 */
 function renderMeetingCum() {
   const cum = meetingCumByStore(state.y, state.m);
-  const filled = meetingFilledUpTo(state.y, state.m);
-  el.meetingCumRange.textContent = filled.last ? `（1月〜${filled.last}月）` : '';
+  el.meetingCumTitle.textContent = `${state.y}年累計売上（税抜き）`;
   el.meetingCumYearHead.textContent = `${state.y}年`;
 
   const shown = STORES.filter((s) => cum[s.id] && cum[s.id].ex);

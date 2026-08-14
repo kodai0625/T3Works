@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=1b493797">
-<meta name="app-version" content="2ba8c460">
+<link rel="stylesheet" href="../css/style.css?v=b94ebf21">
+<meta name="app-version" content="3699cdf4">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -428,8 +428,12 @@
        「今年」と「昨年」を となり合わせに並べた表にしています。
        1つの表に全部入れると横に長くなりすぎるので、
        「売上」「原価と人件費」「光熱費」の3つに分けています。
-       議事録は表に直接書けます（書いた内容は全員に同期されます） -->
+
+       画面が広いとき（1280px以上）は、右側に議事録をはりつけて置きます。
+       会議では数字を見ながら書くので、下までスクロールしなくても
+       書けるようにするためです。狭いときは、表のすぐ下に来ます -->
   <section class="view view--meeting is-hidden" id="viewMeeting">
+   <div class="meeting-layout">
     <div class="report-head">
       <div class="report-head__row">
         <h2 class="report-head__title">会議資料</h2>
@@ -473,7 +477,6 @@
       <table class="meeting-table">
         <thead id="meetingHead"></thead>
         <tbody id="meetingBody"></tbody>
-        <tfoot id="meetingFoot"></tfoot>
       </table>
     </div>
 
@@ -482,16 +485,25 @@
       → 表を横にすべらせると、残りの列が見られます（店舗の名前は左に残ります）
     </p>
 
-    <p class="expense-note" id="meetingNote">
-      <b>差</b>は「今年 − 昨年」です。率の差は <b>pt</b>（ポイント）で出しています。<br>
-      <b>原価率</b>と<b>人件費率</b>は、今年も昨年も<b>税抜売上</b>で割っています。<b>F/L</b>は その2つを足したものです。<br>
-      <b>キャッチ</b>は、このアプリの<b>キャッチ集計</b>（現金支払管理表に入れた分）から出しています。<br>
-      いちばん下の<b>合計</b>の率は、店舗ごとの率を平均したものではなく、全店舗の金額を足してから割ったものです。
-    </p>
+    <!-- ===== 議事録 =====
+         広い画面では、ここが右側にはりついて動かなくなります -->
+    <aside class="meeting-side" id="meetingSide">
+      <div class="meeting-bar meeting-bar--notes">
+        <h3 class="meeting-bar__title">議事録<span class="meeting-bar__count" id="meetingNoteCount"></span></h3>
+      </div>
+      <div class="meeting-notes" id="meetingNotes"></div>
+      <p class="expense-note">
+        枠の中に<b>そのまま書けます</b>。手を止めると<b>ひとりでに保存</b>され、
+        <b>ほかの端末にも同期されます</b>。<br>
+        1つの議題の中で改行してかまいません。
+        いちばん下の<b>空いている枠</b>に書くと、議題が1つ増えます。
+        中身をぜんぶ消して枠から出ると、その議題は消えます。
+      </p>
+    </aside>
 
     <!-- ===== 累計（別枠） ===== -->
     <div class="meeting-bar meeting-bar--sub">
-      <h3 class="meeting-bar__title">1月からの累計（税抜）<span class="meeting-bar__count" id="meetingCumRange"></span></h3>
+      <h3 class="meeting-bar__title" id="meetingCumTitle">2026年累計売上（税抜き）</h3>
     </div>
     <div class="table-scroll" id="meetingCumWrap">
       <table class="meeting-table meeting-cum-table">
@@ -517,19 +529,7 @@
       1月からの<b>税抜</b>累計売上を、年間の目標で割ったものです。
       うすい線は<b>いまの時期なら ここまで</b>という目安（月数で割ったもの）です。
     </p>
-
-    <!-- ===== 議事録 ===== -->
-    <div class="meeting-bar meeting-bar--notes">
-      <h3 class="meeting-bar__title">議事録<span class="meeting-bar__count" id="meetingNoteCount"></span></h3>
-    </div>
-    <div class="meeting-notes" id="meetingNotes"></div>
-    <p class="expense-note">
-      枠の中に<b>そのまま書けます</b>。手を止めると<b>ひとりでに保存</b>され、
-      <b>ほかの端末にも同期されます</b>。<br>
-      1つの議題の中で改行してかまいません。
-      いちばん下の<b>空いている枠</b>に書くと、議題が1つ増えます。
-      中身をぜんぶ消して枠から出ると、その議題は消えます。
-    </p>
+   </div>
   </section>
 
   <!-- 精算日と出金口座を入れる画面 -->
@@ -825,6 +825,6 @@
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=bec31bef"></script>
+<script src="../js/app.js?v=44e3340c"></script>
 </body>
 </html>

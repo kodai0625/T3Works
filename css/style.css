@@ -1598,8 +1598,43 @@ body.is-money .btn--primary.btn--danger {
    もとのスプレッドシートと同じ「今年と昨年がとなり合わせの表」にしています。
    縦向きやスマホでは、表が横スクロールします（.table-scroll）*/
 
-/* 表が横に長いので、この画面のあいだだけページの幅をひろげます */
-body.is-wide .page { max-width: 1460px; }
+/* 表が横に長いので、この画面のあいだだけページの幅をひろげます。
+   1700px … MacBook Pro 16インチ（横1728px）で左右がほぼ余りません。
+   iPad（横1180〜1366px）や13〜14インチ（1470〜1512px）は
+   もともとこの幅より狭いので、余白は出ません */
+body.is-wide .page { max-width: 1700px; }
+
+/* ---- 画面が広いときは、右側に議事録をはりつけます ----
+   会議では数字を見ながら書くので、いちばん下までスクロールしなくても
+   書けるようにするためです。狭い画面では表のすぐ下に来ます */
+.meeting-layout > * { min-width: 0; }
+/* 1360px … これより狭いと、右に議事録を置いた分だけ左が足りなくなり、
+   売上の表が横スクロールになります（iPad Pro の横 1366px でぎりぎり収まります）*/
+@media (min-width: 1360px) {
+  .meeting-layout {
+    display: grid;
+    /* 13〜14インチ（1470〜1512px）でも、左の表がなるべく横スクロール
+       せずに収まるよう、議事録の列は狭めから始めます */
+    grid-template-columns: minmax(0, 1fr) 300px;
+    column-gap: 18px;
+    align-items: start;
+  }
+  .meeting-layout > * { grid-column: 1; }
+  .meeting-side {
+    grid-column: 2; grid-row: 1 / span 30;
+    position: sticky; top: 12px; align-self: start;
+    /* 議題が多い月は、この中だけでスクロールします */
+    max-height: calc(100dvh - 90px); overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .meeting-side .meeting-bar--notes { margin-top: 0; }
+  /* 細い列なので、議題は1つずつ縦に並べます */
+  .meeting-side .meeting-notes { grid-template-columns: minmax(0, 1fr); }
+}
+/* 16インチくらいから、議事録の列を少し広げます */
+@media (min-width: 1600px) {
+  .meeting-layout { grid-template-columns: minmax(0, 1fr) 360px; column-gap: 20px; }
+}
 
 /* 売上は8桁になるので、ほかの2つと横に3つ並べると入りきらず、
    となりの「昨年比」に重なります。画面幅ごとに切り替えると境目で崩れるので、
@@ -1754,26 +1789,6 @@ body.is-wide .page { max-width: 1460px; }
   border-bottom: 1px solid var(--line-2);
 }
 
-/* 〆の合計行。上に2本線を引くのは紙の帳簿と同じ作法です */
-.meeting-table tfoot .meeting-foot th,
-.meeting-table tfoot .meeting-foot td {
-  border-top: 3px double color-mix(in srgb, var(--money) 50%, var(--line));
-  border-bottom: 0;
-  background: color-mix(in srgb, var(--money) 7%, var(--surface));
-  font-weight: 800;
-}
-.meeting-table tfoot .meeting-foot td { color: var(--money); }
-.meeting-table tfoot .meeting-foot td.is-last { color: color-mix(in srgb, var(--money) 55%, var(--text-sub)); }
-/* 昨年もあった店舗だけの合計。上の行の続きなので、2本線は引きません */
-.meeting-table tfoot .meeting-foot--same th,
-.meeting-table tfoot .meeting-foot--same td {
-  border-top: 1px solid color-mix(in srgb, var(--money) 30%, var(--line));
-}
-.meeting-table tfoot .meeting-foot th.meeting-td-name {
-  color: color-mix(in srgb, var(--money) 80%, var(--text-sub));
-  box-shadow: inset 4px 0 0 transparent, 1px 0 0 var(--line);
-}
-.meeting-table tfoot .yen-mark { color: color-mix(in srgb, var(--money) 55%, var(--text-weak)); }
 
 @media (max-width: 640px) {
   .meeting-table { font-size: 12.5px; }
@@ -1792,11 +1807,35 @@ body.is-wide .page { max-width: 1460px; }
 .meeting-cum-table { font-size: 13px; }
 .meeting-cum-table td { padding-top: 9px; padding-bottom: 9px; }
 
-/* 6店舗＋合計で7つ。合計は2つ分の幅を取るので、8つ分の枠として数えます。
-   iPadの横（1154px）で1行におさまる大きさにしてあります */
+/* 〆の合計行（年間◯店舗累計）。上に2本線を引くのは紙の帳簿と同じ作法です */
+.meeting-cum-table tfoot .meeting-foot th,
+.meeting-cum-table tfoot .meeting-foot td {
+  border-top: 3px double color-mix(in srgb, var(--money) 50%, var(--line));
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--money) 7%, var(--surface));
+  font-weight: 800;
+}
+/* 2行目（5店舗の合計）は上の行の続きなので、2本線は引きません */
+.meeting-cum-table tfoot .meeting-foot + .meeting-foot th,
+.meeting-cum-table tfoot .meeting-foot + .meeting-foot td {
+  border-top: 1px solid color-mix(in srgb, var(--money) 30%, var(--line));
+}
+.meeting-cum-table tfoot .meeting-foot td { color: var(--money); }
+.meeting-cum-table tfoot .meeting-foot td.is-last {
+  color: color-mix(in srgb, var(--money) 55%, var(--text-sub));
+}
+.meeting-cum-table tfoot .meeting-foot th.meeting-td-name {
+  color: color-mix(in srgb, var(--money) 80%, var(--text-sub));
+  box-shadow: inset 4px 0 0 transparent, 1px 0 0 var(--line);
+}
+.meeting-cum-table tfoot .yen-mark { color: color-mix(in srgb, var(--money) 55%, var(--text-weak)); }
+
+/* 6店舗＋合計で7つ。合計は2つ分の幅を取ります。
+   ★auto-fill ではなく auto-fit にすること。auto-fill だと、
+     店舗の数より枠のほうが多いときに右側が空いたまま残ります */
 .meeting-goals {
   display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
 }
 .meeting-goals.is-hidden { display: none; }
 .goal-card {
@@ -1839,8 +1878,7 @@ body.is-wide .page { max-width: 1460px; }
 /* -------- 議事録 --------
    横向きで見るページなので、幅があるときは2列・3列に折り返します */
 .meeting-notes { display: grid; gap: 8px; align-items: start; }
-@media (min-width: 760px)  { .meeting-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1240px) { .meeting-notes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 760px) { .meeting-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .meeting-notes__empty { grid-column: 1 / -1; }
 
 /* 議題1つ＝1枚。枠の中にそのまま書けます（スプレッドシートと同じ感じ）*/
