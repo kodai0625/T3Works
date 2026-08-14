@@ -73,7 +73,7 @@ const el = {
   viewCatch: $('viewCatch'), catchMonth: $('catchMonth'),
   catchSummary: $('catchSummary'), catchTotals: $('catchTotals'), catchList: $('catchList'),
   catchFoot: $('catchFoot'), catchPeopleTotal: $('catchPeopleTotal'),
-  catchYenTotal: $('catchYenTotal'), catchPerHead: $('catchPerHead'),
+  catchYenTotal: $('catchYenTotal'),
   viewSettle: $('viewSettle'), settleYear: $('settleYear'), settleSummary: $('settleSummary'),
   settleLockBtn: $('settleLockBtn'),
   settleRows: $('settleRows'), settleFoot: $('settleFoot'),
@@ -81,6 +81,21 @@ const el = {
   settleFormYen: $('settleFormYen'), settleDate: $('settleDate'),
   settleAccounts: $('settleAccounts'), settleAccount: $('settleAccount'),
   settleError: $('settleError'), settleSave: $('settleSave'), settleClear: $('settleClear'),
+  viewMeeting: $('viewMeeting'), meetingMonth: $('meetingMonth'),
+  meetingSalesYen: $('meetingSalesYen'), meetingVsLast: $('meetingVsLast'),
+  meetingVsLastLabel: $('meetingVsLastLabel'),
+  meetingGuests: $('meetingGuests'), meetingSummary: $('meetingSummary'),
+  meetingNote: $('meetingNote'),
+  meetingBar: $('meetingBar'), meetingModeSeg: $('meetingMode'),
+  meetingTableWrap: $('meetingTableWrap'), meetingScrollHint: $('meetingScrollHint'),
+  meetingHead: $('meetingHead'),
+  meetingBody: $('meetingBody'), meetingFoot: $('meetingFoot'),
+  meetingCumWrap: $('meetingCumWrap'), meetingCumBody: $('meetingCumBody'),
+  meetingCumFoot: $('meetingCumFoot'), meetingCumRange: $('meetingCumRange'),
+  meetingCumYearHead: $('meetingCumYearHead'),
+  meetingGoals: $('meetingGoals'), meetingGoalPace: $('meetingGoalPace'),
+  meetingGoalNote: $('meetingGoalNote'),
+  meetingNotes: $('meetingNotes'), meetingNoteCount: $('meetingNoteCount'),
   expStoreField: $('expStoreField'), expStores: $('expStores'),
   expPeopleField: $('expPeopleField'), expPeople: $('expPeople'),
   expFreeField: $('expFreeField'),
@@ -107,7 +122,7 @@ const el = {
  *   #/report/{YYYY-MM-DD}       全店舗の提出記録（店舗に属さない）
  *   #/weekall/{YYYY-MM-DD}      全店舗の週間掃除 達成状況
  */
-const ALL_STORE_VIEWS = ['report', 'weekall', 'expense', 'catch', 'settle'];
+const ALL_STORE_VIEWS = ['report', 'weekall', 'expense', 'catch', 'settle', 'meeting'];
 
 function readHash() {
   const parts = (location.hash || '').replace(/^#\/?/, '').split('/').filter((s) => s !== '');
@@ -1079,13 +1094,9 @@ function renderCatch() {
   const people = rows.reduce((t, r) => t + r.people, 0);
   const total = rows.reduce((t, r) => t + r.yen, 0);
 
-  // 1名あたり。割り切れないので四捨五入して出します（目安の数字です）
-  const perHead = (yen, n) => (n ? Math.round(yen / n) : 0);
-
   el.catchMonth.textContent = `${state.y}年${state.m}月`;
   el.catchPeopleTotal.innerHTML = `${people}<span class="ledger-figure__unit">名</span>`;
   el.catchYenTotal.innerHTML = yenMarkup(total);
-  el.catchPerHead.innerHTML = people ? yenMarkup(perHead(total, people)) : '—';
   el.catchSummary.textContent = people ? '' : 'この月のキャッチの記録はまだありません。';
   el.catchSummary.classList.toggle('is-hidden', people > 0);
 
@@ -1108,11 +1119,7 @@ function renderCatch() {
     y.className = 'exp-total__yen';
     y.innerHTML = r.yen ? yenMarkup(r.yen) : '—';
 
-    const per = document.createElement('td');
-    per.className = 'exp-total__yen catch-per';
-    per.innerHTML = r.people ? yenMarkup(perHead(r.yen, r.people)) : '—';
-
-    tr.append(name, p, y, per);
+    tr.append(name, p, y);
     el.catchTotals.appendChild(tr);
   });
 
@@ -1124,8 +1131,7 @@ function renderCatch() {
     tr.innerHTML =
       '<td class="exp-total__name">合計</td>' +
       `<td class="exp-total__yen">${people}<span class="ledger-unit">名</span></td>` +
-      `<td class="exp-total__yen">${yenMarkup(total)}</td>` +
-      `<td class="exp-total__yen catch-per">${yenMarkup(perHead(total, people))}</td>`;
+      `<td class="exp-total__yen">${yenMarkup(total)}</td>`;
     el.catchFoot.appendChild(tr);
   }
 
@@ -1396,6 +1402,610 @@ async function clearSettle() {
   el.settleModal.classList.add('is-hidden');
   renderSettle();
   renderSyncStatus();
+}
+
+/* ============================================================
+ *  会議資料
+ *    もとは Google スプレッドシート「2026_売上比率_会議」。
+ *
+ *    ・数字   … js/meeting-data.js に入れてあるのは「もとの数字」だけです。
+ *               率・差・累計はここで計算します（もとのシートは月によって
+ *               計算式がちがっていたので、そちらの率は使いません）。
+ *    ・キャッチ … シートの数字ではなく、このアプリのキャッチ集計
+ *               （現金支払管理表に入れた分）から拾います。
+ *    ・議事録 … _meeting/YYYY-MM に1つずつ入れます。表に直接書けます。
+ * ============================================================ */
+
+/** 入っている月のうち、いちばん新しい月。1つも無ければ null */
+function latestMeetingMonth() {
+  if (typeof MEETING_DATA === 'undefined') return null;
+  const keys = Object.keys(MEETING_DATA).sort();
+  if (!keys.length) return null;
+  const [y, m] = keys[keys.length - 1].split('-');
+  return { y: +y, m: +m };
+}
+
+/** その月のデータ。無ければ null */
+function meetingOf(y, m) {
+  return (typeof MEETING_DATA === 'undefined')
+    ? null
+    : (MEETING_DATA[`${y}-${String(m).padStart(2, '0')}`] || null);
+}
+
+/** 数字の配列（meeting-data.js の並び）を名前つきに開く */
+function meetingRow(arr) {
+  const o = {};
+  MEETING_FIELDS.forEach((k, i) => { o[k] = (arr && arr[i] !== undefined) ? arr[i] : null; });
+  return o;
+}
+
+/** 何店舗分かを1つに足す（合計の行を、店舗と同じ形で作るため） */
+function meetingSum(rows) {
+  const o = {};
+  MEETING_FIELDS.forEach((k) => { o[k] = 0; });
+  rows.forEach((r) => MEETING_FIELDS.forEach((k) => { o[k] += Number(r[k]) || 0; }));
+  return o;
+}
+
+/**
+ * その月のキャッチ（店舗id → { yen, people }）
+ * 現金支払管理表で「キャッチ」をえらんで入れた分を、店舗ごとに足します
+ * （キャッチ集計のページと同じ数字になります）
+ */
+function meetingCatchOf(y, m) {
+  const rec = Store.getDay(EXPENSE_STORE, expenseMonthKey(y, m));
+  const out = {};
+  expenseEntries(rec)
+    .filter((e) => e.kind === 'catch')
+    .forEach((e) => {
+      const id = e.store || '';
+      if (!out[id]) out[id] = { yen: 0, people: 0 };
+      out[id].yen += Number(e.yen) || 0;
+      out[id].people += Number(e.people) || 0;
+    });
+  return out;
+}
+
+/**
+ * 1月から m 月までのうち、数字が入っている月の数と、いちばん新しい月
+ *
+ * 7月・8月のように まだ入力されていない月を開いたときに、
+ * 累計の見出しや円グラフの目安が先に進んでしまわないようにするためです。
+ */
+function meetingFilledUpTo(y, m) {
+  let count = 0, last = 0;
+  for (let i = 1; i <= m; i += 1) {
+    if (meetingOf(y, i)) { count += 1; last = i; }
+  }
+  return { count, last };
+}
+
+/** 1月から m 月までの税抜売上（店舗ごと）。{ 店舗id: { ex, lastEx } } */
+function meetingCumByStore(y, m) {
+  const out = {};
+  STORES.forEach((s) => { out[s.id] = { ex: 0, lastEx: 0 }; });
+  for (let i = 1; i <= m; i += 1) {
+    const rec = meetingOf(y, i);
+    if (!rec) continue;
+    Object.entries(rec.rows).forEach(([id, v]) => {
+      if (!out[id]) out[id] = { ex: 0, lastEx: 0 };
+      out[id].ex += meetingRow(v.now).ex || 0;
+      out[id].lastEx += meetingRow(v.last).ex || 0;
+    });
+  }
+  return out;
+}
+
+/** 昨年比のバッジ（表紙の数字だけで使います） */
+function vsLastMarkup(now, last, opts = {}) {
+  if (!now || !last) return '';
+  const pct = (now / last - 1) * 100;
+  const cls = pct >= 0 ? 'is-up' : 'is-down';
+  const sign = pct >= 0 ? '+' : '−';
+  const size = opts.small ? ' meeting-vs--small' : '';
+  return `<span class="meeting-vs ${cls}${size}">${sign}${Math.abs(pct).toFixed(1)}%</span>`;
+}
+
+/* ------------------------------------------------------------
+ *  表の列
+ *
+ *  1つの項目につき「今年・昨年・差」の3列。もとのシートと同じ並びです。
+ *    main    … その升目の主の数字   mainKind: yen=金額 / num=人数 / pct=率
+ *    sub     … 主の数字に添える数字（原価なら金額の下に率）
+ *    goodWhen… 増えたほうが良いか（差の色分けに使います）
+ *  1つの表に全部入れると横に長くなりすぎるので、3つに分けています。
+ * ---------------------------------------------------------- */
+const MEETING_MODES = {
+  sales: [
+    { label: '税込売上', mainKind: 'yen', main: (v) => v.inc, goodWhen: 'up' },
+    { label: '税抜売上', mainKind: 'yen', main: (v) => v.ex, goodWhen: 'up' },
+    { label: '来店人数', mainKind: 'num', unit: '人', main: (v) => v.guests, goodWhen: 'up' },
+    { label: '客単価', mainKind: 'yen', goodWhen: 'up',
+      main: (v) => (v.guests ? Math.round(v.ex / v.guests) : null) },
+  ],
+  cost: [
+    { label: '原価', mainKind: 'yen', subKind: 'pct', goodWhen: 'down',
+      main: (v) => v.cost, sub: (v) => (v.ex ? v.cost / v.ex : null) },
+    { label: '人件費', mainKind: 'yen', subKind: 'pct', goodWhen: 'down',
+      main: (v) => v.labor, sub: (v) => (v.ex ? v.labor / v.ex : null) },
+    { label: 'F/L', mainKind: 'pct', goodWhen: 'down',
+      main: (v) => (v.ex ? (v.cost + v.labor) / v.ex : null) },
+    { label: 'キャッチ', mainKind: 'yen', subKind: 'num', subUnit: '人',
+      main: (v) => v.katch, sub: (v) => v.katchPeople },
+  ],
+  util: [
+    { label: 'ガス', mainKind: 'yen', main: (v) => v.gas, goodWhen: 'down' },
+    { label: '水道', mainKind: 'yen', main: (v) => v.water, goodWhen: 'down' },
+    { label: '電気', mainKind: 'yen', main: (v) => v.power, goodWhen: 'down' },
+    { label: '光熱費 合計', mainKind: 'yen', subKind: 'pct', goodWhen: 'down',
+      main: (v) => (v.gas + v.water + v.power) || null,
+      sub: (v) => (v.ex ? (v.gas + v.water + v.power) / v.ex : null) },
+  ],
+};
+
+/** いまどの表を出しているか */
+let meetingMode = 'sales';
+
+/** 数字を書き出す（差のときは符号を付けます） */
+function meetingNum(n, kind, unit, diff) {
+  if (n === null || n === undefined || !isFinite(n) || (!diff && !n)) return '—';
+  if (diff && Math.round(kind === 'pct' ? n * 1000 : n) === 0) return '±0';
+  const sign = diff ? (n > 0 ? '+' : '−') : '';
+  const v = diff ? Math.abs(n) : n;
+  if (kind === 'pct') return `${sign}${(v * 100).toFixed(1)}${diff ? 'pt' : '%'}`;
+  if (kind === 'num') return `${sign}${Math.round(v).toLocaleString('ja-JP')}<span class="ledger-unit">${unit || ''}</span>`;
+  return sign + yenMarkup(Math.round(v));
+}
+
+/** 1つの升目（主の数字と、あれば下に添える数字） */
+function meetingCell(col, v, opts = {}) {
+  const diff = !!opts.diff;
+  const main = col.main ? col.main(v) : null;
+  const sub = col.sub ? col.sub(v) : null;
+  let cls = 'mt-cell';
+  if (opts.last) cls += ' is-last';
+  if (diff) {
+    cls += ' is-vs';
+    if (col.goodWhen && main) {
+      const good = col.goodWhen === 'up' ? main > 0 : main < 0;
+      cls += good ? ' is-good' : ' is-bad';
+    }
+  }
+  const subHtml = col.sub
+    ? `<span class="mt-sub">${meetingNum(sub, col.subKind, col.subUnit, diff)}</span>`
+    : '';
+  return `<td class="${cls}"><span class="mt-main">${meetingNum(main, col.mainKind, col.unit, diff)}</span>${subHtml}</td>`;
+}
+
+/** 今年 − 昨年 を計算するために、差だけを持った「見せかけの行」を作ります */
+function meetingDiffRow(col, now, last) {
+  const a = col.main ? col.main(now) : null;
+  const b = col.main ? col.main(last) : null;
+  const sa = col.sub ? col.sub(now) : null;
+  const sb = col.sub ? col.sub(last) : null;
+  // 今年も昨年も入っていない項目は、差も「—」にします（±0 とは出しません）
+  const d = (x, y) => ((x === null || y === null) || (!x && !y) ? null : x - y);
+  return { main: d(a, b), sub: d(sa, sb) };
+}
+
+/** 1項目分の3つの升目（今年・昨年・差） */
+function meetingCells(col, now, last) {
+  const d = meetingDiffRow(col, now, last);
+  const diffCol = { ...col, main: () => d.main, sub: col.sub ? () => d.sub : null };
+  return meetingCell(col, now)
+    + meetingCell(col, last, { last: true })
+    + meetingCell(diffCol, null, { diff: true });
+}
+
+/* ------------------------------------------------------------
+ *  議事録
+ * ---------------------------------------------------------- */
+
+/** 取り込んだ議題に付ける項目名（写す前と後で同じものになるようにします） */
+function meetingNoteId(i) {
+  return `n${String(i + 1).padStart(3, '0')}`;
+}
+
+/** その月の議題。まだ一度も直していない月は、取り込んだメモをそのまま見せます */
+function meetingNotes(y, m) {
+  const rec = Store.getDay(MEETING_STORE, meetingMonthKey(y, m));
+  const items = rec.items || {};
+  const seeded = items[MEETING_SEED_KEY] && items[MEETING_SEED_KEY].done;
+
+  if (!seeded) {
+    // まだ写していない月。id は seedMeetingNotes が付けるものと同じにしておきます
+    // （そうしておかないと、取り込んだ議題を直したときに新しい議題として増えます）
+    const src = meetingOf(y, m);
+    return ((src && src.notes) || []).map((g, i) => ({
+      id: meetingNoteId(i), seq: i, text: g.join('\n'),
+    }));
+  }
+  return Object.keys(items)
+    .filter((id) => id !== MEETING_SEED_KEY && items[id] && items[id].done && (items[id].text || '').trim())
+    .map((id) => ({ id, seq: Number(items[id].seq) || 0, text: items[id].text }))
+    .sort((a, b) => a.seq - b.seq || a.id.localeCompare(b.id));
+}
+
+/**
+ * はじめて直すときに、取り込んだメモを記録として書き写します
+ *
+ * こうしておくと、取り込んだ議題も足した議題も同じ扱いになり、
+ * どれでも直せる・消せるようになります（写すのは1回だけです）。
+ */
+function seedMeetingNotes(y, m) {
+  const key = meetingMonthKey(y, m);
+  const rec = Store.getDay(MEETING_STORE, key);
+  if (rec.items && rec.items[MEETING_SEED_KEY] && rec.items[MEETING_SEED_KEY].done) return;
+  const src = meetingOf(y, m);
+  ((src && src.notes) || []).forEach((g, i) => {
+    Store.setItem(MEETING_STORE, key, meetingNoteId(i), { done: true, text: g.join('\n'), seq: i });
+  });
+  Store.setItem(MEETING_STORE, key, MEETING_SEED_KEY, { done: true });
+}
+
+/**
+ * 枠に書いた内容を保存します
+ *
+ *   書いている途中でも少し手が止まったら保存し、
+ *   ほかを押したとき（blur）にももう一度保存します。
+ *   「ほかを押したとき」だけにすると、書いたまま月を送ったり
+ *   アプリを閉じたりしたときに消えてしまうためです。
+ *
+ *   保存しても画面は作り直しません。作り直すと、書いている途中の
+ *   枠から入力の位置（カーソル）が外れてしまうためです。
+ *   空いている枠に書いたときだけ、その枠を議題に格上げして、
+ *   下に新しい空の枠を1つ足します。
+ */
+function saveMeetingNote(box, opts = {}) {
+  const text = box.value.replace(/\r/g, '').trim();
+  const was = box.dataset.was || '';
+  const id = box.dataset.id;
+
+  if (!text && !id) return;                       // 空いている枠のまま。何もしません
+  if (text === was) return;                       // 何も変わっていない
+
+  seedMeetingNotes(state.y, state.m);
+  const key = meetingMonthKey(state.y, state.m);
+
+  if (!text) {
+    // からっぽにしたら、その議題は消えます。
+    // ただし消すのは、書き終えて枠から出たときだけです
+    // （書き直そうと全部消しただけで消えてしまわないように）
+    if (!opts.done) return;
+    Store.setItem(MEETING_STORE, key, id, { done: false, text: '' });
+    renderMeetingNotes();
+    renderSyncStatus();
+    return;
+  }
+
+  if (id) {
+    Store.setItem(MEETING_STORE, key, id, { done: true, text, seq: Number(box.dataset.seq) || 0 });
+    box.dataset.was = text;
+  } else {
+    // いちばん下の空いている枠。書くと議題が1つ増えます
+    const notes = meetingNotes(state.y, state.m);
+    const seq = notes.length ? notes[notes.length - 1].seq + 1 : 0;
+    const newId = 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    Store.setItem(MEETING_STORE, key, newId, { done: true, text, seq });
+    promoteMeetingNoteBox(box, newId, seq, notes.length + 1);
+  }
+  renderSyncStatus();
+}
+
+/** 空いている枠を議題に変えて、その下に新しい空の枠を足します */
+function promoteMeetingNoteBox(box, id, seq, no) {
+  box.dataset.id = id;
+  box.dataset.seq = seq;
+  box.dataset.was = box.value.replace(/\r/g, '').trim();
+  box.placeholder = '';
+  const item = box.parentElement;
+  item.classList.remove('meeting-note--new');
+  item.querySelector('.meeting-note__no').textContent = no;
+  el.meetingNotes.appendChild(meetingNoteRow(null, 0));
+  el.meetingNoteCount.textContent = `（${no}件）`;
+}
+
+/* ------------------------------------------------------------
+ *  画面を作る
+ * ---------------------------------------------------------- */
+function renderMeeting() {
+  const rec = meetingOf(state.y, state.m);
+  el.meetingMonth.textContent = `${state.y}年${state.m}月`;
+
+  /* ---- その月の店舗ごとの数字を並べる ---- */
+  const katch = meetingCatchOf(state.y, state.m);
+  const katchLast = meetingCatchOf(state.y - 1, state.m);
+  const list = [];
+  if (rec) {
+    STORES.forEach((s) => {
+      const v = rec.rows[s.id];
+      if (!v) return;
+      const now = meetingRow(v.now);
+      const last = meetingRow(v.last);
+      // キャッチだけは、シートの数字ではなくキャッチ集計の数字を使います
+      now.katch = (katch[s.id] || {}).yen || 0;
+      now.katchPeople = (katch[s.id] || {}).people || 0;
+      last.katch = (katchLast[s.id] || {}).yen || 0;
+      last.katchPeople = (katchLast[s.id] || {}).people || 0;
+      list.push({ store: s, now, last });
+    });
+  }
+  const has = list.length > 0;
+
+  /* 昨年比は「昨年もあった店舗どうし」で出します。
+     おいでんテラスのように途中からできた店舗を今年の側にだけ足すと、
+     売上がその分だけ伸びたように見えてしまうためです */
+  const withLast = list.filter((r) => r.last.ex);
+  const ex = list.reduce((t, r) => t + (r.now.ex || 0), 0);
+  const exSame = withLast.reduce((t, r) => t + (r.now.ex || 0), 0);
+  const lastEx = withLast.reduce((t, r) => t + (r.last.ex || 0), 0);
+  const guests = list.reduce((t, r) => t + (r.now.guests || 0), 0);
+  const sameCount = withLast.length;
+  const partial = sameCount > 0 && sameCount < list.length;
+
+  el.meetingSalesYen.innerHTML = yenMarkup(ex);
+  el.meetingVsLast.innerHTML = lastEx ? vsLastMarkup(exSame, lastEx) : '—';
+  el.meetingVsLastLabel.textContent = partial ? `昨年比（${sameCount}店舗）` : '昨年比';
+  el.meetingGuests.innerHTML = `${guests.toLocaleString('ja-JP')}<span class="ledger-figure__unit">人</span>`;
+
+  el.meetingSummary.textContent = has ? '' : 'この月の数字は、まだ入っていません。';
+  el.meetingSummary.classList.toggle('is-hidden', has);
+  el.meetingNote.classList.toggle('is-hidden', !has);
+  el.meetingTableWrap.classList.toggle('is-hidden', !has);
+  el.meetingBar.classList.toggle('is-hidden', !has);
+
+  if (has) {
+    renderMeetingTable(list);
+  } else {
+    // 数字の無い月に切り替えたとき、前の月の表が残らないように空にします
+    el.meetingHead.innerHTML = '';
+    el.meetingBody.innerHTML = '';
+    el.meetingFoot.innerHTML = '';
+    el.meetingScrollHint.classList.add('is-hidden');
+  }
+  renderMeetingCum();
+  renderMeetingGoals();
+  renderMeetingNotes();
+}
+
+/** 今年と昨年をとなり合わせに並べた表 */
+function renderMeetingTable(list) {
+  const cols = MEETING_MODES[meetingMode] || MEETING_MODES.sales;
+
+  /* ---- 見出しは2段。上が項目、下が「2026年 / 昨年 / 差」 ---- */
+  const top = document.createElement('tr');
+  top.className = 'meeting-head-top';
+  top.innerHTML = '<th rowspan="2" class="meeting-th-name">店舗</th>'
+    + cols.map((c) => `<th colspan="3" class="meeting-th-group">${c.label}</th>`).join('');
+
+  const sub = document.createElement('tr');
+  sub.className = 'meeting-head-sub';
+  sub.innerHTML = cols.map(() =>
+    `<th>${state.y}年</th><th class="is-last">昨年</th><th class="is-vs">差</th>`).join('');
+
+  el.meetingHead.innerHTML = '';
+  el.meetingHead.append(top, sub);
+
+  /* ---- 店舗の行 ---- */
+  el.meetingBody.innerHTML = '';
+  list.forEach(({ store, now, last }) => {
+    const tr = document.createElement('tr');
+    tr.style.setProperty('--row-color', store.color);
+    const name = document.createElement('th');
+    name.scope = 'row';
+    name.className = 'meeting-td-name';
+    name.textContent = store.name;
+    tr.appendChild(name);
+    cols.forEach((c) => tr.insertAdjacentHTML('beforeend', meetingCells(c, now, last)));
+    el.meetingBody.appendChild(tr);
+  });
+
+  /* ---- いちばん下の合計行 ----
+     率は店舗ごとの率を平均するのではなく、金額を足してから割ります。
+
+     ★おいでんテラスのように昨年の数字が無い店舗があるときは、
+       合計の「差」が「今年6店舗 − 昨年5店舗」になってしまい、
+       伸びたように見えます。そこで、そういう月は合計を2行に分け、
+       比べられる5店舗だけの行を下に足します */
+  const withLast = list.filter((r) => r.last.ex);
+  const partial = withLast.length > 0 && withLast.length < list.length;
+
+  const footRow = (label, rows, noDiff) => {
+    const now = meetingSum(rows.map((r) => r.now));
+    const last = meetingSum(rows.map((r) => r.last));
+    const tr = document.createElement('tr');
+    tr.className = 'meeting-foot';
+    tr.innerHTML = '<th scope="row" class="meeting-td-name"></th>'
+      + cols.map((c) => (noDiff
+        ? meetingCell(c, now) + meetingCell(c, last, { last: true })
+          + '<td class="mt-cell is-vs">—</td>'
+        : meetingCells(c, now, last))).join('');
+    tr.querySelector('.meeting-td-name').textContent = label;
+    return tr;
+  };
+
+  el.meetingFoot.innerHTML = '';
+  el.meetingFoot.appendChild(footRow(`合計（${list.length}店舗）`, list, partial));
+  if (partial) {
+    const tr = footRow(`うち昨年もあった${withLast.length}店舗`, withLast);
+    tr.classList.add('meeting-foot--same');
+    el.meetingFoot.appendChild(tr);
+  }
+
+  // 表が画面に入りきらないときだけ、横にすべらせる案内を出します
+  updateMeetingScrollHint();
+}
+
+/** 表がはみ出しているかを測って、案内を出し入れします */
+function updateMeetingScrollHint() {
+  const wrap = el.meetingTableWrap;
+  if (wrap.classList.contains('is-hidden') || !wrap.clientWidth) {
+    el.meetingScrollHint.classList.add('is-hidden');
+    return;
+  }
+  el.meetingScrollHint.classList.toggle('is-hidden', wrap.scrollWidth <= wrap.clientWidth + 1);
+}
+
+/** 1月からの累計（別枠）。店舗ごとと、6店舗・5店舗の合計 */
+function renderMeetingCum() {
+  const cum = meetingCumByStore(state.y, state.m);
+  const filled = meetingFilledUpTo(state.y, state.m);
+  el.meetingCumRange.textContent = filled.last ? `（1月〜${filled.last}月）` : '';
+  el.meetingCumYearHead.textContent = `${state.y}年`;
+
+  const shown = STORES.filter((s) => cum[s.id] && cum[s.id].ex);
+  el.meetingCumBody.innerHTML = '';
+  shown.forEach((s) => {
+    const c = cum[s.id];
+    const tr = document.createElement('tr');
+    tr.style.setProperty('--row-color', s.color);
+    tr.innerHTML = '<th scope="row" class="meeting-td-name"></th>'
+      + `<td class="mt-cell">${meetingNum(c.ex, 'yen')}</td>`
+      + `<td class="mt-cell is-last">${meetingNum(c.lastEx, 'yen')}</td>`
+      + `<td class="mt-cell is-vs${c.lastEx ? (c.ex >= c.lastEx ? ' is-good' : ' is-bad') : ''}">`
+      + `${c.lastEx ? meetingNum(c.ex - c.lastEx, 'yen', '', true) : '—'}</td>`;
+    tr.querySelector('.meeting-td-name').textContent = s.name;
+    el.meetingCumBody.appendChild(tr);
+  });
+
+  /* 6店舗の合計と、昨年もあった5店舗だけの合計。
+     6店舗のほうは昨年の数字が無いので、そこは「—」にします */
+  const five = SALES_TARGET_FIVE_STORES;
+  const all6 = shown.reduce((t, s) => t + cum[s.id].ex, 0);
+  const now5 = shown.filter((s) => five.includes(s.id)).reduce((t, s) => t + cum[s.id].ex, 0);
+  const last5 = shown.filter((s) => five.includes(s.id)).reduce((t, s) => t + cum[s.id].lastEx, 0);
+
+  const row = (label, now, last) =>
+    '<tr class="meeting-foot"><th scope="row" class="meeting-td-name">' + label + '</th>'
+    + `<td class="mt-cell">${meetingNum(now, 'yen')}</td>`
+    + `<td class="mt-cell is-last">${last ? meetingNum(last, 'yen') : '—'}</td>`
+    + `<td class="mt-cell is-vs${last ? (now >= last ? ' is-good' : ' is-bad') : ''}">`
+    + `${last ? meetingNum(now - last, 'yen', '', true) : '—'}</td></tr>`;
+
+  el.meetingCumFoot.innerHTML =
+    (shown.length > five.length ? row(`年間${shown.length}店舗累計`, all6, 0) : '')
+    + row(`年間${five.length}店舗累計`, now5, last5);
+
+  el.meetingCumWrap.classList.toggle('is-hidden', !shown.length);
+}
+
+/** 年間目標に対する進み具合（円グラフ） */
+function renderMeetingGoals() {
+  const cum = meetingCumByStore(state.y, state.m);
+  // 目安は「入力されている月の数 ÷ 12」。まだ入っていない月まで数えると、
+  // どの店舗も遅れているように見えてしまいます
+  const filled = meetingFilledUpTo(state.y, state.m);
+  const pace = filled.count / 12;
+  el.meetingGoalPace.textContent = filled.count
+    ? `（${filled.last}月まで＝目安 ${Math.round(pace * 100)}%）` : '';
+
+  const five = SALES_TARGET_FIVE_STORES;
+  const items = STORES
+    .filter((s) => SALES_TARGETS[s.id] && cum[s.id] && cum[s.id].ex)
+    .map((s) => ({ name: s.name, color: s.color, now: cum[s.id].ex, goal: SALES_TARGETS[s.id] }));
+
+  const now5 = five.reduce((t, id) => t + ((cum[id] || {}).ex || 0), 0);
+  if (now5) {
+    items.unshift({
+      name: `${five.length}店舗 合計`, color: 'var(--money)',
+      now: now5, goal: SALES_TARGET_FIVE, big: true,
+    });
+  }
+
+  el.meetingGoals.innerHTML = '';
+  el.meetingGoals.classList.toggle('is-hidden', !items.length);
+  el.meetingGoalNote.classList.toggle('is-hidden', !items.length);
+  items.forEach((it) => el.meetingGoals.appendChild(goalCard(it, pace)));
+}
+
+/** 円グラフ1つ分 */
+function goalCard({ name, color, now, goal, big }, pace) {
+  const ratio = goal ? now / goal : 0;
+  const R = 42;
+  const C = 2 * Math.PI * R;
+  const shown = Math.min(ratio, 1);                // 輪は100%で止め、数字は本当の値を出します
+  const card = document.createElement('section');
+  card.className = 'goal-card' + (big ? ' goal-card--big' : '');
+  card.style.setProperty('--goal-color', color);
+  // 目安の線を置く角度（12時から時計回り）
+  const a = (pace * 2 * Math.PI) - Math.PI / 2;
+
+  card.innerHTML = `
+    <svg class="goal-ring" viewBox="0 0 100 100" role="img" aria-label="${name} ${Math.round(ratio * 100)}%">
+      <circle class="goal-ring__bg" cx="50" cy="50" r="${R}"></circle>
+      <circle class="goal-ring__fill" cx="50" cy="50" r="${R}"
+              stroke-dasharray="${(C * shown).toFixed(1)} ${C.toFixed(1)}"
+              transform="rotate(-90 50 50)"></circle>
+      <line class="goal-ring__pace"
+            x1="${(50 + (R - 8) * Math.cos(a)).toFixed(1)}" y1="${(50 + (R - 8) * Math.sin(a)).toFixed(1)}"
+            x2="${(50 + (R + 8) * Math.cos(a)).toFixed(1)}" y2="${(50 + (R + 8) * Math.sin(a)).toFixed(1)}"></line>
+      <text class="goal-ring__pct" x="50" y="54">${(ratio * 100).toFixed(1)}%</text>
+    </svg>
+    <p class="goal-card__name"></p>
+    <p class="goal-card__yen">${yenMarkup(now)}</p>
+    <p class="goal-card__goal">目標 ${yenMarkup(goal)}</p>
+    <p class="goal-card__left">${now >= goal
+      ? '目標をこえました'
+      : `のこり ${yenMarkup(goal - now)}`}</p>
+  `;
+  card.querySelector('.goal-card__name').textContent = name;
+  return card;
+}
+
+/** 議題1つ分の枠を作ります（note が null なら、いちばん下の空いている枠） */
+function meetingNoteRow(note, i) {
+  const item = document.createElement('div');
+  item.className = 'meeting-note' + (note ? '' : ' meeting-note--new');
+
+  const no = document.createElement('span');
+  no.className = 'meeting-note__no';
+  no.textContent = note ? i + 1 : '＋';
+
+  const box = document.createElement('textarea');
+  box.className = 'meeting-note__text';
+  box.rows = 1;
+  box.value = note ? note.text : '';
+  box.dataset.id = note ? note.id : '';
+  box.dataset.seq = note ? note.seq : '';
+  box.dataset.was = note ? note.text : '';
+  box.placeholder = note ? '' : 'ここに書くと、議題が1つ増えます';
+
+  let timer = null;
+  box.addEventListener('input', () => {
+    growNoteBox(box);
+    clearTimeout(timer);
+    timer = setTimeout(() => saveMeetingNote(box), 700);   // 手が止まったら保存
+  });
+  box.addEventListener('blur', () => {
+    clearTimeout(timer);
+    saveMeetingNote(box, { done: true });
+  });
+
+  item.append(no, box);
+  return item;
+}
+
+/** 議事録。枠にそのまま書けます */
+function renderMeetingNotes() {
+  const notes = meetingNotes(state.y, state.m);
+  el.meetingNoteCount.textContent = notes.length ? `（${notes.length}件）` : '';
+  el.meetingNotes.innerHTML = '';
+  notes.forEach((note, i) => el.meetingNotes.appendChild(meetingNoteRow(note, i)));
+  el.meetingNotes.appendChild(meetingNoteRow(null, 0));   // いちばん下の、空いている枠
+  [...el.meetingNotes.querySelectorAll('.meeting-note__text')].forEach(growNoteBox);
+}
+
+/** 書きかけのまま画面を離れるときに、取りこぼさないよう保存します */
+function flushMeetingNotes() {
+  if (state.view !== 'meeting') return;
+  [...el.meetingNotes.querySelectorAll('.meeting-note__text')]
+    .forEach((box) => saveMeetingNote(box));
+}
+
+/** 書いた行数に合わせて枠の高さを伸ばします */
+function growNoteBox(box) {
+  box.style.height = 'auto';
+  box.style.height = `${box.scrollHeight}px`;
 }
 
 /* ------------------------------------------------------------
@@ -2487,11 +3097,14 @@ function render() {
   const isExpense = state.view === 'expense';
   const isCatch = state.view === 'catch';
   const isSettle = state.view === 'settle';
+  const isMeeting = state.view === 'meeting';
 
   /* お金の画面にいるあいだは body に印を付けます。
      入力画面や確認ダイアログは画面をまたいで使い回しているので、
      この印を見てボタンの色を青から緑に切り替えます */
-  document.body.classList.toggle('is-money', isExpense || isCatch || isSettle);
+  document.body.classList.toggle('is-money', isExpense || isCatch || isSettle || isMeeting);
+  /* 会議資料は横に長い表を出すので、そのあいだだけページの幅をひろげます */
+  document.body.classList.toggle('is-wide', isMeeting);
 
   /* ---- 業務選択画面：店舗の見出しだけ出して、業務の中身は出さない ---- */
   if (isTasks) {
@@ -2511,6 +3124,7 @@ function render() {
     el.viewExpense.classList.add('is-hidden');
     el.viewCatch.classList.add('is-hidden');
     el.viewSettle.classList.add('is-hidden');
+    el.viewMeeting.classList.add('is-hidden');
     el.viewTasks.classList.remove('is-hidden');
     renderStoreTabs();
     renderTaskPicker();
@@ -2535,6 +3149,7 @@ function render() {
     el.viewExpense.classList.add('is-hidden');
     el.viewCatch.classList.add('is-hidden');
     el.viewSettle.classList.add('is-hidden');
+    el.viewMeeting.classList.add('is-hidden');
     el.viewStores.classList.remove('is-hidden');
     renderStorePicker();
     renderSyncStatus();
@@ -2542,9 +3157,9 @@ function render() {
   }
 
   el.viewStores.classList.add('is-hidden');
-  el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch || isSettle);
+  el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch || isSettle || isMeeting);
   // 週間掃除は週ごとに送って見る画面なので、日タブは出しません
-  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle;
+  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle || isMeeting;
   el.dayTabs.classList.toggle('is-hidden', noDays);
   document.body.classList.toggle('no-daytabs', noDays);
 
@@ -2566,7 +3181,7 @@ function render() {
   renderDayTabs();
 
   // 全店舗の画面は店舗に属さないので、店舗見出しごと隠す
-  el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch || isSettle);
+  el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch || isSettle || isMeeting);
   // 週間掃除は2週間ずつ送るので、年・月タブは使いません
   el.storeHead.classList.toggle('is-weekview', isWeek);
   // いま開いている業務の名前（タップで業務の一覧に戻ります）
@@ -2581,12 +3196,14 @@ function render() {
   el.viewExpense.classList.toggle('is-hidden', !isExpense);
   el.viewCatch.classList.toggle('is-hidden', !isCatch);
   el.viewSettle.classList.toggle('is-hidden', !isSettle);
+  el.viewMeeting.classList.toggle('is-hidden', !isMeeting);
 
   // 精算履歴から離れたら、必ず「見るだけ」に戻します
   // （ブラウザの戻るで帰ってきたときも、開けっぱなしにしないため）
   if (!isSettle) settleUnlocked = false;
 
-  if (isSettle) renderSettle();
+  if (isMeeting) renderMeeting();
+  else if (isSettle) renderSettle();
   else if (isCatch) renderCatch();
   else if (isExpense) renderExpense();
   else if (isReport) renderReport();
@@ -2873,6 +3490,43 @@ function bindEvents() {
   $('expenseThisMonth').addEventListener('click', () => {
     state.y = TODAY.y; state.m = TODAY.m;
     writeHash(); render();
+  });
+
+  /* 会議資料。ひらいたときは、入っている月のうち いちばん新しい月を出します */
+  $('storesMeetingBtn').addEventListener('click', () => {
+    const last = latestMeetingMonth();
+    if (last) { state.y = last.y; state.m = last.m; }
+    openAllStores('meeting');
+  });
+  $('meetingBack').addEventListener('click', () => { flushMeetingNotes(); goHome(); });
+  $('meetingPrev').addEventListener('click', () => { flushMeetingNotes(); shiftMonth(-1); });
+  $('meetingNext').addEventListener('click', () => { flushMeetingNotes(); shiftMonth(1); });
+  $('meetingThisMonth').addEventListener('click', () => {
+    flushMeetingNotes();
+    state.y = TODAY.y; state.m = TODAY.m;
+    writeHash(); render();
+  });
+  // アプリを閉じたり、ほかのアプリに移ったときも取りこぼしません
+  window.addEventListener('pagehide', flushMeetingNotes);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushMeetingNotes();
+  });
+  /* iPadを回したときなど、幅が変わったら案内を出し直します。
+     どちらか片方だけだと取りこぼす端末があったので、両方かけています
+     （同じことを2回やっても害はありません） */
+  const watchWidth = () => { if (state.view === 'meeting') updateMeetingScrollHint(); };
+  window.addEventListener('resize', watchWidth);
+  window.addEventListener('orientationchange', () => setTimeout(watchWidth, 200));
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(watchWidth).observe(el.meetingTableWrap);
+  }
+  /* 率と金額の切り替え */
+  el.meetingModeSeg.addEventListener('click', (e) => {
+    const b = e.target.closest('.seg__btn');
+    if (!b) return;
+    meetingMode = b.dataset.mode;
+    [...el.meetingModeSeg.children].forEach((n) => n.classList.toggle('is-on', n === b));
+    renderMeeting();
   });
 
   /* 精算履歴。ひらくたびに「見るだけ」に戻します */

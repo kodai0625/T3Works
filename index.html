@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=8f3578d3">
-<meta name="app-version" content="a0d5f16f">
+<link rel="stylesheet" href="css/style.css?v=1b493797">
+<meta name="app-version" content="2ba8c460">
 </head>
 <body>
 
@@ -99,6 +99,14 @@
     </a>
 
     <h2 class="stores-sub">全店舗をまとめて見る</h2>
+    <button type="button" class="stores-big-btn" id="storesMeetingBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">📈</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">会議資料</span>
+        <span class="stores-big-btn__sub">その月の売上と、会議で決まったこと</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </button>
     <button type="button" class="stores-report-btn" id="storesReportBtn">クローズの提出記録</button>
     <button type="button" class="stores-report-btn" id="storesWeekAllBtn">週間掃除の達成状況</button>
   </section>
@@ -340,10 +348,6 @@
           <dt class="ledger-figure__label">支払い</dt>
           <dd class="ledger-figure__value" id="catchYenTotal">¥0</dd>
         </div>
-        <div class="ledger-figure">
-          <dt class="ledger-figure__label">1名あたり</dt>
-          <dd class="ledger-figure__value" id="catchPerHead">—</dd>
-        </div>
       </dl>
       <p class="report-summary" id="catchSummary"></p>
     </div>
@@ -351,7 +355,7 @@
     <div class="table-scroll">
       <table class="exp-total catch-table ledger">
         <thead>
-          <tr><th>店舗</th><th>人数</th><th>金額</th><th>1名</th></tr>
+          <tr><th>店舗</th><th>人数</th><th>金額</th></tr>
         </thead>
         <tbody id="catchTotals"></tbody>
         <tfoot id="catchFoot"></tfoot>
@@ -415,6 +419,116 @@
       <b>精算日</b>と<b>出金口座</b>を入れるのは<b>経理担当だけ</b>です。<br>
       上の<b>🔒</b>を押すと、月ごとに<b>緑のボタン</b>が出ます。
       画面を出入りすると、また見るだけに戻ります。
+    </p>
+  </section>
+
+  <!-- ===== 会議資料 =====
+       もとは Google スプレッドシート「2026_売上比率_会議」。
+       iPadやパソコンの横向きで見ることが多いページなので、シートと同じように
+       「今年」と「昨年」を となり合わせに並べた表にしています。
+       1つの表に全部入れると横に長くなりすぎるので、
+       「売上」「原価と人件費」「光熱費」の3つに分けています。
+       議事録は表に直接書けます（書いた内容は全員に同期されます） -->
+  <section class="view view--meeting is-hidden" id="viewMeeting">
+    <div class="report-head">
+      <div class="report-head__row">
+        <h2 class="report-head__title">会議資料</h2>
+        <button type="button" class="btn" id="meetingBack">店舗一覧に戻る</button>
+      </div>
+      <div class="report-nav">
+        <button type="button" class="year-btn" id="meetingPrev" aria-label="前の月">‹</button>
+        <span class="report-nav__date" id="meetingMonth">2026年6月</span>
+        <button type="button" class="year-btn" id="meetingNext" aria-label="次の月">›</button>
+        <button type="button" class="today-btn" id="meetingThisMonth">今月</button>
+      </div>
+      <dl class="ledger-figures">
+        <div class="ledger-figure">
+          <dt class="ledger-figure__label">税抜売上</dt>
+          <dd class="ledger-figure__value" id="meetingSalesYen">¥0</dd>
+        </div>
+        <div class="ledger-figure">
+          <!-- 昨年もあった店舗どうしで比べます。文言は app.js が入れます
+               （途中でできた店舗があると「昨年比（5店舗）」になります） -->
+          <dt class="ledger-figure__label" id="meetingVsLastLabel">昨年比</dt>
+          <dd class="ledger-figure__value" id="meetingVsLast">—</dd>
+        </div>
+        <div class="ledger-figure">
+          <dt class="ledger-figure__label">来店総人数</dt>
+          <dd class="ledger-figure__value" id="meetingGuests">0<span class="ledger-figure__unit">人</span></dd>
+        </div>
+      </dl>
+      <p class="report-summary" id="meetingSummary"></p>
+    </div>
+
+    <div class="meeting-bar" id="meetingBar">
+      <h3 class="meeting-bar__title">店舗ごとの数字</h3>
+      <div class="seg seg--mode" id="meetingMode">
+        <button type="button" class="seg__btn is-on" data-mode="sales">売上</button>
+        <button type="button" class="seg__btn" data-mode="cost">原価と人件費</button>
+        <button type="button" class="seg__btn" data-mode="util">光熱費</button>
+      </div>
+    </div>
+
+    <div class="table-scroll" id="meetingTableWrap">
+      <table class="meeting-table">
+        <thead id="meetingHead"></thead>
+        <tbody id="meetingBody"></tbody>
+        <tfoot id="meetingFoot"></tfoot>
+      </table>
+    </div>
+
+    <!-- 画面が狭くて表が入りきらないときだけ出ます（app.js が幅を測って決めます）-->
+    <p class="meeting-scroll-hint is-hidden" id="meetingScrollHint">
+      → 表を横にすべらせると、残りの列が見られます（店舗の名前は左に残ります）
+    </p>
+
+    <p class="expense-note" id="meetingNote">
+      <b>差</b>は「今年 − 昨年」です。率の差は <b>pt</b>（ポイント）で出しています。<br>
+      <b>原価率</b>と<b>人件費率</b>は、今年も昨年も<b>税抜売上</b>で割っています。<b>F/L</b>は その2つを足したものです。<br>
+      <b>キャッチ</b>は、このアプリの<b>キャッチ集計</b>（現金支払管理表に入れた分）から出しています。<br>
+      いちばん下の<b>合計</b>の率は、店舗ごとの率を平均したものではなく、全店舗の金額を足してから割ったものです。
+    </p>
+
+    <!-- ===== 累計（別枠） ===== -->
+    <div class="meeting-bar meeting-bar--sub">
+      <h3 class="meeting-bar__title">1月からの累計（税抜）<span class="meeting-bar__count" id="meetingCumRange"></span></h3>
+    </div>
+    <div class="table-scroll" id="meetingCumWrap">
+      <table class="meeting-table meeting-cum-table">
+        <thead>
+          <tr class="meeting-head-sub">
+            <th class="meeting-th-name">店舗</th>
+            <th id="meetingCumYearHead">2026年</th>
+            <th class="is-last">昨年</th>
+            <th class="is-vs">差</th>
+          </tr>
+        </thead>
+        <tbody id="meetingCumBody"></tbody>
+        <tfoot id="meetingCumFoot"></tfoot>
+      </table>
+    </div>
+
+    <!-- ===== 年間目標に対する進み具合 ===== -->
+    <div class="meeting-bar meeting-bar--sub">
+      <h3 class="meeting-bar__title">年間目標に対して<span class="meeting-bar__count" id="meetingGoalPace"></span></h3>
+    </div>
+    <div class="meeting-goals" id="meetingGoals"></div>
+    <p class="expense-note" id="meetingGoalNote">
+      1月からの<b>税抜</b>累計売上を、年間の目標で割ったものです。
+      うすい線は<b>いまの時期なら ここまで</b>という目安（月数で割ったもの）です。
+    </p>
+
+    <!-- ===== 議事録 ===== -->
+    <div class="meeting-bar meeting-bar--notes">
+      <h3 class="meeting-bar__title">議事録<span class="meeting-bar__count" id="meetingNoteCount"></span></h3>
+    </div>
+    <div class="meeting-notes" id="meetingNotes"></div>
+    <p class="expense-note">
+      枠の中に<b>そのまま書けます</b>。手を止めると<b>ひとりでに保存</b>され、
+      <b>ほかの端末にも同期されます</b>。<br>
+      1つの議題の中で改行してかまいません。
+      いちばん下の<b>空いている枠</b>に書くと、議題が1つ増えます。
+      中身をぜんぶ消して枠から出ると、その議題は消えます。
     </p>
   </section>
 
@@ -705,10 +819,12 @@
   </div>
 </div>
 
-<script src="js/config.js?v=8663286e"></script>
+<script src="js/config.js?v=63ff5e99"></script>
 <script src="js/storage.js?v=c163d4c1"></script>
 <script src="js/sync.js?v=a633c4c7"></script>
 <script src="js/update.js?v=bf53b433"></script>
-<script src="js/app.js?v=6f3065d5"></script>
+<!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
+<script src="js/meeting-data.js?v=36389c67"></script>
+<script src="js/app.js?v=bec31bef"></script>
 </body>
 </html>
