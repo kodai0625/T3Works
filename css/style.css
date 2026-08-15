@@ -1811,20 +1811,21 @@ body.is-money .btn--primary.btn--danger {
 }
 .report-item__miss:active { background: color-mix(in srgb, var(--ng) 18%, transparent); }
 
-/* -------- キャッチのランキング -------- */
-.catch-rank { margin-top: 4px; }
-/* ★2列（.ledger-page）の3つ目の子になるので、折り返しを許すこと。
-     許さないと、左右の2列といっしょに横一列に押し込まれて潰れます */
+/* -------- キャッチのランキング --------
+   合計の表のすぐ下、左の列の中にあります。右の「店舗ごとの明細」の方が
+   たいてい長く、ここが空いてしまうのを埋めるためです。
+   ★以前は2列の外（3つ目の子）に置いていたので flex-wrap が要りましたが、
+     列の中に入れたので、その仕掛けはもう要りません */
+.catch-rank { margin-top: 14px; }
 @media (min-width: 800px) {
-  .view--catch.ledger-page { flex-wrap: wrap; }
-  .view--catch .ledger-col { flex: 1 1 calc(50% - 11px); }
-  .catch-rank { flex: 1 1 100%; margin-top: 10px; }
+  .catch-rank {
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid color-mix(in srgb, var(--money) 22%, var(--line));
+  }
 }
-/* 表と円グラフを左右にならべます（せまいときは上下） */
+/* 表の下に円グラフ。列の幅（半分）では左右にならべると、
+   どちらも読めない太さになってしまいます */
 .rank-body { display: grid; gap: 12px; align-items: start; }
-@media (min-width: 980px) {
-  .rank-body { grid-template-columns: minmax(0, 1fr) minmax(250px, 366px); gap: 16px; }
-}
 .rank-table .rank-no {
   width: 1%; white-space: nowrap; text-align: center;
   font-size: 13px; font-weight: 800; color: var(--text-sub);

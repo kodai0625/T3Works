@@ -1005,7 +1005,9 @@ function renderCatchStaff() {
   el.catchStaffCount.textContent = n ? `${n}人` : 'まだ登録なし';
 
   el.catchStaffFields.innerHTML = '';
-  STORES.forEach((s) => {
+  // キャッチだけの行き先（まいとなど）もキャッチをするので、ここには出します。
+  // ただし保留中（off）のものは出しません
+  pickableStores().forEach((s) => {
     const wrap = document.createElement('label');
     wrap.className = 'field';
     const label = document.createElement('span');
@@ -1032,6 +1034,49 @@ function saveCatchStaff() {
   renderCatchStaff();
   el.catchStaffSaved.classList.remove('is-hidden');
   setTimeout(() => el.catchStaffSaved.classList.add('is-hidden'), 2500);
+}
+
+/* -------- 日報フォルダ --------
+ *
+ *  会議資料の「日報から取り込む」が見に行く、店舗ごとのGoogleドライブの
+ *  フォルダです。URLをそのまま貼れば、IDは NippouFolders が取り出します。
+ *
+ *  ★ここは「お店」だけです。まいと（キャッチだけの行き先）には日報が
+ *    ないので出しません。
+ */
+function renderNippouFolders() {
+  const map = NippouFolders.all();
+  const n = STORES.filter((s) => map[s.id]).length;
+  el.nippouCount.textContent = n ? `${n}店舗` : 'まだ登録なし';
+
+  el.nippouFields.innerHTML = '';
+  STORES.forEach((s) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'field';
+    const label = document.createElement('span');
+    label.className = 'field__label';
+    label.textContent = s.name;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'field__input';
+    input.dataset.store = s.id;
+    input.autocomplete = 'off';
+    input.placeholder = 'https://drive.google.com/drive/folders/…';
+    input.value = map[s.id] || '';
+    wrap.append(label, input);
+    el.nippouFields.appendChild(wrap);
+  });
+}
+
+function saveNippouFolders() {
+  const map = {};
+  [...el.nippouFields.querySelectorAll('input[data-store]')].forEach((i) => {
+    map[i.dataset.store] = i.value;
+  });
+  NippouFolders.save(map);
+  renderNippouFolders();
+  el.nippouSaved.classList.remove('is-hidden');
+  setTimeout(() => el.nippouSaved.classList.add('is-hidden'), 2500);
 }
 
 function saveDrivers() {

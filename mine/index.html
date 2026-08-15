@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=79d68a8f">
-<meta name="app-version" content="1651b83b">
+<link rel="stylesheet" href="../css/style.css?v=4f610e34">
+<meta name="app-version" content="c4f5b6d6">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -474,14 +474,10 @@
     <p class="expense-note">
       現金支払い管理表で<b>「キャッチ」</b>をえらんで入れた分が、ここに集まります。
     </p>
-   </div>
 
-   <div class="ledger-col">
-    <h2 class="ledger-col__head">店舗ごとの明細</h2>
-    <div id="catchList"></div>
-   </div>
-
-   <!-- ===== キャッチのランキング（誰が何人つれてきたか） ===== -->
+   <!-- ===== キャッチのランキング（誰が何人つれてきたか） =====
+        ★合計のすぐ下に置いています。右の「店舗ごとの明細」の方が
+          たいてい長いので、ここが空いてしまうのを埋めるためです -->
    <div class="catch-rank">
     <div class="meeting-bar meeting-bar--sub">
       <h3 class="meeting-bar__title">ランキング<span class="meeting-bar__count" id="rankCount"></span></h3>
@@ -492,7 +488,7 @@
     </div>
     <!-- 店舗でしぼる。全店舗のままなら会社ぜんぶの順位です -->
     <div class="exp-chips miss-filter" id="rankFilter"></div>
-    <!-- 左に表、右に円グラフ。表がのびすぎて名前の右があくのを、割合の帯でうめます -->
+    <!-- 表の下に円グラフ。表がのびすぎて名前の右があくのを、割合の帯でうめます -->
     <div class="rank-body">
       <div class="table-scroll">
         <table class="exp-total rank-table ledger">
@@ -512,6 +508,12 @@
       現金支払い管理表で<b>「キャッチ」</b>をえらんだときの<b>渡した相手</b>で数えています。<br>
       相手を入れていない記録は<b>（相手なし）</b>にまとまります。
     </p>
+   </div>
+   </div>
+
+   <div class="ledger-col">
+    <h2 class="ledger-col__head">店舗ごとの明細</h2>
+    <div id="catchList"></div>
    </div>
   </section>
 
@@ -787,6 +789,11 @@
         <input type="text" id="expPeople" class="field__input" inputmode="numeric"
                autocomplete="off" placeholder="46">
       </div>
+
+      <!-- 「◯月までの分は…」の文は renderExpenseForm が入れます。
+           ここに直に書くと、config.js の CATCH_WHO_FROM を動かしたときに
+           文だけ古い月のまま残るためです -->
+      <p class="modal__note is-hidden" id="expWhoNote"></p>
 
       <!-- キャッチのときだけ。誰に渡したかを残します -->
       <div class="field is-hidden" id="expWhoField">
@@ -1072,12 +1079,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=5afe904b"></script>
-<script src="../js/storage.js?v=dbd1411f"></script>
+<script src="../js/config.js?v=8203b416"></script>
+<script src="../js/storage.js?v=345e690c"></script>
 <script src="../js/sync.js?v=08e6b687"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=5bcb0e36"></script>
+<script src="../js/app.js?v=60307653"></script>
 </body>
 </html>

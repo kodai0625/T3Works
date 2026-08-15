@@ -1001,7 +1001,68 @@ const SETTLE_ACCOUNTS = ['GMO支払い用'];
  * ここに書いた順で、キャッチ集計の表に並びます（0人の月でも行は出ます）。
  * 書いていない店舗でも、記録があればその下に足して出します。
  */
-const CATCH_STORES = ['kojare', 'sumimaro', 'chacoru', 'popo', 'oiden'];
+const CATCH_STORES = ['kojare', 'sumimaro', 'chacoru', 'popo', 'oiden', 'maito'];
+
+/**
+ * キャッチだけで使う行き先
+ *
+ * ★ STORES には入れません。入れてしまうと、店舗タブ・クローズ・週間掃除・
+ *   会議資料など、お店として動かしている画面ぜんぶに出てしまいます。
+ *   ここはキャッチの店舗えらびと、キャッチ集計にだけ出ます。
+ *
+ * お店としても使うようになったら、STORES へ移してください
+ * （そのときは色・ロゴ・定休日・確認項目もいります）。
+ */
+const CATCH_ONLY_STORES = [
+  // 白文字を載せるので、明るすぎない色にしています。
+  // お店（赤〜茶の暖色）とは別のものだと分かるよう、青みにしてあります
+  //
+  // ★ off: true … いまは保留。アプリのどこにも出しません。
+  //    出すときは、この行の  off: true,  を消すだけです（ほかは直しません）。
+  { id: 'maito', name: 'まいと', short: 'まいと', color: '#4a6580', off: true },
+];
+
+/**
+ * ぜんぶの行き先（保留中のものも入っています）
+ *
+ * ★名前や色を引くためのものです。保留中のものも残してあるのは、
+ *   もし記録が入っていたときに、名前が引けずに よその店舗の名前で
+ *   出てしまうのを防ぐためです（getStore は見つからないと1つ目を返します）。
+ */
+function allStores() {
+  return STORES.concat(CATCH_ONLY_STORES);
+}
+
+/** 画面で「えらべるもの」として出す行き先（保留中のものは出しません） */
+function pickableStores() {
+  return allStores().filter((s) => !s.off);
+}
+
+/** キャッチ集計の表と、ランキングのしぼり込みに出す店舗（保留中のものは出しません） */
+function catchStoreIds() {
+  return CATCH_STORES.filter((id) => !getStore(id).off);
+}
+
+/**
+ * 「渡した相手」を入れてもらう開始日
+ *
+ * これより前の分は、人数と金額だけで記録できます。
+ * 8月までは誰に渡したかを控えていなかったので、
+ * 入れられないものを必須にしても手が止まるだけだからです。
+ */
+const CATCH_WHO_FROM = '2026-09-01';
+
+/** その日の記録で「渡した相手」を入れるか */
+function catchWhoNeeded(dateStr) {
+  return (dateStr || '') >= CATCH_WHO_FROM;
+}
+
+/** 入力画面に出す一文。開始日から作るので、日を動かせば文も付いてきます */
+function catchWhoNoteText() {
+  const [y, m] = CATCH_WHO_FROM.split('-').map(Number);
+  const last = m === 1 ? `${y - 1}年12` : `${m - 1}`;   // 開始月の1つ前
+  return `${last}月までの分は、<b>渡した相手を入れずに</b>記録できます。`;
+}
 
 /**
  * キャッチをしてくれるアルバイトの名前（初期値）
@@ -1520,7 +1581,7 @@ function appliesTo(item, store, y, m, d, section) {
   return true;
 }
 
-/** 店舗を取得 */
+/** 店舗を取得（キャッチだけの行き先＝まいと なども引けます） */
 function getStore(storeId) {
-  return STORES.find((s) => s.id === storeId) || STORES[0];
+  return allStores().find((s) => s.id === storeId) || STORES[0];
 }

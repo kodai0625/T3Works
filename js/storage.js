@@ -365,7 +365,7 @@ const CatchStaff = {
       // 前は全店舗ひとまとめの配列でした。そのときの分は、そのまま全店舗の人として扱います
       if (Array.isArray(saved)) {
         const map = {};
-        if (saved.length) STORES.forEach((s) => { map[s.id] = saved.slice(); });
+        if (saved.length) pickableStores().forEach((s) => { map[s.id] = saved.slice(); });
         return map;
       }
       if (saved && typeof saved === 'object') return saved;
@@ -380,7 +380,7 @@ const CatchStaff = {
     const map = this.all();
     if (storeId) return (map[storeId] || []).slice();
     const out = [];
-    STORES.forEach((s) => (map[s.id] || []).forEach((n) => {
+    pickableStores().forEach((s) => (map[s.id] || []).forEach((n) => {
       if (!out.includes(n)) out.push(n);
     }));
     return out;

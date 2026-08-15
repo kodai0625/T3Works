@@ -73,6 +73,7 @@ const el = {
   expenseSummary: $('expenseSummary'), expenseList: $('expenseList'),
   expenseModal: $('expenseModal'), expDate: $('expDate'), expBy: $('expBy'),
   expLabel: $('expLabel'), expYen: $('expYen'), expChips: $('expChips'),
+  expWhoNote: $('expWhoNote'),
   expenseTotals: $('expenseTotals'), expenseTotalWrap: $('expenseTotalWrap'),
   expenseFoot: $('expenseFoot'), expenseTotalYen: $('expenseTotalYen'),
   expenseUnpaidYen: $('expenseUnpaidYen'), expenseUnpaidBox: $('expenseUnpaidBox'),
@@ -1066,7 +1067,7 @@ let expEditing = null; // 直しているとき、その1件
 function fillWhoOptions(who) {
   const map = CatchStaff.all();
   el.expWho.innerHTML = '<option value="">選んでください</option>';
-  const order = STORES.map((x) => x.id)
+  const order = pickableStores().map((x) => x.id)
     .sort((a, b) => (b === expStore ? 1 : 0) - (a === expStore ? 1 : 0));
   const known = [];
   order.forEach((id) => {
@@ -1137,13 +1138,16 @@ function openExpenseForm(entry) {
     el.expChips.appendChild(b);
   });
 
-  /* 店舗のボタン（買い出し・キャッチのときだけ出ます） */
+  /* 店舗のボタン（買い出し・キャッチのときだけ出ます）
+     まいと（CATCH_ONLY_STORES）は買い出しには出しません。
+     お店ではないので、そこへ買い出しに行くことがないためです */
   el.expStores.innerHTML = '';
-  STORES.forEach((s) => {
+  pickableStores().forEach((s) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'exp-chip';
     b.dataset.store = s.id;
+    if (CATCH_ONLY_STORES.some((x) => x.id === s.id)) b.dataset.catchOnly = '1';
     // えらんだときは、その店舗の色にします（一覧の店舗カードと同じ色）
     b.style.setProperty('--pick-color', s.color);
     // 略さない名前を出します（「おいでん」ではなく「おいでんテラス」）
@@ -1163,12 +1167,25 @@ function openExpenseForm(entry) {
 /** えらんだ項目に合わせて、下の入力欄を出し入れします */
 function renderExpenseForm() {
   const kind = getExpenseKind(expKind);
+  const isCatch = !!(kind && kind.who);
   [...el.expChips.children].forEach((b) => b.classList.toggle('is-on', b.dataset.kind === expKind));
-  [...el.expStores.children].forEach((b) => b.classList.toggle('is-on', b.dataset.store === expStore));
 
+  // まいとはキャッチのときだけ出します。買い出しに切り替えたら、
+  // えらんだままにならないよう外します（見えないものが選ばれている状態を作らない）
+  [...el.expStores.children].forEach((b) => {
+    const only = b.dataset.catchOnly === '1';
+    b.classList.toggle('is-hidden', only && !isCatch);
+    if (only && !isCatch && expStore === b.dataset.store) expStore = '';
+    b.classList.toggle('is-on', b.dataset.store === expStore);
+  });
+
+  /* 渡した相手は9月分から。8月までは人数と金額だけで記録できます */
+  const whoOn = isCatch && catchWhoNeeded(el.expDate.value);
   el.expStoreField.classList.toggle('is-hidden', !(kind && kind.store));
   el.expPeopleField.classList.toggle('is-hidden', !(kind && kind.people));
-  el.expWhoField.classList.toggle('is-hidden', !(kind && kind.who));
+  el.expWhoField.classList.toggle('is-hidden', !whoOn);
+  el.expWhoNote.classList.toggle('is-hidden', !(isCatch && !whoOn));
+  if (isCatch && !whoOn) el.expWhoNote.innerHTML = catchWhoNoteText();
   el.expFreeField.classList.toggle('is-hidden', !(kind && kind.free));
   el.expWhoFree.classList.toggle('is-hidden', el.expWho.value !== CATCH_OTHER);
 }
@@ -1194,7 +1211,11 @@ function saveExpense() {
   if (!kind) { el.expenseError.textContent = '支払い項目をえらんでください。'; return; }
   if (kind.store && !expStore) { el.expenseError.textContent = 'どの店舗かをえらんでください。'; return; }
   if (kind.people && (!people || people <= 0)) { el.expenseError.textContent = '人数を入れてください。'; return; }
-  if (kind.who && !who) { el.expenseError.textContent = '渡した相手をえらんでください。'; return; }
+  // 渡した相手は9月分から。8月までは人数と金額だけで記録できます
+  if (kind.who && catchWhoNeeded(d) && !who) {
+    el.expenseError.textContent = '渡した相手をえらんでください。';
+    return;
+  }
   if (!label) { el.expenseError.textContent = '内容を入れてください。'; return; }
   if (!y || y <= 0) { el.expenseError.textContent = '金額を入れてください。'; return; }
 
@@ -1240,7 +1261,7 @@ function catchByStore() {
     if (!map.has(id)) map.set(id, { id, list: [], people: 0, yen: 0 });
     return map.get(id);
   };
-  CATCH_STORES.forEach(add);                 // 0人の月でも行を出すため、先に並べておく
+  catchStoreIds().forEach(add);              // 0人の月でも行を出すため、先に並べておく
   entries.forEach((e) => {
     const row = add(e.store || '');
     row.list.push(e);
@@ -1435,7 +1456,7 @@ function renderCatchRank() {
     el.rankFilter.appendChild(b);
   };
   chip('', '全店舗');
-  CATCH_STORES.forEach((id) => chip(id, getStore(id).name));
+  catchStoreIds().forEach((id) => chip(id, getStore(id).name));
 
   /* ---- 順位 ---- */
   el.rankRows.innerHTML = '';
@@ -4898,6 +4919,9 @@ function bindEvents() {
   });
   /* 渡した相手で「その他」をえらんだら、名前を書く欄を出す */
   el.expWho.addEventListener('change', renderExpenseForm);
+  /* 日付を動かすと「渡した相手」の要る・要らないが変わります（9月分から） */
+  el.expDate.addEventListener('change', renderExpenseForm);
+  el.expDate.addEventListener('input', renderExpenseForm);
   /* まとめた行を開いた「キャッチの明細」 */
   el.catchDetailModal.querySelectorAll('[data-close-catch-detail]').forEach((n) =>
     n.addEventListener('click', closeCatchDetail)
