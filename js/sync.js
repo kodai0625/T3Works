@@ -178,6 +178,7 @@ const Sync = {
       if (settings.weeklies) localStorage.setItem(Weeklies._key, JSON.stringify(settings.weeklies));
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
       if (settings.drivers) localStorage.setItem(Drivers._key, JSON.stringify(settings.drivers));
+      if (settings.catchStaff) localStorage.setItem(CatchStaff._key, JSON.stringify(settings.catchStaff));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
     }
@@ -346,6 +347,13 @@ function summaryFor(key) {
   Drivers.saveFromText = function (text) {
     const names = _saveDrivers(text);
     Sync.enqueue({ t: 'setting', n: 'drivers', v: names });
+    return names;
+  };
+
+  const _saveCatch = CatchStaff.saveFromText.bind(CatchStaff);
+  CatchStaff.saveFromText = function (text) {
+    const names = _saveCatch(text);
+    Sync.enqueue({ t: 'setting', n: 'catchStaff', v: names });
     return names;
   };
 

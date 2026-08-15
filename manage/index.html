@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=516dcc0f">
+<link rel="stylesheet" href="../css/style.css?v=557de634">
 <link rel="stylesheet" href="css/admin.css?v=234f2929">
-<meta name="app-version" content="2c11aba6">
+<meta name="app-version" content="e828fb48">
 </head>
 <body class="no-daytabs">
 
@@ -66,6 +66,26 @@
     <div class="admin-actions">
       <button type="button" class="btn btn--primary" id="saveStaff">担当者を保存</button>
       <span class="admin-saved is-hidden" id="staffSaved">保存しました</span>
+    </div>
+  </section>
+
+  <!-- ===== キャッチをする人（全店舗で共通） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">キャッチをする人</h2>
+      <span class="admin-count" id="catchStaffCount"></span>
+    </div>
+    <p class="admin-note">
+      1行に1人。現金支払管理表で<b>「キャッチ」</b>をえらんだときの、
+      <b>「渡した相手」</b>のプルダウンに この順番で並びます。全店舗で共通です。<br>
+      クローズの担当者とは別のリストです（あちらは社員、こちらはアルバイト）。<br>
+      名前を消しても、その人の<b>過去の記録は残ります</b>。
+    </p>
+    <textarea id="catchStaffInput" class="field__input field__input--area" rows="12"
+      placeholder="（まだ登録していません）&#10;1行に1人ずつ書いてください"></textarea>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveCatchStaff">名前を保存</button>
+      <span class="admin-saved is-hidden" id="catchStaffSaved">保存しました</span>
     </div>
   </section>
 
@@ -331,14 +351,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=11ffbe9e"></script>
-<script src="../js/storage.js?v=c163d4c1"></script>
-<script src="../js/sync.js?v=a633c4c7"></script>
+<script src="../js/config.js?v=3a5dc972"></script>
+<script src="../js/storage.js?v=eeb1200d"></script>
+<script src="../js/sync.js?v=02349b0d"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=56f6add9"></script>
+<script src="js/admin.js?v=910f6cbe"></script>
 </body>
 </html>

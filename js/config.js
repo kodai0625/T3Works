@@ -939,12 +939,14 @@ const EXPENSE_STORE = '_expense';
  *   name  : ボタンに出る文字
  *   store : true … どの店舗かをえらぶ
  *   people: true … 何人かを入れる（キャッチ用）
+ *   who   : true … 誰に渡したかをえらぶ（キャッチ用）
  *   free  : true … 内容を自由に書く
  */
 const EXPENSE_KINDS = [
   { id: 'parking', name: '駐車場代' },
   { id: 'buy',     name: '買い出し',   store: true },
-  { id: 'catch',   name: 'キャッチ',   store: true, people: true },
+  // who … 誰に渡したかをえらぶ（キャッチだけ）
+  { id: 'catch',   name: 'キャッチ',   store: true, people: true, who: true },
   { id: 'change',  name: '両替手数料' },
   { id: 'other',   name: 'その他',     free: true },
 ];
@@ -1000,6 +1002,18 @@ const SETTLE_ACCOUNTS = ['GMO支払い用'];
  * 書いていない店舗でも、記録があればその下に足して出します。
  */
 const CATCH_STORES = ['kojare', 'sumimaro', 'chacoru', 'popo', 'oiden'];
+
+/**
+ * キャッチをしてくれるアルバイトの名前（初期値）
+ *
+ * 現金支払管理表で「キャッチ」をえらんだときに、
+ * 「誰に渡したか」のプルダウンに並びます。全店舗で共通です。
+ * ★中身はマネージの「キャッチをする人」で登録します（ここは空のままでOK）。
+ */
+const CATCH_STAFF = [];
+
+/** プルダウンで、リストに無い人を書くときの目印 */
+const CATCH_OTHER = '__other__';
 
 /* ------------------------------------------------------------
  *  会議資料の議事録

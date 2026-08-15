@@ -81,6 +81,9 @@ const el = {
   catchSummary: $('catchSummary'), catchTotals: $('catchTotals'), catchList: $('catchList'),
   catchFoot: $('catchFoot'), catchPeopleTotal: $('catchPeopleTotal'),
   catchYenTotal: $('catchYenTotal'),
+  rankCount: $('rankCount'), rankFilter: $('rankFilter'),
+  rankRows: $('rankRows'), rankFoot: $('rankFoot'), rankNote: $('rankNote'),
+  rankPie: $('rankPie'), rankPieBox: $('rankPieBox'),
   viewSettle: $('viewSettle'), settleYear: $('settleYear'), settleSummary: $('settleSummary'),
   settleLockBtn: $('settleLockBtn'),
   settleRows: $('settleRows'), settleFoot: $('settleFoot'),
@@ -102,6 +105,7 @@ const el = {
   meetingGoalNote: $('meetingGoalNote'),
   meetingNotes: $('meetingNotes'), meetingNoteCount: $('meetingNoteCount'),
   expStoreField: $('expStoreField'), expStores: $('expStores'),
+  expWhoField: $('expWhoField'), expWho: $('expWho'), expWhoFree: $('expWhoFree'),
   expPeopleField: $('expPeopleField'), expPeople: $('expPeople'),
   expFreeField: $('expFreeField'),
   expReceiptSeg: $('expReceipt'), expenseError: $('expenseError'),
@@ -954,6 +958,23 @@ function openExpenseForm(entry) {
   el.expLabel.value = '';
   el.expYen.value = expEditing ? expEditing.yen : '';
   el.expPeople.value = expEditing && expEditing.people ? expEditing.people : '';
+
+  /* 渡した相手（キャッチのとき）。リストに無い人は「その他」で名前を書きます */
+  const who = expEditing ? (expEditing.who || '') : '';
+  const catchNames = CatchStaff.list();
+  el.expWho.innerHTML = '<option value="">選んでください</option>';
+  catchNames.forEach((n) => {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    el.expWho.appendChild(o);
+  });
+  const otherOpt = document.createElement('option');
+  otherOpt.value = CATCH_OTHER;
+  otherOpt.textContent = 'その他（名前を書く）';
+  el.expWho.appendChild(otherOpt);
+  const knownWho = who && catchNames.includes(who);
+  el.expWho.value = knownWho ? who : (who ? CATCH_OTHER : '');
+  el.expWhoFree.value = knownWho ? '' : who;
   el.expenseError.textContent = '';
   expReceipt = expEditing ? !!expEditing.receipt : true;
   expKind = expEditing ? (expEditing.kind || '') : '';
@@ -1018,7 +1039,9 @@ function renderExpenseForm() {
 
   el.expStoreField.classList.toggle('is-hidden', !(kind && kind.store));
   el.expPeopleField.classList.toggle('is-hidden', !(kind && kind.people));
+  el.expWhoField.classList.toggle('is-hidden', !(kind && kind.who));
   el.expFreeField.classList.toggle('is-hidden', !(kind && kind.free));
+  el.expWhoFree.classList.toggle('is-hidden', el.expWho.value !== CATCH_OTHER);
 }
 
 function renderReceiptSeg() {
@@ -1035,12 +1058,14 @@ function saveExpense() {
   const people = Math.round(Number(toHalfWidthNumber(el.expPeople.value)));
   const y = Math.round(Number(toHalfWidthNumber(el.expYen.value)));
   const label = expenseLabelOf(expKind, expStore, people, el.expLabel.value);
+  const who = el.expWho.value === CATCH_OTHER ? el.expWhoFree.value.trim() : el.expWho.value;
 
   if (!d) { el.expenseError.textContent = '支払った日を入れてください。'; return; }
   if (!by) { el.expenseError.textContent = '立て替えた人を選んでください。'; return; }
   if (!kind) { el.expenseError.textContent = '支払い項目をえらんでください。'; return; }
   if (kind.store && !expStore) { el.expenseError.textContent = 'どの店舗かをえらんでください。'; return; }
   if (kind.people && (!people || people <= 0)) { el.expenseError.textContent = '人数を入れてください。'; return; }
+  if (kind.who && !who) { el.expenseError.textContent = '渡した相手をえらんでください。'; return; }
   if (!label) { el.expenseError.textContent = '内容を入れてください。'; return; }
   if (!y || y <= 0) { el.expenseError.textContent = '金額を入れてください。'; return; }
 
@@ -1060,6 +1085,7 @@ function saveExpense() {
     done: true, d, by, label, yen: y, receipt: expReceipt,
     // あとから店舗ごとに集計できるよう、えらんだ内容もそのまま残します
     kind: expKind, store: expStore || '', people: kind.people ? people : 0,
+    who: kind.who ? who : '',
   });
 
   // 入れた月を表示する（先月分を入れたときも、その場で確かめられます）
@@ -1096,7 +1122,263 @@ function catchByStore() {
   return [...map.values()].filter((r) => r.id || r.list.length);
 }
 
+/* ------------------------------------------------------------
+ *  キャッチのランキング
+ *
+ *  「誰に いくら渡したか」で数えます。相手は現金支払管理表の
+ *  キャッチの記録に入っている who です。
+ * ---------------------------------------------------------- */
+
+/** ランキングを「この月」で見るか「すべて」で見るか */
+let rankRange = 'near';
+/** 店舗でしぼる（空なら全店舗＝会社ぜんぶ） */
+let rankFilter = '';
+
+/** キャッチの記録を集めます（すべてのときは、入っている月を全部読みます） */
+function catchEntriesFor(range) {
+  if (range !== 'all') {
+    return expenseEntries(expenseRec()).filter((e) => e.kind === 'catch');
+  }
+  const dump = Store.adapter.dump();
+  const out = [];
+  Object.keys(dump).forEach((key) => {
+    if (!key.startsWith(EXPENSE_STORE + '/')) return;
+    const items = (dump[key] || {}).items || {};
+    Object.keys(items).forEach((id) => {
+      const v = items[id];
+      if (v && v.yen && v.kind === 'catch') out.push({ id, ...v });
+    });
+  });
+  return out;
+}
+
+/** 人ごとに足して、金額の多い順に並べます */
+function catchRanking(range, storeId) {
+  const map = new Map();
+  catchEntriesFor(range)
+    .filter((e) => !storeId || e.store === storeId)
+    .forEach((e) => {
+      const name = (e.who || '').trim() || '（相手なし）';
+      if (!map.has(name)) map.set(name, { name, people: 0, yen: 0, count: 0 });
+      const r = map.get(name);
+      r.people += Number(e.people) || 0;
+      r.yen += Number(e.yen) || 0;
+      r.count += 1;
+    });
+  return [...map.values()].sort((a, b) => b.yen - a.yen || b.people - a.people
+    || a.name.localeCompare(b.name, 'ja'));
+}
+
+/* 円グラフと帯の色。上位8人まで色を分けて、それより下は灰色にまとめます。
+   明るい画面でも暗い画面でも読める明るさにそろえてあります */
+const RANK_COLORS = ['#2f9e6e', '#3d7fd6', '#e0892c', '#9a63cf', '#d1566d',
+  '#2fa3b5', '#8c9a35', '#b4713f'];
+const RANK_REST_COLOR = '#98a2ac';
+const RANK_TOP = 8;
+
+function rankColor(i) { return i < RANK_TOP ? RANK_COLORS[i] : RANK_REST_COLOR; }
+
+/** 円グラフに出す名前。長すぎると絵からはみ出すので、みじかくします */
+function rankShortName(name) {
+  return name.length > 6 ? `${name.slice(0, 5)}…` : name;
+}
+
+/** 金額の割合を、まんなかに合計を出した円グラフ（ドーナツ）にします */
+function renderRankPie(list, total) {
+  el.rankPie.classList.toggle('is-hidden', !total);
+  if (!total) { el.rankPieBox.innerHTML = ''; return; }
+
+  // 上位8人はそのまま。9人目からは「ほか」にひとまとめ
+  const parts = list.slice(0, RANK_TOP).map((r, i) => ({
+    name: r.name, yen: r.yen, color: RANK_COLORS[i],
+  }));
+  const restYen = list.slice(RANK_TOP).reduce((t, r) => t + r.yen, 0);
+  if (restYen) {
+    parts.push({ name: `ほか${list.length - RANK_TOP}人`, yen: restYen, color: RANK_REST_COLOR });
+  }
+
+  /* 輪のかたち。まわりに名前を出すので、横長の絵にしています */
+  const VW = 220, VH = 158;                 // 絵ぜんたいの大きさ
+  const CX = 110, CY = 79;                  // 輪のまんなか
+  const R = 46, BAND = 17;                  // 半径と、輪の太さ
+  const OUT = R + BAND / 2;                 // 輪の外がわ
+  const C = 2 * Math.PI * R;
+  const gap = parts.length > 1 ? C * 0.008 : 0;   // 色と色のあいだの細いすき間
+
+  let acc = 0;
+  const marks = [];
+  const arcs = parts.map((p) => {
+    const f = p.yen / total;
+    // その色のまん中の向き（12時から時計まわり）
+    marks.push({ ...p, f, mid: (acc + f / 2) * 2 * Math.PI - Math.PI / 2 });
+    const len = f * C;
+    const draw = Math.max(len - gap, 0.6);
+    const off = -acc * C;
+    acc += f;
+    return `<circle class="rank-pie__arc" cx="${CX}" cy="${CY}" r="${R}" stroke="${p.color}"
+        stroke-width="${BAND}"
+        stroke-dasharray="${draw.toFixed(2)} ${(C - draw).toFixed(2)}"
+        stroke-dashoffset="${off.toFixed(2)}" transform="rotate(-90 ${CX} ${CY})"></circle>`;
+  }).join('');
+
+  /* ---- まわりに出す名前。細すぎる色は出しません（重なって読めなくなるため） ---- */
+  const labels = marks.filter((m) => m.f >= 0.015);
+  const right = [], left = [];
+  labels.forEach((m) => {
+    m.dir = Math.cos(m.mid) >= 0 ? 1 : -1;
+    m.y0 = CY + (OUT + 7) * Math.sin(m.mid);
+    (m.dir > 0 ? right : left).push(m);
+  });
+  // 上から順にならべ、近すぎるものは下へずらして重なりを防ぎます
+  const STEP = 12, TOP = 11, BOTTOM = VH - 9;
+  [right, left].forEach((side) => {
+    side.sort((a, b) => a.y0 - b.y0);
+    let y = TOP;
+    side.forEach((m) => { m.y = Math.max(m.y0, y); y = m.y + STEP; });
+    const over = side.length ? side[side.length - 1].y - BOTTOM : 0;
+    if (over > 0) side.forEach((m) => { m.y = Math.max(m.y - over, TOP); });
+  });
+
+  const leads = labels.map((m) => {
+    const x0 = CX + OUT * Math.cos(m.mid), y0 = CY + OUT * Math.sin(m.mid);
+    const x1 = CX + (OUT + 6) * Math.cos(m.mid), y1 = CY + (OUT + 6) * Math.sin(m.mid);
+    const lx = CX + m.dir * 64;
+    return `<polyline class="rank-pie__lead" stroke="${m.color}"
+        points="${x0.toFixed(1)},${y0.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} `
+      + `${(lx - m.dir * 4).toFixed(1)},${m.y.toFixed(1)}"></polyline>`;
+  }).join('');
+
+  const texts = labels.map((m) => {
+    const nm = rankShortName(m.name);
+    // 長い名前は少し小さくして、絵からはみ出さないようにします
+    const fs = nm.length >= 6 ? 5.2 : nm.length >= 5 ? 6 : 7;
+    const lx = CX + m.dir * 64;
+    return `<text class="rank-pie__label" x="${lx}" y="${(m.y + 2.4).toFixed(1)}"
+        text-anchor="${m.dir > 0 ? 'start' : 'end'}" style="font-size:${fs}px">`
+      + '<tspan class="rank-pie__labelName"></tspan>'
+      + `<tspan class="rank-pie__labelPct" dx="2.5" style="font-size:${(fs * 0.82).toFixed(1)}px">`
+      + `${Math.round(m.f * 100)}%</tspan></text>`;
+  }).join('');
+
+  const people = list.reduce((t, r) => t + r.people, 0);
+  // まんなかの金額は、けたが増えたら小さくして輪からはみ出さないようにします
+  const fs = total >= 10000000 ? 9 : total >= 1000000 ? 10.5 : 12;
+  el.rankPieBox.innerHTML = `
+    <svg class="rank-pie__svg" viewBox="0 0 ${VW} ${VH}" role="img"
+         aria-label="渡した相手ごとの金額の割合">
+      <circle class="rank-pie__hole" cx="${CX}" cy="${CY}" r="${R}"
+              stroke-width="${BAND}"></circle>
+      ${arcs}
+      ${leads}
+      ${texts}
+      <text class="rank-pie__yen" x="${CX}" y="${CY - 1}" style="font-size:${fs}px">¥${total.toLocaleString('ja-JP')}</text>
+      <text class="rank-pie__people" x="${CX}" y="${CY + 10}">${people.toLocaleString('ja-JP')}名</text>
+    </svg>`;
+
+  // 名前はそのまま入れると危ないので、DOMで入れます
+  [...el.rankPieBox.querySelectorAll('.rank-pie__labelName')].forEach((t, i) => {
+    t.textContent = rankShortName(labels[i].name);
+  });
+  // マウスを乗せると、正しい名前と割合が出ます
+  [...el.rankPieBox.querySelectorAll('.rank-pie__arc')].forEach((c, i) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    t.textContent = `${parts[i].name}　${((parts[i].yen / total) * 100).toFixed(1)}%`;
+    c.appendChild(t);
+  });
+}
+
+function renderCatchRank() {
+  const all = catchRanking(rankRange, '');
+  const list = catchRanking(rankRange, rankFilter);
+
+  el.rankCount.textContent = list.length ? `（${list.length}人）` : '';
+
+  /* ---- 店舗でしぼるボタン ---- */
+  el.rankFilter.innerHTML = '';
+  const chip = (id, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'exp-chip' + (rankFilter === id ? ' is-on' : '');
+    b.dataset.store = id;
+    if (id) b.style.setProperty('--pick-color', getStore(id).color);
+    b.textContent = label;
+    b.addEventListener('click', () => { rankFilter = id; renderCatchRank(); });
+    el.rankFilter.appendChild(b);
+  };
+  chip('', '全店舗');
+  CATCH_STORES.forEach((id) => chip(id, getStore(id).name));
+
+  /* ---- 順位 ---- */
+  el.rankRows.innerHTML = '';
+  if (!list.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="exp-total__name" colspan="5">キャッチの記録がありません。</td>';
+    el.rankRows.appendChild(tr);
+    el.rankFoot.innerHTML = '';
+    renderRankPie([], 0);
+    return;
+  }
+
+  const total = list.reduce((t, r) => t + r.yen, 0);
+
+  // 金額が同じなら同じ順位にします
+  let rank = 0, prev = null;
+  list.forEach((r, i) => {
+    if (prev === null || r.yen !== prev) rank = i + 1;
+    prev = r.yen;
+
+    const tr = document.createElement('tr');
+    if (rank <= 3) tr.classList.add('is-top', 'is-top' + rank);
+
+    const no = document.createElement('td');
+    no.className = 'rank-no';
+    no.textContent = rank;
+
+    const name = document.createElement('td');
+    name.className = 'exp-total__name rank-name';
+    const dot = document.createElement('span');
+    dot.className = 'rank-dot';
+    dot.style.background = rankColor(i);
+    name.append(dot, document.createTextNode(r.name));
+
+    const people = document.createElement('td');
+    people.className = 'exp-total__yen';
+    people.innerHTML = r.people ? `${r.people.toLocaleString('ja-JP')}<span class="ledger-unit">名</span>` : '—';
+
+    const yen = document.createElement('td');
+    yen.className = 'exp-total__yen';
+    yen.innerHTML = yenMarkup(r.yen);
+
+    /* 帯の長さ＝全体に占める割合。表の右にあく場所を、この帯でうめます */
+    const pct = total ? (r.yen / total) * 100 : 0;
+    const share = document.createElement('td');
+    share.className = 'rank-share';
+    share.innerHTML = '<span class="rank-share__in">'
+      + `<span class="rank-bar"><i style="width:${pct.toFixed(1)}%;`
+      + `background:${rankColor(i)}"></i></span>`
+      + `<b class="rank-pct">${pct.toFixed(1)}<span class="ledger-unit">%</span></b></span>`;
+
+    tr.append(no, name, people, yen, share);
+    el.rankRows.appendChild(tr);
+  });
+
+  /* ---- 合計 ---- */
+  const people = list.reduce((t, r) => t + r.people, 0);
+  el.rankFoot.innerHTML =
+    '<tr class="ledger-foot"><td class="exp-total__name" colspan="2">合計</td>'
+    + `<td class="exp-total__yen">${people.toLocaleString('ja-JP')}<span class="ledger-unit">名</span></td>`
+    + `<td class="exp-total__yen">${yenMarkup(total)}</td>`
+    + '<td class="rank-share"><span class="rank-share__in"><b class="rank-pct">100'
+    + '<span class="ledger-unit">%</span></b></span></td></tr>';
+
+  renderRankPie(list, total);
+
+  // 全店舗の人数と合わないときは、しぼっていることが分かるようにします
+  el.rankNote.classList.toggle('is-hidden', !all.length);
+}
+
 function renderCatch() {
+  renderCatchRank();
   const rows = catchByStore();
   const people = rows.reduce((t, r) => t + r.people, 0);
   const total = rows.reduce((t, r) => t + r.yen, 0);
@@ -1169,7 +1451,9 @@ function renderCatch() {
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
         '<span class="exp-row__label"></span>' +
         `<span class="exp-row__yen">${yenMarkup(e.yen)}</span>`;
-      li.querySelector('.exp-row__label').textContent = `${e.people || 0}名　${e.by || ''}`;
+      // 渡した相手 → 人数 → 立て替えた人 の順に出します
+      li.querySelector('.exp-row__label').textContent =
+        `${e.who ? e.who + '　' : ''}${e.people || 0}名${e.by ? '　立替 ' + e.by : ''}`;
       list.appendChild(li);
     });
     card.appendChild(list);
@@ -2856,7 +3140,11 @@ function renderWeekView() {
     th.innerHTML =
       `<span class="week-th__nth">${i + 1}週目</span>` +
       `<span class="week-th__range">${weekShortLabel(w)}〜${weekShortLabel(weekEndOf(w))}</span>`;
-    if (w === nowWeek) th.classList.add('is-now');
+    if (w === nowWeek) {
+      th.classList.add('is-now');
+      // 左右どちらが今週かが ひと目で分かるように札を出します
+      th.insertAdjacentHTML('beforeend', '<span class="week-th__now">今週</span>');
+    }
     th.title = weekRangeLabel(w);
     htr.appendChild(th);
   });
@@ -4062,6 +4350,16 @@ function bindEvents() {
   $('catchBack').addEventListener('click', goHome);
   $('catchPrev').addEventListener('click', () => shiftMonth(-1));
   $('catchNext').addEventListener('click', () => shiftMonth(1));
+  /* ランキングの範囲を切り替える */
+  $('rankRange').addEventListener('click', (e) => {
+    const b = e.target.closest('.seg__btn');
+    if (!b) return;
+    rankRange = b.dataset.range;
+    [...$('rankRange').children].forEach((n) => n.classList.toggle('is-on', n === b));
+    renderCatchRank();
+  });
+  /* 渡した相手で「その他」をえらんだら、名前を書く欄を出す */
+  el.expWho.addEventListener('change', renderExpenseForm);
   $('catchThisMonth').addEventListener('click', () => {
     state.y = TODAY.y; state.m = TODAY.m;
     writeHash(); render();

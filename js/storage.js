@@ -349,6 +349,38 @@ const Staff = {
   },
 };
 
+/* -------- キャッチをする人のリスト --------
+ *
+ *  現金支払管理表で「キャッチ」をえらんだときの、
+ *  「誰に渡したか」のプルダウンです。全店舗で共通で、マネージで編集します。
+ *  名前を消しても、過去に入れた記録はその名前のまま残ります。
+ */
+const CatchStaff = {
+  _key: APP.storageKey + ':catchStaff',
+
+  /** 設定で保存されたリスト。未設定・壊れている場合は config.js の CATCH_STAFF を使う */
+  list() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
+      if (Array.isArray(saved)) return saved;
+    } catch (e) {
+      /* 壊れていたら初期値に戻す */
+    }
+    return CATCH_STAFF.slice();
+  },
+
+  /** 改行区切りの文字列から保存（空行と重複は除く） */
+  saveFromText(text) {
+    const names = [];
+    text.split('\n').forEach((line) => {
+      const name = line.trim();
+      if (name && !names.includes(name)) names.push(name);
+    });
+    localStorage.setItem(this._key, JSON.stringify(names));
+    return names;
+  },
+};
+
 /* -------- 配達する人のリスト（交通費アプリのプルダウン） --------
  *
  *  クローズの担当者（Staff）とは別物です。

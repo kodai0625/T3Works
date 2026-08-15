@@ -835,10 +835,27 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-size: 11px; font-weight: 600; color: var(--text-weak);
   font-variant-numeric: tabular-nums; margin-left: 5px;
 }
+/* 今週の列は、見出しからいちばん下まで枠で囲んで はっきり分けます
+   （うすい色だけでは、左右どちらが今週か分かりにくかったため） */
 .week-table thead th.is-now {
   background: color-mix(in srgb, var(--store) 26%, var(--surface)); color: var(--text);
 }
 .week-table thead th.is-now .week-th__range { color: var(--text-sub); }
+.week-table thead th.is-now,
+.week-table tbody .week-cell.is-now:not(.week-cell--span) {
+  border-left: 2px solid var(--store);
+  border-right: 2px solid var(--store);
+}
+.week-table thead th.is-now { border-top: 2px solid var(--store); }
+.week-table tbody tr:last-child .week-cell.is-now:not(.week-cell--span) {
+  border-bottom: 2px solid var(--store);
+}
+/* 見出しに出す「今週」の札 */
+.week-th__now {
+  display: inline-block; margin-left: 5px; padding: 1px 6px;
+  border-radius: 999px; background: var(--store); color: #fff;
+  font-size: 10px; font-weight: 800; vertical-align: 1px;
+}
 
 .week-table .col-item {
   position: sticky; left: 0; z-index: 3;
@@ -1739,6 +1756,92 @@ body.is-money .btn--primary.btn--danger {
 }
 .report-item__miss:active { background: color-mix(in srgb, var(--ng) 18%, transparent); }
 
+/* -------- キャッチのランキング -------- */
+.catch-rank { margin-top: 4px; }
+/* ★2列（.ledger-page）の3つ目の子になるので、折り返しを許すこと。
+     許さないと、左右の2列といっしょに横一列に押し込まれて潰れます */
+@media (min-width: 800px) {
+  .view--catch.ledger-page { flex-wrap: wrap; }
+  .view--catch .ledger-col { flex: 1 1 calc(50% - 11px); }
+  .catch-rank { flex: 1 1 100%; margin-top: 10px; }
+}
+/* 表と円グラフを左右にならべます（せまいときは上下） */
+.rank-body { display: grid; gap: 12px; align-items: start; }
+@media (min-width: 980px) {
+  .rank-body { grid-template-columns: minmax(0, 1fr) minmax(250px, 366px); gap: 16px; }
+}
+.rank-table .rank-no {
+  width: 1%; white-space: nowrap; text-align: center;
+  font-size: 13px; font-weight: 800; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+/* ★名前や数字の列は中身の幅だけにして、あまった幅は「割合」の列に回します。
+     こうしないと名前の列だけがのびて、右に大きなすき間ができます */
+.rank-table td.rank-name,
+.rank-table td.exp-total__yen { width: 1%; white-space: nowrap; }
+/* 「名前」の見出しは、下の名前と同じ左そろえに */
+.rank-table thead th:nth-child(2) { text-align: left; }
+.rank-table td.rank-share,
+.rank-table th:last-child { width: 40%; }
+.rank-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  margin-right: 8px; vertical-align: -1px;
+}
+.rank-share__in { display: flex; align-items: center; gap: 10px; min-width: 116px; }
+.rank-bar {
+  flex: 1 1 auto; min-width: 40px; height: 9px; border-radius: 5px; overflow: hidden;
+  background: color-mix(in srgb, var(--text-weak) 16%, transparent);
+}
+.rank-bar > i { display: block; height: 100%; min-width: 3px; border-radius: 5px; }
+.rank-pct {
+  flex: 0 0 auto; margin-left: auto; width: 52px; text-align: right;
+  font-size: 13px; font-weight: 800; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+/* 円グラフ。まんなかに合計を出します */
+.rank-pie {
+  margin: 0; padding: 14px 12px 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.rank-pie.is-hidden { display: none; }
+.rank-pie__box { width: 100%; max-width: 340px; }
+.rank-pie__svg { display: block; width: 100%; height: auto; }
+.rank-pie__hole {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-weak) 13%, transparent);
+}
+.rank-pie__arc { fill: none; }
+/* 名前と、色から名前へ引く細い線 */
+.rank-pie__lead { fill: none; stroke-width: 1.1; opacity: .75; }
+.rank-pie__label { fill: var(--text); font-weight: 700; }
+.rank-pie__labelPct { fill: var(--text-sub); font-weight: 700; }
+.rank-pie__yen {
+  text-anchor: middle; fill: var(--text);
+  font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.rank-pie__people {
+  text-anchor: middle; fill: var(--text-sub); font-size: 8.5px; font-weight: 700;
+}
+.rank-pie__cap { font-size: 12px; font-weight: 700; color: var(--text-sub); }
+/* スマホでは、はみ出さないように帯まわりをつめます */
+@media (max-width: 560px) {
+  .rank-table th, .rank-table td { padding-left: 7px; padding-right: 7px; }
+  .rank-share__in { gap: 7px; min-width: 84px; }
+  .rank-bar { min-width: 24px; }
+  .rank-pct { width: 44px; font-size: 12px; }
+}
+/* 上位3人は、順位の数字に色を付けます */
+.rank-table tr.is-top1 .rank-no { color: #c9971a; }
+.rank-table tr.is-top2 .rank-no { color: #8d949e; }
+.rank-table tr.is-top3 .rank-no { color: #a9713f; }
+.rank-table tr.is-top .exp-total__name { font-weight: 800; }
+.rank-table tr.is-top1 .exp-total__yen { color: var(--money); }
+/* 「その他」をえらんだときだけ出る、名前を書く欄 */
+.exp-who-free { margin-top: 8px; }
+.exp-who-free.is-hidden { display: none; }
+
 /* -------- ミスの一覧 -------- */
 /* 店舗でしぼるボタン。件数も出るので、どこが多いかが分かります */
 .miss-filter { margin-bottom: 8px; }
@@ -2086,13 +2189,14 @@ body.is-wide .page { max-width: 1700px; }
 .meeting-cum-table th, .meeting-cum-table td {
   padding-top: 13px; padding-bottom: 13px; padding-left: 14px; padding-right: 14px;
 }
-.meeting-cum-table .mt-main { font-size: 24px; }
+/* 今年・去年の金額は「差」の数字と同じ大きさにそろえます */
+.meeting-cum-table td.mt-cell, .meeting-cum-table .mt-main { font-size: 24px; }
 .meeting-cum-table .mt-sub { font-size: 15px; margin-top: 2px; }
 .meeting-cum-table .meeting-td-name { font-size: 17px; }
 .meeting-cum-table .meeting-head-sub th { font-size: 14.5px; }
 .meeting-cum-table th, .meeting-cum-table td { padding-left: 20px; padding-right: 20px; }
 @media (max-width: 900px) {
-  .meeting-cum-table .mt-main { font-size: 16px; }
+  .meeting-cum-table td.mt-cell, .meeting-cum-table .mt-main { font-size: 16px; }
   .meeting-cum-table .mt-sub { font-size: 12.5px; }
   .meeting-cum-table .meeting-td-name { font-size: 14px; }
   .meeting-cum-table th, .meeting-cum-table td {

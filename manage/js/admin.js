@@ -40,6 +40,7 @@ const el = {};
   'weeklyStoreName', 'weeklyCount', 'weeklyEditor',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
+  'catchStaffInput', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
@@ -997,6 +998,19 @@ function renderDrivers() {
   el.driveImportNote.textContent = '';
 }
 
+function renderCatchStaff() {
+  const names = CatchStaff.list();
+  el.catchStaffInput.value = names.join('\n');
+  el.catchStaffCount.textContent = names.length ? `${names.length}人` : 'まだ登録なし';
+}
+
+function saveCatchStaff() {
+  CatchStaff.saveFromText(el.catchStaffInput.value);
+  renderCatchStaff();
+  el.catchStaffSaved.classList.remove('is-hidden');
+  setTimeout(() => el.catchStaffSaved.classList.add('is-hidden'), 2500);
+}
+
 function saveDrivers() {
   Drivers.saveFromText(el.driversInput.value);
   renderDrivers();
@@ -1413,6 +1427,7 @@ function renderAll() {
     document.title = 'T3 Works Manage';
     renderStorePicker();
     renderStaff();
+    renderCatchStaff();
     renderSyncStatus();
     return;
   }
@@ -1539,6 +1554,7 @@ function bindEvents() {
     n.addEventListener('click', () => el.pauseModal.classList.add('is-hidden')));
   el.saveStaff.addEventListener('click', saveStaff);
   el.saveDrivers.addEventListener('click', saveDrivers);
+  el.saveCatchStaff.addEventListener('click', saveCatchStaff);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));
   el.expImportLast.addEventListener('click', () => importExpenseRecords(true));
