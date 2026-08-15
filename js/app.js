@@ -94,6 +94,7 @@ const el = {
   viewMeeting: $('viewMeeting'), meetingMonth: $('meetingMonth'),
   meetingSummary: $('meetingSummary'), meetingMonths: $('meetingMonths'),
   meetingLast: $('meetingLast'), meetingLastTitle: $('meetingLastTitle'),
+  meetingNotesOf: $('meetingNotesOf'),
   meetingLastList: $('meetingLastList'),
   meetingBar: $('meetingBar'), meetingModeSeg: $('meetingMode'),
   nippouBox: $('nippouBox'), nippouPull: $('nippouPull'),
@@ -101,6 +102,7 @@ const el = {
   utilEdit: $('utilEdit'), utilModal: $('utilModal'), utilYear: $('utilYear'),
   utilRows: $('utilRows'), utilSave: $('utilSave'),
   meetingTableWrap: $('meetingTableWrap'), meetingScrollHint: $('meetingScrollHint'),
+  meetingCatchWarn: $('meetingCatchWarn'),
   meetingHead: $('meetingHead'), meetingBody: $('meetingBody'),
   meetingCumWrap: $('meetingCumWrap'), meetingCumBody: $('meetingCumBody'),
   meetingCumFoot: $('meetingCumFoot'), meetingCumTitle: $('meetingCumTitle'),
@@ -1104,7 +1106,7 @@ function saveExpense() {
 /* ------------------------------------------------------------
  *  キャッチ集計
  *
- *  現金支払管理表に入れた「キャッチ」だけを取り出して、
+ *  現金支払い管理表に入れた「キャッチ」だけを取り出して、
  *  その月に 店舗ごとで 何人つれてきて いくら払ったか を出します。
  * ---------------------------------------------------------- */
 function catchByStore() {
@@ -1129,7 +1131,7 @@ function catchByStore() {
 /* ------------------------------------------------------------
  *  キャッチのランキング
  *
- *  「誰に いくら渡したか」で数えます。相手は現金支払管理表の
+ *  「誰に いくら渡したか」で数えます。相手は現金支払い管理表の
  *  キャッチの記録に入っている who です。
  * ---------------------------------------------------------- */
 
@@ -1469,12 +1471,12 @@ function renderCatch() {
  *  精算履歴（経理担当だけ・T3 Works Mine にしか出しません）
  *
  *  その月分をまとめて会社の口座から払った記録です。
- *  金額はここでは持たず、現金支払管理表から毎回計算します。
+ *  金額はここでは持たず、現金支払い管理表から毎回計算します。
  *  スプレッドシートで  ='1月'!C17  と参照していたのと同じで、
  *  あとから明細を直せば、この表の金額も勝手に付いてきます。
  * ============================================================ */
 
-/** その月の立替の合計（現金支払管理表の合計と同じ数字） */
+/** その月の立替の合計（現金支払い管理表の合計と同じ数字） */
 function expenseTotalOf(y, m) {
   const rec = Store.getDay(EXPENSE_STORE, expenseMonthKey(y, m));
   return expenseEntries(rec).reduce((t, e) => t + (Number(e.yen) || 0), 0);
@@ -1707,7 +1709,7 @@ async function clearSettle() {
  *               率・差・累計はここで計算します（もとのシートは月によって
  *               計算式がちがっていたので、そちらの率は使いません）。
  *    ・キャッチ … シートの数字ではなく、このアプリのキャッチ集計
- *               （現金支払管理表に入れた分）から拾います。
+ *               （現金支払い管理表に入れた分）から拾います。
  *    ・議事録 … _meeting/YYYY-MM に1つずつ入れます。表に直接書けます。
  * ============================================================ */
 
@@ -1789,7 +1791,7 @@ function meetingSum(rows) {
 
 /**
  * その月のキャッチ（店舗id → { yen, people }）
- * 現金支払管理表で「キャッチ」をえらんで入れた分を、店舗ごとに足します
+ * 現金支払い管理表で「キャッチ」をえらんで入れた分を、店舗ごとに足します
  * （キャッチ集計のページと同じ数字になります）
  */
 function meetingCatchOf(y, m) {
@@ -2084,7 +2086,11 @@ function promoteMeetingNoteBox(box, id, seq, no) {
  * ---------------------------------------------------------- */
 function renderMeeting() {
   const rec = meetingOf(state.y, state.m);
-  el.meetingMonth.textContent = `${state.y}年${state.m}月`;
+  // 「2026年6月」の右に「7月の会議」。どちらの月の話かを取り違えないためです
+  const heldText = meetingHeldText(state.y, state.m, state.y);
+  el.meetingNotesOf.textContent = `（${heldText}の会議）`;
+  el.meetingMonth.innerHTML = `${state.y}年${state.m}月`
+    + `<span class="meeting-held">${heldText}の会議</span>`;
 
   /* ---- その月の店舗ごとの数字を並べる ---- */
   const katch = meetingCatchOf(state.y, state.m);
@@ -2105,6 +2111,17 @@ function renderMeeting() {
     });
   }
   const has = list.length > 0;
+
+  /* キャッチは店舗ごとに数えるので、店舗が入っていない記録は
+     どの店舗にも出ません。埋もれないよう、ここで知らせます */
+  const loose = katch[''] || null;
+  el.meetingCatchWarn.classList.toggle('is-hidden', !(has && loose && loose.yen));
+  if (loose && loose.yen) {
+    el.meetingCatchWarn.textContent =
+      `店舗が入っていないキャッチが ${loose.people.toLocaleString('ja-JP')}名`
+      + `／¥${loose.yen.toLocaleString('ja-JP')} あります。`
+      + '現金支払い管理表でその記録に店舗を入れると、この表に出ます。';
+  }
 
   el.meetingSummary.textContent = has ? '' : 'この月の数字は、まだ入っていません。';
   el.meetingSummary.classList.toggle('is-hidden', has);
@@ -2137,7 +2154,10 @@ function renderMeetingMonths() {
     b.className = 'meeting-month';
     b.classList.toggle('is-on', m === state.m);
     b.classList.toggle('is-filled', !!meetingOf(state.y, m));
-    b.textContent = `${m}月`;
+    // 「6月」の下に「7月会議」。数字の月と会議の月を取り違えないためです
+    const h = meetingHeldMonth(state.y, m);
+    b.innerHTML = `<span class="meeting-month__m">${m}月</span>`
+      + `<span class="meeting-month__meet">${h.y === state.y ? '' : '翌'}${h.m}月会議</span>`;
     b.addEventListener('click', () => {
       flushMeetingNotes();
       state.m = m;
@@ -2146,6 +2166,23 @@ function renderMeetingMonths() {
     });
     el.meetingMonths.appendChild(b);
   }
+}
+
+/**
+ * その月の数字を見る会議は、翌月に開きます（6月の数字 → 7月の会議）。
+ * もとのスプレッドシートの「6月（7月会議用）」と同じ数え方です。
+ */
+function meetingHeldMonth(y, m) {
+  return m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
+}
+
+/**
+ * 会議の月の書き方。年をまたぐとき（12月の数字＝翌年1月の会議）だけ
+ * 年も書きます。12月と1月を取り違えないためです。
+ */
+function meetingHeldText(y, m, base) {
+  const h = meetingHeldMonth(y, m);
+  return h.y === base ? `${h.m}月` : `${h.y}年${h.m}月`;
 }
 
 /** 先月の会議で決まったこと。見出しの行だけを並べます */
@@ -2157,7 +2194,8 @@ function renderMeetingLast() {
   el.meetingLast.classList.toggle('is-hidden', !notes.length);
   if (!notes.length) return;
 
-  el.meetingLastTitle.textContent = `${m}月の会議で決まったこと`;
+  // 5月の数字は6月の会議で話しているので、会議の月で書きます
+  el.meetingLastTitle.textContent = `${meetingHeldText(y, m, state.y)}会議の議題`;
   el.meetingLastGoTo = { y, m };
   el.meetingLastList.innerHTML = '';
   notes.forEach((note, i) => {
@@ -2270,6 +2308,8 @@ function renderMeetingCum() {
  *  みんなの端末にも届きます。光熱費とキャッチは日報にないので触りません。
  * ---------------------------------------------------------- */
 let nippouBusy = false;
+/** 取り込みの結果を、どの月のものとして出しているか */
+let nippouShownKey = '';
 
 function renderNippou() {
   const folders = NippouFolders.all();
@@ -2278,6 +2318,12 @@ function renderNippou() {
     ? `${state.y}年${state.m}月と、${state.y - 1}年${state.m}月の日報を読みます（${n}店舗）`
     : 'マネージの「日報フォルダ」に登録すると使えます';
   el.nippouPull.disabled = !n || nippouBusy || !Sync.enabled();
+
+  // 別の月に移ったら、前の月の結果は消します（どの月の話か分からなくなるため）
+  if (nippouShownKey && nippouShownKey !== meetingMonthKey(state.y, state.m)) {
+    el.nippouResult.classList.add('is-hidden');
+    nippouShownKey = '';
+  }
 }
 
 async function pullNippou() {
@@ -2286,14 +2332,21 @@ async function pullNippou() {
   const targets = STORES.filter((s) => folders[s.id]);
   if (!targets.length) return;
 
+  /* ★頼んだときの年月を先に覚えます。
+     読むのに数秒かかるので、その間に月を切り替えられると、
+     覚えておかないと「いま開いている月」に入れてしまいます */
+  const y = state.y;
+  const m = state.m;
+  const key = meetingMonthKey(y, m);
+
   nippouBusy = true;
   el.nippouPull.disabled = true;
   el.nippouPull.textContent = '読んでいます…';
   el.nippouResult.classList.add('is-hidden');
 
   const res = await Sync.ask('nippou', {
-    y: state.y,
-    m: state.m,
+    y,
+    m,
     stores: targets.map((s) => ({
       id: s.id, folder: NippouFolders.idOf(s.id), cells: nippouCells(s.id),
     })),
@@ -2302,24 +2355,24 @@ async function pullNippou() {
   nippouBusy = false;
   el.nippouPull.textContent = '日報から取り込む';
 
-  const lines = [];
+  const lines = [{ head: true, text: `${y}年${m}月として取り込みました` }];
   if (!res.ok) {
     lines.push({ ok: false, text: res.error || '取り込めませんでした' });
   } else {
-    const key = meetingMonthKey(state.y, state.m);
     targets.forEach((s) => {
       const got = (res.stores || {})[s.id] || {};
       const val = {};
       const parts = [];
-      [['now', state.y], ['last', state.y - 1]].forEach(([side, year]) => {
+      [['now', y], ['last', y - 1]].forEach(([side, year]) => {
         const g = got[side];
         if (!g || g.error) { parts.push(`${year}年 ${(g && g.error) || '読めません'}`); return; }
         const o = {};
         NIPPOU_FIELDS.forEach((f) => { if (typeof g[f] === 'number') o[f] = g[f]; });
         // 売上が0の日報は、まだ書きこまれていないものとして入れません
-        if (!o.inc && !o.ex) { parts.push(`${year}年 まだ数字が入っていません`); return; }
+        if (!o.inc && !o.ex) { parts.push(`${g.name || year} まだ数字が入っていません`); return; }
         val[side] = o;
-        parts.push(`${year}年 ✓`);
+        // どのファイルを読んだかを出します（月がずれていないか、ここで分かります）
+        parts.push(`${g.name || `${year}年`} ✓`);
       });
       if (val.now || val.last) Store.setItem(MEETING_STORE, key, `num:${s.id}`, { value: val });
       lines.push({ ok: !!val.now, name: s.name, text: parts.join('　') });
@@ -2327,10 +2380,15 @@ async function pullNippou() {
     meetingSeq += 1;
   }
 
+  // 表を先に描き直してから結果を出します
+  // （月を切り替えていた場合、結果が消えてしまわないように）
+  renderMeeting();
+
+  nippouShownKey = key;
   el.nippouResult.innerHTML = '';
   lines.forEach((l) => {
     const li = document.createElement('li');
-    li.className = 'nippou__row' + (l.ok ? '' : ' is-ng');
+    li.className = 'nippou__row' + (l.head ? ' is-head' : '') + (l.ok === false ? ' is-ng' : '');
     if (l.name) {
       const b = document.createElement('b');
       b.textContent = l.name;
@@ -2340,7 +2398,6 @@ async function pullNippou() {
     el.nippouResult.appendChild(li);
   });
   el.nippouResult.classList.remove('is-hidden');
-  renderMeeting();
 }
 
 /* ------------------------------------------------------------

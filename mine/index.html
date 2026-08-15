@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=356fde5b">
-<meta name="app-version" content="d8282344">
+<link rel="stylesheet" href="../css/style.css?v=d19d2d30">
+<meta name="app-version" content="c8d82b05">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -65,21 +65,30 @@
     </div>
     <ul class="store-grid" id="storeGrid"></ul>
 
-    <!-- 店舗でも提出記録でもない「お金の話」なので、独立したかたまりにしています -->
-    <h2 class="stores-sub">お金の管理</h2>
-    <button type="button" class="stores-big-btn" id="storesExpenseBtn">
-      <span class="stores-big-btn__icon" aria-hidden="true">💴</span>
+    <!-- ===== T3Dining =====
+         店舗ごとの設定がいらない、会社ぜんぶの画面はここにまとめます。
+         左の線とアイコンの色で、何の仲間かが分かるようにしてあります。
+           ・お金のこと       … 緑（--money）  .stores-big-btn--money
+           ・バグるのこと     … バグるの色     .stores-big-btn--baguru
+           ・確認の記録       … 青             .stores-big-btn--check
+           ・これから増える分 … 新しい色を決めて、その仲間で使い回してください
+
+         ★並べる順番は「同じ仲間どうしを続けて」置くこと。
+           仲間の途中に別の色を挟むと、色分けの意味がなくなります -->
+    <h2 class="stores-sub">T3Dining</h2>
+    <button type="button" class="stores-big-btn stores-big-btn--check" id="storesReportBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">📋</span>
       <span class="stores-big-btn__text">
-        <span class="stores-big-btn__name">現金支払管理表</span>
-        <span class="stores-big-btn__sub">買い出しなどの立て替えを記録・精算する</span>
+        <span class="stores-big-btn__name">クローズの提出記録</span>
+        <span class="stores-big-btn__sub">どの店舗が出したか、カレンダーで見る</span>
       </span>
       <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
     </button>
-    <button type="button" class="stores-big-btn" id="storesCatchBtn">
-      <span class="stores-big-btn__icon" aria-hidden="true">📣</span>
+    <button type="button" class="stores-big-btn stores-big-btn--check" id="storesWeekAllBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">🧹</span>
       <span class="stores-big-btn__text">
-        <span class="stores-big-btn__name">キャッチ集計</span>
-        <span class="stores-big-btn__sub">店舗ごとに、何人つれてきて いくら払ったか</span>
+        <span class="stores-big-btn__name">週間掃除の達成状況</span>
+        <span class="stores-big-btn__sub">2週ごとの進み具合を、全店舗まとめて見る</span>
       </span>
       <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
     </button>
@@ -89,7 +98,7 @@
     <!-- ?from=mine … 配達記録の側で「マインから来た」と分かるようにする印。
          これが付いているときだけ、あちらにホームへ戻るボタンが出ます
          （店舗のタブレットから直接開いたときは出ません） -->
-    <a class="stores-big-btn mine-only" id="storesDriveBtn" href="../drive/?from=mine">
+    <a class="stores-big-btn stores-big-btn--baguru mine-only" id="storesDriveBtn" href="../drive/?from=mine">
       <span class="stores-big-btn__icon" aria-hidden="true">🛵</span>
       <span class="stores-big-btn__text">
         <span class="stores-big-btn__name">配達記録（バグる）</span>
@@ -97,9 +106,24 @@
       </span>
       <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
     </a>
+    <button type="button" class="stores-big-btn stores-big-btn--money" id="storesExpenseBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">💴</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">現金支払い管理表</span>
+        <span class="stores-big-btn__sub">買い出しなどの立て替えを記録・精算する</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </button>
+    <button type="button" class="stores-big-btn stores-big-btn--money" id="storesCatchBtn">
+      <span class="stores-big-btn__icon" aria-hidden="true">📣</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">キャッチ集計</span>
+        <span class="stores-big-btn__sub">店舗ごとに、何人つれてきて いくら払ったか</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </button>
 
-    <h2 class="stores-sub">全店舗をまとめて見る</h2>
-    <button type="button" class="stores-big-btn" id="storesMeetingBtn">
+    <button type="button" class="stores-big-btn stores-big-btn--money" id="storesMeetingBtn">
       <span class="stores-big-btn__icon" aria-hidden="true">📈</span>
       <span class="stores-big-btn__text">
         <span class="stores-big-btn__name">会議資料</span>
@@ -107,8 +131,6 @@
       </span>
       <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
     </button>
-    <button type="button" class="stores-report-btn" id="storesReportBtn">クローズの提出記録</button>
-    <button type="button" class="stores-report-btn" id="storesWeekAllBtn">週間掃除の達成状況</button>
   </section>
 
   <!-- ===== 業務選択（店舗をえらんだあとの画面） ===== -->
@@ -347,7 +369,7 @@
    <div class="ledger-col">
     <div class="report-head">
       <div class="report-head__row">
-        <h2 class="report-head__title">現金支払管理表</h2>
+        <h2 class="report-head__title">現金支払い管理表</h2>
         <button type="button" class="btn" id="expenseBack">店舗一覧に戻る</button>
       </div>
       <div class="report-nav">
@@ -410,9 +432,9 @@
   </section>
 
   <!-- ===== キャッチ集計 =====
-       現金支払管理表に入れた「キャッチ」だけを取り出して、
+       現金支払い管理表に入れた「キャッチ」だけを取り出して、
        店舗ごとに 人数・金額・1人あたり を出します -->
-  <!-- 現金支払管理表と同じく、幅があるときは2列に分けます -->
+  <!-- 現金支払い管理表と同じく、幅があるときは2列に分けます -->
   <section class="view view--catch is-hidden ledger-page" id="viewCatch">
    <div class="ledger-col">
     <div class="report-head">
@@ -450,7 +472,7 @@
     </div>
 
     <p class="expense-note">
-      現金支払管理表で<b>「キャッチ」</b>をえらんで入れた分が、ここに集まります。
+      現金支払い管理表で<b>「キャッチ」</b>をえらんで入れた分が、ここに集まります。
     </p>
    </div>
 
@@ -487,7 +509,7 @@
       </figure>
     </div>
     <p class="expense-note" id="rankNote">
-      現金支払管理表で<b>「キャッチ」</b>をえらんだときの<b>渡した相手</b>で数えています。<br>
+      現金支払い管理表で<b>「キャッチ」</b>をえらんだときの<b>渡した相手</b>で数えています。<br>
       相手を入れていない記録は<b>（相手なし）</b>にまとまります。
     </p>
    </div>
@@ -495,7 +517,7 @@
 
   <!-- ===== 精算履歴 =====
        スプレッドシートの1枚目にあたる表。会社の口座から、その月分を
-       まとめて払った記録です。金額は現金支払管理表から自動で出ます。
+       まとめて払った記録です。金額は現金支払い管理表から自動で出ます。
 
        ★経理担当も現場の T3 Works を使うので、この画面は両方に出します。
          そのかわり、ひらいた直後は「見るだけ」で、下の「かぎ」を
@@ -504,7 +526,7 @@
     <div class="report-head">
       <div class="report-head__row">
         <h2 class="report-head__title">精算履歴</h2>
-        <button type="button" class="btn" id="settleBack">現金支払管理表に戻る</button>
+        <button type="button" class="btn" id="settleBack">現金支払い管理表に戻る</button>
       </div>
       <div class="report-nav">
         <button type="button" class="year-btn" id="settlePrev" aria-label="前の年">‹</button>
@@ -535,7 +557,7 @@
     </div>
 
     <p class="expense-note">
-      <b>金額</b>は現金支払管理表から自動で出ます（直せません）。<br>
+      <b>金額</b>は現金支払い管理表から自動で出ます（直せません）。<br>
       <b>精算日</b>と<b>出金口座</b>を入れるのは<b>経理担当だけ</b>です。<br>
       上の<b>🔒</b>を押すと、月ごとに<b>緑のボタン</b>が出ます。
       画面を出入りすると、また見るだけに戻ります。
@@ -592,8 +614,8 @@
       </div>
     </div>
 
-    <!-- 日報から数字を取り込む。中身は app.js が入れます -->
-    <div class="nippou" id="nippouBox">
+    <!-- 日報から数字を取り込む。管理者（マイン）だけに出します -->
+    <div class="nippou mine-only" id="nippouBox">
       <div class="nippou__head">
         <button type="button" class="btn" id="nippouPull">日報から取り込む</button>
         <span class="nippou__note" id="nippouNote"></span>
@@ -608,6 +630,9 @@
       </table>
     </div>
 
+    <!-- キャッチに店舗が入っていない記録があるときだけ出ます -->
+    <p class="meeting-warn is-hidden" id="meetingCatchWarn"></p>
+
     <!-- 画面が狭くて表が入りきらないときだけ出ます（app.js が幅を測って決めます）-->
     <p class="meeting-scroll-hint is-hidden" id="meetingScrollHint">
       → 表を横にすべらせると、残りの列が見られます（店舗の名前は左に残ります）
@@ -617,7 +642,7 @@
          広い画面では、ここが右側にはりついて動かなくなります -->
     <aside class="meeting-side" id="meetingSide">
       <div class="meeting-bar meeting-bar--notes">
-        <h3 class="meeting-bar__title">議事録<span class="meeting-bar__count" id="meetingNoteCount"></span></h3>
+        <h3 class="meeting-bar__title">議事録<span class="meeting-bar__count" id="meetingNotesOf"></span><span class="meeting-bar__count" id="meetingNoteCount"></span></h3>
       </div>
       <div class="meeting-notes" id="meetingNotes"></div>
       <p class="expense-note">
@@ -1028,12 +1053,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=1ddb6945"></script>
-<script src="../js/storage.js?v=64e6f8a1"></script>
+<script src="../js/config.js?v=95c3a68e"></script>
+<script src="../js/storage.js?v=0f16ff26"></script>
 <script src="../js/sync.js?v=9f5d6fcb"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=cc8f29b8"></script>
+<script src="../js/app.js?v=fb226e29"></script>
 </body>
 </html>

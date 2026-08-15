@@ -17,7 +17,7 @@
   --ng:        #d64545;
   /* 「毎週」の印。店舗色（赤〜橙系）とぶつからないよう紫にしています */
   --every:     #5f45d1;
-  /* お金まわりの3ページ（現金支払管理表・キャッチ集計・精算履歴）で使う色。
+  /* お金まわりの3ページ（現金支払い管理表・キャッチ集計・精算履歴）で使う色。
      帳簿の「緑罫紙」から取っています。青の --accent とは別にしてあるので、
      クローズや週間掃除の画面には影響しません */
   --money:     #14795a;
@@ -802,7 +802,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
    この表は「掃除する場所」と「1週目・2週目」の3列しかありません。
    画面いっぱいに伸ばすと、1週分の列が340pxもあるのに中身は小さな印ひとつ、
    ということになり、項目名から印まで目が渡りにくくなります。
-   （現金支払管理表のように2列に割ることはできないので、こちらの手を使います） */
+   （現金支払い管理表のように2列に割ることはできないので、こちらの手を使います） */
 @media (min-width: 800px) {
   .view--week { max-width: 760px; margin-left: auto; margin-right: auto; }
   /* 上の店舗カードも同じ幅にそろえます。ここだけ広いままだと、
@@ -963,7 +963,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 .app-version b { color: var(--text); letter-spacing: .04em; }
 
-/* 店舗選択の下に置く、大きめの入口ボタン（現金支払管理表）。
+/* 店舗選択の下に置く、大きめの入口ボタン（現金支払い管理表）。
    店舗でも提出記録でもない別のかたまりなので、見た目も分けています */
 .stores-big-btn {
   display: flex; align-items: center; gap: 13px; width: 100%;
@@ -987,7 +987,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .stores-big-btn__sub  { font-size: 11.5px; color: var(--text-sub); line-height: 1.35; }
 .stores-big-btn__arrow { flex: 0 0 auto; font-size: 24px; color: var(--text-weak); line-height: 1; }
 
-/* ===================== 立替金（現金支払管理表） =====================
+/* ===================== 立替金（現金支払い管理表） =====================
    人ごとに1枚のカード。上に名前と合計、下に明細 */
 .expense-add {
   display: block; width: 100%; margin: 4px 0 14px;
@@ -1047,7 +1047,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 /* 精算が済んだ人は、ひと目で分かるように色を落とします */
 .exp-card.is-paid { opacity: .72; }
 
-/* 明細カードの左に色の帯。現金支払管理表は緑、キャッチ集計は店舗の色です
+/* 明細カードの左に色の帯。現金支払い管理表は緑、キャッチ集計は店舗の色です
    （--card-color は renderCatch が店舗の色を入れます） */
 .view--expense .exp-card { border-left: 3px solid color-mix(in srgb, var(--money) 55%, var(--line)); }
 .view--catch   .exp-card { border-left: 3px solid var(--card-color, var(--money)); }
@@ -1264,7 +1264,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   border-radius: 2px; background: var(--accent); opacity: .5;
 }
 /* 走っていない人・立て替えが無い人は、名前も数字も落ち着かせる
-   （配達記録の表と、現金支払管理表の表の両方で使います） */
+   （配達記録の表と、現金支払い管理表の表の両方で使います） */
 .exp-total tr.is-zero .exp-total__name,
 .exp-total tr.is-zero .exp-total__yen { color: var(--text-weak); font-weight: 600; }
 
@@ -1450,7 +1450,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .field.is-hidden { display: none; }
 
 /* ===================== 帳簿の見た目 =====================
-   現金支払管理表・キャッチ集計・精算履歴の3つで使う、共通の作りです。
+   現金支払い管理表・キャッチ集計・精算履歴の3つで使う、共通の作りです。
    紙の帳簿のように「罫線は細く、数字は桁をそろえて大きく」を旨にしています。
 
    ねらい
@@ -2838,3 +2838,67 @@ body.is-wide .page { max-width: 1700px; }
   padding: 7px 9px; text-align: right; font-variant-numeric: tabular-nums;
 }
 .util-input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+/* キャッチの店舗が入っていないときの注意書き */
+.meeting-warn {
+  margin: 8px 2px 0; padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--ng) 35%, var(--line));
+  background: color-mix(in srgb, var(--ng) 7%, transparent);
+  border-radius: 9px;
+  font-size: 12.5px; font-weight: 600;
+  color: color-mix(in srgb, var(--ng) 80%, var(--text));
+}
+.meeting-warn.is-hidden { display: none; }
+.nippou__row.is-head { font-weight: 800; color: var(--text); }
+
+/* -------- 会議資料：数字の月と、会議の月 -------- */
+/* 「6月」の下に「7月会議」を小さく出します */
+.meeting-month { line-height: 1.15; padding: 5px 0 6px; }
+.meeting-month__m { display: block; }
+.meeting-month__meet {
+  display: block; margin-top: 1px;
+  font-size: 9.5px; font-weight: 700; opacity: .75;
+}
+/* 月の見出しのとなりに出す「7月の会議」 */
+.meeting-held {
+  margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--money) 12%, transparent);
+  color: color-mix(in srgb, var(--money) 82%, var(--text));
+  font-size: 11.5px; font-weight: 800; letter-spacing: .02em;
+  vertical-align: 2px;
+}
+/* 取り込みは管理者だけが使います（ワークスには出しません） */
+.nippou.mine-only { display: none; }
+body[data-mode="mine"] .nippou.mine-only { display: block; }
+
+/* -------- 先月の議題 --------
+   いまの月の数字は緑、先月の議題は落ち着いた色。
+   目立たせるためではなく、先月の話だと分かるようにするためです */
+.meeting-last {
+  margin-top: 14px; padding: 11px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--text-weak) 22%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text-weak) 6%, transparent);
+}
+.meeting-last__title { color: var(--text-sub); }
+.meeting-last__item {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--text-weak) 20%, var(--line-2));
+}
+.meeting-last__no {
+  background: color-mix(in srgb, var(--text-weak) 20%, transparent);
+  color: var(--text-sub);
+}
+
+/* -------- T3Dining のボタン（会社ぜんぶの画面） --------
+   仲間ごとに色を分けます。増やすときは、その仲間の色を1つ決めて
+   .stores-big-btn--◯◯ を足してください（--pick を変えるだけです） */
+.stores-big-btn { border-left-color: var(--pick, var(--accent)); }
+.stores-big-btn__icon {
+  background: color-mix(in srgb, var(--pick, var(--accent)) 12%, var(--surface-2));
+}
+/* お金のこと（現金支払い管理表・キャッチ集計・会議資料）。ページの中と同じ緑 */
+.stores-big-btn--money { --pick: var(--money); }
+/* バグるのこと（配達記録）。店舗の色にそろえます */
+.stores-big-btn--baguru { --pick: #bf5480; }
+/* 確認の記録（クローズの提出記録・週間掃除の達成状況）。青 */
+.stores-big-btn--check { --pick: #2b7fd4; }

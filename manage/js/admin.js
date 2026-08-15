@@ -1109,7 +1109,7 @@ async function importExpenseRecords(only) {
     item: months.length === 1
       ? `${months[0]}　${rows.length}件　${yenText(yen)}`
       : `${months[0]} 〜 ${months[months.length - 1]}　${rows.length}件　${yenText(yen)}`,
-    message: 'スプレッドシートに入っていた立替金の記録を、現金支払管理表に入れます。よろしいですか？',
+    message: 'スプレッドシートに入っていた立替金の記録を、現金支払い管理表に入れます。よろしいですか？',
     okLabel: '取り込む',
   });
   if (!ok) return;
@@ -1132,7 +1132,7 @@ async function importExpenseRecords(only) {
   el.expImportNote.textContent =
     `${rows.length}件（${months.length}か月分・合計 ${yenText(yen)}）を取り込みました。`
     + (gone.length ? `${gone.join('・')} は担当者リストに無い名前ですが、過去の記録はそのまま出ます。` : '')
-    + 'アプリの現金支払管理表で確かめてください。';
+    + 'アプリの現金支払い管理表で確かめてください。';
   renderSyncStatus();
 }
 
