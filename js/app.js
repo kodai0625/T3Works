@@ -1524,11 +1524,15 @@ const MEETING_MODES = {
     { label: 'キャッチ', mainKind: 'yen', subKind: 'num', subUnit: '人', diffSub: 'sub', big: true,
       main: (v) => v.katch, sub: (v) => v.katchPeople },
   ],
+  // 光熱費も、もとのシートと同じように金額と率の両方を出します
   util: [
-    { label: 'ガス', mainKind: 'yen', main: (v) => v.gas, goodWhen: 'down' },
-    { label: '水道', mainKind: 'yen', main: (v) => v.water, goodWhen: 'down' },
-    { label: '電気', mainKind: 'yen', main: (v) => v.power, goodWhen: 'down' },
-    { label: '光熱費 合計', mainKind: 'yen', subKind: 'pct', goodWhen: 'down',
+    { label: 'ガス', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
+      main: (v) => v.gas, sub: (v) => (v.ex ? v.gas / v.ex : null) },
+    { label: '水道', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
+      main: (v) => v.water, sub: (v) => (v.ex ? v.water / v.ex : null) },
+    { label: '電気', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
+      main: (v) => v.power, sub: (v) => (v.ex ? v.power / v.ex : null) },
+    { label: '光熱費 合計', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
       main: (v) => (v.gas + v.water + v.power) || null,
       sub: (v) => (v.ex ? (v.gas + v.water + v.power) / v.ex : null) },
   ],
@@ -1560,7 +1564,7 @@ function meetingCell(col, v, opts = {}) {
   const main = col.main ? col.main(v) : null;
   const sub = col.sub ? col.sub(v) : null;
   let cls = 'mt-cell';
-  if (opts.last) cls += ' is-last';
+  cls += opts.last ? ' is-last' : (opts.diff ? '' : ' is-now');
   if (diff) {
     cls += ' is-vs';
     if (col.goodWhen && main) {
@@ -1818,7 +1822,7 @@ function renderMeetingTable(list) {
   const sub = document.createElement('tr');
   sub.className = 'meeting-head-sub';
   sub.innerHTML = cols.map(() =>
-    `<th>${state.y}年</th><th class="is-last">昨年</th><th class="is-vs">差</th>`).join('');
+    `<th class="is-now">${state.y}年</th><th class="is-last">昨年</th><th class="is-vs">差</th>`).join('');
 
   el.meetingHead.innerHTML = '';
   el.meetingHead.append(top, sub);
@@ -1865,7 +1869,7 @@ function renderMeetingCum() {
     const tr = document.createElement('tr');
     tr.style.setProperty('--row-color', s.color);
     tr.innerHTML = '<th scope="row" class="meeting-td-name"></th>'
-      + `<td class="mt-cell">${meetingNum(c.ex, 'yen')}</td>`
+      + `<td class="mt-cell is-now">${meetingNum(c.ex, 'yen')}</td>`
       + `<td class="mt-cell is-last">${meetingNum(c.lastEx, 'yen')}</td>`
       + `<td class="mt-cell is-vs${c.lastEx ? (c.ex >= c.lastEx ? ' is-good' : ' is-bad') : ''}">`
       + `<span class="mt-main">${c.lastEx ? meetingNum(c.ex - c.lastEx, 'yen', '', true) : '—'}</span>`
@@ -1883,7 +1887,7 @@ function renderMeetingCum() {
 
   const row = (label, now, last) =>
     '<tr class="meeting-foot"><th scope="row" class="meeting-td-name">' + label + '</th>'
-    + `<td class="mt-cell">${meetingNum(now, 'yen')}</td>`
+    + `<td class="mt-cell is-now">${meetingNum(now, 'yen')}</td>`
     + `<td class="mt-cell is-last">${last ? meetingNum(last, 'yen') : '—'}</td>`
     + `<td class="mt-cell is-vs${last ? (now >= last ? ' is-good' : ' is-bad') : ''}">`
     + `<span class="mt-main">${last ? meetingNum(now - last, 'yen', '', true) : '—'}</span>`
@@ -1942,8 +1946,8 @@ function goalCard({ name, color, now, goal, big }, pace) {
   const gap = (ratio - pace) * 100;
   const late = gap < 0;
   const gapText = Math.abs(gap) < 0.05
-    ? '目安どおり'
-    : `${Math.abs(gap).toFixed(1)}% ${late ? 'おくれ' : 'さき'}`;
+    ? '±0%'
+    : `${late ? '−' : '+'}${Math.abs(gap).toFixed(1)}%`;
 
   card.innerHTML = `
     <svg class="goal-ring" viewBox="0 0 100 100" role="img" aria-label="${name} ${Math.round(ratio * 100)}%">

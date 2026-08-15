@@ -1608,9 +1608,11 @@ body.is-wide .page { max-width: 1700px; }
    会議では数字を見ながら書くので、いちばん下までスクロールしなくても
    書けるようにするためです。狭い画面では表のすぐ下に来ます */
 .meeting-layout > * { min-width: 0; }
-/* 1360px … これより狭いと、右に議事録を置いた分だけ左が足りなくなり、
-   売上の表が横スクロールになります（iPad Pro の横 1366px でぎりぎり収まります）*/
-@media (min-width: 1360px) {
+/* 1500px … これより狭いと、右に議事録を置いた分だけ左が足りなくなり、
+   売上の表（いちばん広くて1142px要ります）が横スクロールになります。
+   iPad Pro の横（1366px）や13インチ（1470px）は1列のままにして、
+   表を目いっぱい使えるようにしています */
+@media (min-width: 1500px) {
   .meeting-layout {
     display: grid;
     /* 13〜14インチ（1470〜1512px）でも、左の表がなるべく横スクロール
@@ -1784,7 +1786,7 @@ body.is-wide .page { max-width: 1700px; }
   font-size: 12.5px; font-weight: 700; letter-spacing: .04em;
   color: var(--text-sub);
 }
-.meeting-head-sub th.is-last { color: var(--text-weak); }
+
 /* 項目と項目のあいだに、細い縦線を1本（見出しの上段と、差の列の右）*/
 .meeting-head-top th + th,
 .meeting-head-sub th.is-vs,
@@ -1792,9 +1794,26 @@ body.is-wide .page { max-width: 1700px; }
   border-left: 1px solid color-mix(in srgb, var(--money) 22%, var(--line));
 }
 
-/* 昨年の列は、今年より一段うすく。見比べたときに今年が前に出ます */
-.meeting-table .is-last { color: var(--text-sub); }
-.meeting-table th.is-last { color: var(--text-weak); }
+/* -------- 今年と昨年を色で分ける --------
+   もとのスプレッドシートと同じように、列ごとに地の色を変えて
+   「どこまでが今年で、どこからが昨年か」がひと目で分かるようにします。
+   ★背景は必ず transparent と混ぜること。そうしないと1行おきの
+     うすい緑（zebra）が下から透けず、行が追いにくくなります */
+.meeting-table .is-now {
+  background: color-mix(in srgb, var(--money) 5%, transparent);
+}
+.meeting-table .is-last {
+  background: color-mix(in srgb, var(--text-weak) 13%, transparent);
+  color: var(--text-sub);
+}
+.meeting-table th.is-now {
+  background: color-mix(in srgb, var(--money) 14%, var(--surface));
+  color: color-mix(in srgb, var(--money) 85%, var(--text));
+}
+.meeting-table th.is-last {
+  background: color-mix(in srgb, var(--text-weak) 16%, var(--surface));
+  color: var(--text-sub);
+}
 
 /* 升目の中身。上が主の数字、下が添える数字（率や増減率）*/
 .mt-main { display: block; font-weight: 700; }
@@ -1869,8 +1888,25 @@ body.is-wide .page { max-width: 1700px; }
 
 /* -------- 累計（別枠）と、年間目標の円グラフ -------- */
 .meeting-bar--sub { margin-top: 22px; }
-.meeting-cum-table { font-size: 14.5px; }
-.meeting-cum-table td { padding-top: 9px; padding-bottom: 9px; }
+/* 累計は4列しかないので、上の表と同じ幅にすると数字のあいだが空きます。
+   幅は上の表にそろえたうえで、そのぶん文字を大きくして埋めます */
+.meeting-cum-table { font-size: 15px; }
+.meeting-cum-table th, .meeting-cum-table td {
+  padding-top: 13px; padding-bottom: 13px; padding-left: 14px; padding-right: 14px;
+}
+.meeting-cum-table .mt-main { font-size: 24px; }
+.meeting-cum-table .mt-sub { font-size: 15px; margin-top: 2px; }
+.meeting-cum-table .meeting-td-name { font-size: 17px; }
+.meeting-cum-table .meeting-head-sub th { font-size: 14.5px; }
+.meeting-cum-table th, .meeting-cum-table td { padding-left: 20px; padding-right: 20px; }
+@media (max-width: 900px) {
+  .meeting-cum-table .mt-main { font-size: 16px; }
+  .meeting-cum-table .mt-sub { font-size: 12.5px; }
+  .meeting-cum-table .meeting-td-name { font-size: 14px; }
+  .meeting-cum-table th, .meeting-cum-table td {
+    padding-top: 10px; padding-bottom: 10px; padding-left: 8px; padding-right: 8px;
+  }
+}
 
 /* 〆の合計行（年間◯店舗累計）。上に2本線を引くのは紙の帳簿と同じ作法です */
 .meeting-cum-table tfoot .meeting-foot th,
