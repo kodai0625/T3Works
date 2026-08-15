@@ -38,6 +38,13 @@ const el = {
   taskBarName: $('taskBarName'),
   viewStores: $('viewStores'), storeGrid: $('storeGrid'), storesDate: $('storesDate'),
   viewReport: $('viewReport'), storeHead: $('storeHead'),
+  reportMonth: $('reportMonth'), reportMonthSummary: $('reportMonthSummary'),
+  calHead: $('calHead'), calGrid: $('calGrid'),
+  missModal: $('missModal'), missFormTitle: $('missFormTitle'),
+  missDate: $('missDate'), missStores: $('missStores'), missBy: $('missBy'),
+  missWho: $('missWho'), missWhoFree: $('missWhoFree'),
+  missText: $('missText'), missError: $('missError'), missSave: $('missSave'),
+  missDeleteRow: $('missDeleteRow'),
   submitCard: $('submitCard'), submitStatus: $('submitStatus'),
   submitBtn: $('submitBtn'), unsubmitBtn: $('unsubmitBtn'),
   reportDate: $('reportDate'), reportSummary: $('reportSummary'), reportList: $('reportList'),
@@ -100,6 +107,8 @@ const el = {
   expReceiptSeg: $('expReceipt'), expenseError: $('expenseError'),
   expenseFormTitle: $('expenseFormTitle'), expenseSave: $('expenseSave'),
   viewWeekAll: $('viewWeekAll'), weekAllRange: $('weekAllRange'),
+  weekAllYear: $('weekAllYear'), weekAllGrid: $('weekAllGrid'),
+  weekAllYearSummary: $('weekAllYearSummary'),
   weekAllSummary: $('weekAllSummary'), weekAllList: $('weekAllList'),
   doerModal: $('doerModal'), doerItem: $('doerItem'), doerWeek: $('doerWeek'),
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
@@ -2035,8 +2044,131 @@ function growNoteBox(box) {
 
 /* ------------------------------------------------------------
  *  全店舗提出記録
+ *
+ *    上 … その月のカレンダー。1日分の升目に6店舗の印が並びます
+ *    中 … えらんだ日の中身（今までどおりの一覧）
+ *    下 … その月のミスの記録
  * ---------------------------------------------------------- */
+
 function renderReport() {
+  renderReportCalendar();
+  renderReportDay();
+  renderMissList('close');
+}
+
+/**
+ * その月のカレンダー
+ *
+ * 6店舗 × 31日分の記録を1日ずつ読むと、そのたびに保存データを
+ * まるごと読み直すことになって重くなります。店舗ごとに1回だけ
+ * Store.getMonth で読み、そこから引きます。
+ */
+function renderReportCalendar() {
+  const { y, m } = state;
+  const ym = `${y}-${pad2(m)}`;
+  const byStore = {};
+  STORES.forEach((s) => { byStore[s.id] = Store.getMonth(s.id, ym) || {}; });
+  const misses = missCountByDay(y, m);
+
+  el.reportMonth.textContent = `${y}年${m}月`;
+
+  /* ---- 曜日の見出し ---- */
+  el.calHead.innerHTML = '';
+  DOW.forEach((w, i) => {
+    const c = document.createElement('span');
+    c.className = 'cal__dow' + (i === 0 ? ' is-sun' : (i === 6 ? ' is-sat' : ''));
+    c.textContent = w;
+    el.calHead.appendChild(c);
+  });
+
+  /* ---- 日の升目 ---- */
+  el.calGrid.innerHTML = '';
+  const first = new Date(y, m - 1, 1).getDay();     // その月の1日の曜日
+  const last = daysInMonth(y, m);
+  for (let i = 0; i < first; i += 1) {
+    const blank = document.createElement('span');
+    blank.className = 'cal__cell is-empty';
+    el.calGrid.appendChild(blank);
+  }
+
+  let doneAll = 0, targetAll = 0;
+  for (let d = 1; d <= last; d += 1) {
+    const dateStr = ymd(y, m, d);
+    const dow = new Date(y, m - 1, d).getDay();
+    const future = dateStr > ymd(TODAY.y, TODAY.m, TODAY.d);
+
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'cal__cell'
+      + (d === state.d ? ' is-picked' : '')
+      + (dateStr === ymd(TODAY.y, TODAY.m, TODAY.d) ? ' is-today' : '')
+      + (future ? ' is-future' : '')
+      + (dow === 0 ? ' is-sun' : (dow === 6 ? ' is-sat' : ''));
+
+    const num = document.createElement('span');
+    num.className = 'cal__num';
+    num.textContent = d;
+    cell.appendChild(num);
+
+    /* 店舗の印。
+         提出した店舗 … その店舗のアイコン
+         定休日       … アイコンをうすく
+         未提出       … アイコンは出さず、最後に「未◯」と数で出します */
+    const marks = document.createElement('span');
+    marks.className = 'cal__marks';
+    let done = 0, target = 0, yet = 0;
+    STORES.forEach((s) => {
+      const closed = Closed.isClosed(s.id, y, m, d);
+      const submitted = !closed && !!(byStore[s.id][pad2(d)] || {}).submittedAt;
+      if (!closed) {
+        target += 1;
+        if (submitted) done += 1; else yet += 1;
+      }
+      if (!closed && !submitted) return;          // 未提出はアイコンを出しません
+
+      const chip = document.createElement('span');
+      chip.className = 'logo-chip cal-logo' + (closed ? ' is-closed' : '');
+      chip.title = `${s.name}${closed ? '（定休日）' : '（提出済み）'}`;
+      fillLogo(chip, s);
+      marks.appendChild(chip);
+    });
+    // まだ出ていない店舗の数。過ぎた日だけ赤くして、目に留まるようにします
+    if (yet) {
+      const left = document.createElement('span');
+      left.className = 'cal-yet' + (future ? '' : ' is-late');
+      left.textContent = `未${yet}`;
+      left.title = `未提出 ${yet}店舗`;
+      marks.appendChild(left);
+    }
+    cell.appendChild(marks);
+
+    // その日のミスの数
+    if (misses[dateStr]) {
+      const badge = document.createElement('span');
+      badge.className = 'cal-miss';
+      badge.textContent = misses[dateStr] > 1 ? misses[dateStr] : '!';
+      badge.title = `ミスの記録 ${misses[dateStr]}件`;
+      cell.appendChild(badge);
+    }
+    if (!future && target && done === target) cell.classList.add('is-all');
+    if (!future) { doneAll += done; targetAll += target; }
+
+    cell.addEventListener('click', () => {
+      state.d = d;
+      writeHash();
+      render();
+    });
+    el.calGrid.appendChild(cell);
+  }
+
+  el.reportMonthSummary.textContent = targetAll
+    ? `今日までの提出 ${doneAll} / ${targetAll}（定休日を除く）`
+    : '';
+  el.reportMonthSummary.classList.toggle('is-all-done', targetAll > 0 && doneAll === targetAll);
+}
+
+/** えらんだ日の中身（店舗ごとの提出状況） */
+function renderReportDay() {
   const dateStr = ymd(state.y, state.m, state.d);
   const dow = new Date(state.y, state.m - 1, state.d).getDay();
   el.reportDate.textContent = `${state.y}年${state.m}月${state.d}日（${DOW[dow]}）`;
@@ -2080,15 +2212,27 @@ function renderReport() {
     status.innerHTML = `<span class="report-item__badge">${text}</span>` +
       (sub ? `<span class="report-item__sub">${sub}</span>` : '');
 
-    li.appendChild(chip);
-    li.appendChild(name);
-    li.appendChild(status);
-    li.addEventListener('click', () => {
+    // 店舗の行を押すと、その店舗のクローズの画面へ
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'report-item__go';
+    go.append(chip, name, status);
+    go.addEventListener('click', () => {
       state.storeId = s.id;
       state.view = 'day';
       writeHash();
       render();
     });
+
+    // 「じつはできていなかった」をその場で残せるようにします
+    const miss = document.createElement('button');
+    miss.type = 'button';
+    miss.className = 'report-item__miss';
+    miss.textContent = 'ミス';
+    miss.title = `${s.name}のミスを記録する`;
+    miss.addEventListener('click', () => openMissForm('close', null, { d: dateStr, store: s.id }));
+
+    li.append(go, miss);
     el.reportList.appendChild(li);
   });
 
@@ -2099,7 +2243,323 @@ function renderReport() {
   el.reportSummary.classList.toggle('is-all-done', target > 0 && submitted === target);
 }
 
+/* ------------------------------------------------------------
+ *  ミスの記録（クローズと週間掃除の両方で使います）
+ *
+ *  記録は kind で分けています。
+ *    close … クローズの提出記録のページ
+ *    week  … 週間掃除の達成状況のページ
+ *  古い記録には kind がないので、その場合は close として扱います。
+ * ---------------------------------------------------------- */
+
+/** 画面ごとの部品。同じ作りを2か所で使い回します */
+const MISS_UI = {
+  close: {
+    count: 'missCount', filter: 'missFilter', tally: 'missTally', list: 'missList',
+    empty: 'この月のミスの記録はありません。',
+  },
+  week: {
+    count: 'wmissCount', filter: 'wmissFilter', tally: 'wmissTally', list: 'wmissList',
+    empty: 'この期のミスの記録はありません。',
+  },
+};
+
+/** 画面ごとの「この月／この期」と「すべて」、店舗のしぼり */
+const missView = {
+  close: { range: 'near', filter: '' },
+  week: { range: 'near', filter: '' },
+};
+
+/**
+ * 入っているミスを全部（新しい順）
+ *
+ * 保存データを1回だけ読み、_miss/ で始まる入れ物をすべて集めます。
+ */
+function missAll(kind) {
+  const dump = Store.adapter.dump();
+  const out = [];
+  Object.keys(dump).forEach((key) => {
+    if (!key.startsWith(MISS_STORE + '/')) return;
+    const ym = key.slice(MISS_STORE.length + 1);
+    const items = (dump[key] || {}).items || {};
+    Object.keys(items).forEach((id) => {
+      const v = items[id];
+      if (!v || !v.done || !(v.text || '').trim()) return;
+      if ((v.kind || 'close') !== kind) return;
+      out.push({ id, ym, ...v });
+    });
+  });
+  return out.sort((a, b) => (b.d || '').localeCompare(a.d || '') || (b.at || '').localeCompare(a.at || ''));
+}
+
+/** いま見ている範囲（クローズ＝その月／週間掃除＝その期）に入っているか */
+function missInRange(kind, e) {
+  if (kind === 'week') {
+    const [y, m, d] = (e.d || '').split('-').map(Number);
+    if (!y) return false;
+    return periodOfDate(y, m, d) === currentPeriod();
+  }
+  return (e.d || '').startsWith(missMonthKey(state.y, state.m));
+}
+
+/** その月のミスを「日付 → 件数」に（提出記録のカレンダーの印） */
+function missCountByDay(y, m) {
+  const out = {};
+  missAll('close')
+    .filter((e) => (e.d || '').startsWith(missMonthKey(y, m)))
+    .forEach((e) => { out[e.d] = (out[e.d] || 0) + 1; });
+  return out;
+}
+
+/** ミスを「期のはじまり → 件数」に（週間掃除の一覧の印） */
+function missCountByPeriod() {
+  const out = {};
+  missAll('week').forEach((e) => {
+    const [y, m, d] = (e.d || '').split('-').map(Number);
+    if (!y) return;
+    const p = periodOfDate(y, m, d);
+    out[p] = (out[p] || 0) + 1;
+  });
+  return out;
+}
+
+/** ミスの一覧（この月・この期／すべて、店舗でしぼれます） */
+function renderMissList(kind) {
+  const ui = MISS_UI[kind];
+  const view = missView[kind];
+  const everything = missAll(kind);
+  const all = view.range === 'all' ? everything : everything.filter((e) => missInRange(kind, e));
+  const list = view.filter ? all.filter((e) => e.store === view.filter) : all;
+
+  const $count = $(ui.count), $filter = $(ui.filter), $tally = $(ui.tally), $list = $(ui.list);
+  $count.textContent = list.length ? `（${list.length}件）` : '';
+
+  /* ---- 店舗でしぼるボタン。件数も出します ---- */
+  const countOf = (id) => all.filter((e) => e.store === id).length;
+  $filter.innerHTML = '';
+  const chip = (id, label, n) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'exp-chip' + (view.filter === id ? ' is-on' : '');
+    b.dataset.store = id;
+    if (id) b.style.setProperty('--pick-color', getStore(id).color);
+    b.textContent = n ? `${label} ${n}` : label;
+    b.addEventListener('click', () => { view.filter = id; renderMissList(kind); });
+    $filter.appendChild(b);
+  };
+  chip('', `全店舗 ${all.length}`, 0);
+  STORES.forEach((s) => chip(s.id, s.name, countOf(s.id)));
+
+  /* ---- 店舗ごとの件数（多い順）---- */
+  const tally = STORES.map((s) => ({ s, n: countOf(s.id) })).filter((r) => r.n)
+    .sort((a, b) => b.n - a.n);
+  $tally.textContent = tally.length > 1
+    ? '多い順　' + tally.map((r) => `${r.s.name} ${r.n}件`).join('　／　') : '';
+  $tally.classList.toggle('is-hidden', tally.length < 2);
+
+  /* ---- 一覧 ---- */
+  $list.innerHTML = '';
+  if (!list.length) {
+    const li = document.createElement('li');
+    li.className = 'miss-empty';
+    li.textContent = view.range === 'all' ? 'ミスの記録はまだありません。' : ui.empty;
+    $list.appendChild(li);
+    return;
+  }
+
+  list.forEach((e) => {
+    const store = getStore(e.store);
+    const li = document.createElement('li');
+    li.className = 'miss-item';
+    if (store) li.style.setProperty('--row-color', store.color);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'miss-item__btn';
+    const [yy, mm, dd] = (e.d || '').split('-');
+    // すべてを見ているときは、何年かも分かるようにします
+    const date = mm ? ((view.range === 'all' ? `${yy}/` : '') + `${+mm}/${+dd}`) : '—';
+    btn.innerHTML =
+      `<span class="miss-item__date">${date}</span>` +
+      '<span class="miss-item__store"></span>' +
+      '<span class="miss-item__who"></span>' +
+      '<span class="miss-item__text"></span>' +
+      `<span class="miss-item__by">${e.by ? '記録 ' + e.by : ''}</span>`;
+    btn.querySelector('.miss-item__store').textContent = store ? store.name : '（店舗なし）';
+    btn.querySelector('.miss-item__who').textContent = e.who || '—';
+    btn.querySelector('.miss-item__text').textContent = e.text || '';
+    btn.addEventListener('click', () => openMissForm(kind, e));
+
+    li.appendChild(btn);
+    $list.appendChild(li);
+  });
+}
+
+/* -------- ミスを記録する画面（1つを使い回します） -------- */
+let missEditing = null;
+let missStore = '';
+let missKind = 'close';
+
+function openMissForm(kind, entry, preset = {}) {
+  missKind = kind;
+  missEditing = entry || null;
+  missStore = entry ? (entry.store || '') : (preset.store || '');
+  el.missDate.value = entry ? entry.d : (preset.d || ymd(state.y, state.m, state.d));
+  el.missText.value = entry ? (entry.text || '') : '';
+  el.missError.textContent = '';
+  el.missFormTitle.textContent = (entry ? 'ミスの記録を直す' : 'ミスを記録する')
+    + (kind === 'week' ? '（週間掃除）' : '');
+  el.missSave.textContent = entry ? '直す' : '記録する';
+  el.missDeleteRow.classList.toggle('is-hidden', !entry);
+
+  /* 記録した人 */
+  const names = Staff.list();
+  if (entry && entry.by && !names.includes(entry.by)) names.push(entry.by);
+  el.missBy.innerHTML = '<option value="">選んでください</option>';
+  names.forEach((n) => {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    el.missBy.appendChild(o);
+  });
+  el.missBy.value = entry ? (entry.by || '') : '';
+
+  /* ミスした人。リストに無い人（アルバイトなど）は「その他」で名前を書きます */
+  const who = entry ? (entry.who || '') : '';
+  const list = Staff.list();
+  el.missWho.innerHTML = '<option value="">選んでください</option>';
+  list.forEach((n) => {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    el.missWho.appendChild(o);
+  });
+  const other = document.createElement('option');
+  other.value = MISS_OTHER;
+  other.textContent = 'その他（名前を書く）';
+  el.missWho.appendChild(other);
+
+  const known = who && list.includes(who);
+  el.missWho.value = known ? who : (who ? MISS_OTHER : '');
+  el.missWhoFree.value = known ? '' : who;
+  renderMissWhoField();
+
+  /* 店舗のボタン */
+  el.missStores.innerHTML = '';
+  STORES.forEach((s) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'exp-chip';
+    b.dataset.store = s.id;
+    b.style.setProperty('--pick-color', s.color);
+    b.textContent = s.name;
+    b.addEventListener('click', () => { missStore = s.id; renderMissChips(); });
+    el.missStores.appendChild(b);
+  });
+  renderMissChips();
+
+  el.missModal.classList.remove('is-hidden');
+}
+
+function renderMissChips() {
+  [...el.missStores.children].forEach((b) => b.classList.toggle('is-on', b.dataset.store === missStore));
+}
+
+/** 「その他」をえらんだときだけ、名前を書く欄を出します */
+function renderMissWhoField() {
+  el.missWhoFree.classList.toggle('is-hidden', el.missWho.value !== MISS_OTHER);
+}
+
+function saveMiss() {
+  const d = el.missDate.value;
+  const by = el.missBy.value;
+  const who = el.missWho.value === MISS_OTHER
+    ? el.missWhoFree.value.trim()
+    : el.missWho.value;
+  const text = el.missText.value.replace(/\r/g, '').trim();
+
+  if (!d) { el.missError.textContent = '日付を入れてください。'; return; }
+  if (!missStore) { el.missError.textContent = 'どの店舗かをえらんでください。'; return; }
+  if (el.missWho.value === MISS_OTHER && !who) {
+    el.missError.textContent = 'ミスした人の名前を書いてください。'; return;
+  }
+  if (!text) { el.missError.textContent = '内容を入れてください。'; return; }
+
+  // 入れ先は「その日の月」。月をまたいで入れても、正しい月に入ります
+  const [yy, mm, dd] = d.split('-').map(Number);
+  const key = missMonthKey(yy, mm);
+  const id = missEditing ? missEditing.id
+    : 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // 直すときに日付を別の月へ動かした場合は、元の月から取り除いてから移します
+  // （どの月に入っている記録かは、一覧を作るときに ym として持たせてあります）
+  if (missEditing) {
+    const from = missEditing.ym || key;
+    if (from !== key) Store.setItem(MISS_STORE, from, id, { done: false, text: '' });
+  }
+
+  Store.setItem(MISS_STORE, key, id, {
+    done: true, d, store: missStore, text, who, by, kind: missKind,
+  });
+
+  // その記録が見える場所へ移します
+  state.y = yy; state.m = mm;
+  state.d = Math.min(dd, daysInMonth(yy, mm));
+  el.missModal.classList.add('is-hidden');
+  writeHash();
+  render();
+  renderSyncStatus();
+}
+
+async function removeMiss() {
+  if (!missEditing) return;
+  const store = getStore(missEditing.store);
+  const ok = await askConfirm({
+    item: `${(missEditing.d || '').replace(/^\d{4}-/, '')}　${store ? store.name : ''}`,
+    message: 'このミスの記録を消します。よろしいですか？',
+    okLabel: '消す',
+    danger: true,
+  });
+  if (!ok) return;
+
+  // 中身を空にすると一覧から外れます（消したことも同期で全端末に伝わります）
+  Store.setItem(MISS_STORE, missEditing.ym || missMonthKey(state.y, state.m), missEditing.id,
+    { done: false, text: '' });
+  el.missModal.classList.add('is-hidden');
+  render();
+  renderSyncStatus();
+}
+
+/** 「この月／この期」と「すべて」の切り替えを取り付けます */
+function bindMissRange(kind, id) {
+  $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('.seg__btn');
+    if (!b) return;
+    missView[kind].range = b.dataset.range;
+    [...$(id).children].forEach((n) => n.classList.toggle('is-on', n === b));
+    renderMissList(kind);
+  });
+}
+
 /** 表示中の日付を前後にずらす（月・年をまたいでもOK） */
+/** 週間掃除の一覧を1年ずらします（その年の1つ目の期に移ります） */
+function shiftWeekAllYear(diff) {
+  const year = state.y + diff;
+  let p = periodOfDate(year, 1, 1);
+  if (p.slice(0, 4) < String(year)) p = addDaysStr(p, 14);
+  goToWeek(p);
+  writeHash();
+  render();
+}
+
+/** 提出記録のカレンダーを1か月ずらします（日は その月に収まる日に寄せます） */
+function shiftReportMonth(diff) {
+  const dt = new Date(state.y, state.m - 1 + diff, 1);
+  state.y = dt.getFullYear();
+  state.m = dt.getMonth() + 1;
+  state.d = Math.min(state.d, daysInMonth(state.y, state.m));
+  writeHash();
+  render();
+}
+
 function shiftDay(diff) {
   const dt = new Date(state.y, state.m - 1, state.d + diff);
   state.y = dt.getFullYear();
@@ -2718,6 +3178,100 @@ function unsubmitPeriod() {
  *  描画：6店舗の達成状況（週間掃除）
  * ============================================================ */
 function renderWeekAll() {
+  renderWeekAllYear();
+  renderWeekAllPeriod();
+  renderMissList('week');
+}
+
+/**
+ * その年の「期」を全部ならべる
+ *
+ * 週間掃除は2週間で1つの区切りなので、日のカレンダーではなく期をならべます。
+ * 中の見かたは提出記録のカレンダーと同じで、
+ *   出した店舗 … その店舗のアイコン
+ *   項目が無い … アイコンをうすく
+ *   まだの店舗 … アイコンは出さず「未◯」と数で
+ * です。
+ */
+function renderWeekAllYear() {
+  const year = state.y;
+  el.weekAllYear.textContent = `${year}年`;
+  const misses = missCountByPeriod();
+  const now = currentPeriod();
+  const today = ymd(TODAY.y, TODAY.m, TODAY.d);
+
+  /* その年に始まる期を集めます */
+  let p = periodOfDate(year, 1, 1);
+  if (p.slice(0, 4) < String(year)) p = addDaysStr(p, 14);
+  const list = [];
+  while (p.slice(0, 4) === String(year)) { list.push(p); p = addDaysStr(p, 14); }
+
+  el.weekAllGrid.innerHTML = '';
+  let doneAll = 0, targetAll = 0;
+  list.forEach((start) => {
+    const future = start > today;
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'period-cell'
+      + (start === now ? ' is-picked' : '')
+      + (future ? ' is-future' : '');
+
+    const label = document.createElement('span');
+    label.className = 'period-cell__label';
+    label.textContent = periodRangeLabel(start).replace(/（.）/g, '');
+    cell.appendChild(label);
+
+    const marks = document.createElement('span');
+    marks.className = 'cal__marks';
+    let done = 0, target = 0, yet = 0;
+    STORES.forEach((s) => {
+      const st = periodStatus(s.id, start);
+      const none = st.total === 0;                 // この期は対象の項目が無い
+      if (!none) {
+        target += 1;
+        if (st.submittedAt) done += 1; else yet += 1;
+      }
+      if (!none && !st.submittedAt) return;
+
+      const chip = document.createElement('span');
+      chip.className = 'logo-chip cal-logo' + (none ? ' is-closed' : '');
+      chip.title = `${s.name}${none ? '（項目なし）' : '（提出済み）'}`;
+      fillLogo(chip, s);
+      marks.appendChild(chip);
+    });
+    if (yet) {
+      const left = document.createElement('span');
+      left.className = 'cal-yet' + (future ? '' : ' is-late');
+      left.textContent = `未${yet}`;
+      left.title = `未提出 ${yet}店舗`;
+      marks.appendChild(left);
+    }
+    cell.appendChild(marks);
+
+    if (misses[start]) {
+      const badge = document.createElement('span');
+      badge.className = 'cal-miss';
+      badge.textContent = misses[start] > 1 ? misses[start] : '!';
+      badge.title = `ミスの記録 ${misses[start]}件`;
+      cell.appendChild(badge);
+    }
+    if (!future && target && done === target) cell.classList.add('is-all');
+    if (!future) { doneAll += done; targetAll += target; }
+
+    cell.addEventListener('click', () => {
+      goToWeek(start);
+      writeHash();
+      render();
+    });
+    el.weekAllGrid.appendChild(cell);
+  });
+
+  el.weekAllYearSummary.textContent = targetAll ? `今までの提出 ${doneAll} / ${targetAll}` : '';
+  el.weekAllYearSummary.classList.toggle('is-all-done', targetAll > 0 && doneAll === targetAll);
+}
+
+/** えらんだ期の中身（店舗ごとの達成率） */
+function renderWeekAllPeriod() {
   const period = currentPeriod();
   el.weekAllRange.textContent = periodRangeLabel(period);
 
@@ -3456,6 +4010,9 @@ function bindEvents() {
   $('weekAllBack').addEventListener('click', goHome);
   $('weekAllPrev').addEventListener('click', () => { goToWeek(addDaysStr(currentPeriod(), -14)); writeHash(); render(); });
   $('weekAllNext').addEventListener('click', () => { goToWeek(addDaysStr(currentPeriod(), 14)); writeHash(); render(); });
+  /* 年の送り。その年の1つ目の期に移ります */
+  $('weekAllYearPrev').addEventListener('click', () => shiftWeekAllYear(-1));
+  $('weekAllYearNext').addEventListener('click', () => shiftWeekAllYear(1));
   $('weekAllToday').addEventListener('click', () => {
     state.y = TODAY.y; state.m = TODAY.m; state.d = TODAY.d;
     writeHash(); render();
@@ -3588,6 +4145,20 @@ function bindEvents() {
   );
   $('reportPrev').addEventListener('click', () => shiftDay(-1));
   $('reportNext').addEventListener('click', () => shiftDay(1));
+  /* カレンダーの月送り。日は、その月に入る範囲へ寄せます */
+  $('reportMonthPrev').addEventListener('click', () => shiftReportMonth(-1));
+  $('reportMonthNext').addEventListener('click', () => shiftReportMonth(1));
+  /* ミスの記録（クローズと週間掃除で、同じ入力画面を使います） */
+  bindMissRange('close', 'missRange');
+  bindMissRange('week', 'wmissRange');
+  el.missWho.addEventListener('change', renderMissWhoField);
+  $('missAdd').addEventListener('click', () => openMissForm('close'));
+  $('wmissAdd').addEventListener('click', () => openMissForm('week'));
+  el.missSave.addEventListener('click', saveMiss);
+  $('missDelete').addEventListener('click', removeMiss);
+  el.missModal.querySelectorAll('[data-close-miss]').forEach((n) =>
+    n.addEventListener('click', () => el.missModal.classList.add('is-hidden'))
+  );
   $('reportToday').addEventListener('click', () => {
     state.y = TODAY.y; state.m = TODAY.m; state.d = TODAY.d;
     writeHash(); render();

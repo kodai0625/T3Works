@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=ec9b3836">
-<meta name="app-version" content="95f94583">
+<link rel="stylesheet" href="css/style.css?v=516dcc0f">
+<meta name="app-version" content="2c11aba6">
 </head>
 <body>
 
@@ -231,7 +231,10 @@
     <p class="updated" id="dayUpdated"></p>
   </section>
 
-  <!-- ===== 全店舗提出記録 ===== -->
+  <!-- ===== 全店舗提出記録 =====
+       上はその月のカレンダー。1日分の升目に6店舗の印が並びます。
+       日を押すと、下にその日の中身が出ます。
+       「じつはできていなかった」はミスとして残せます（_miss/YYYY-MM） -->
   <section class="view view--report is-hidden" id="viewReport">
     <div class="report-head">
       <div class="report-head__row">
@@ -239,16 +242,100 @@
         <button type="button" class="btn" id="reportBack">店舗一覧に戻る</button>
       </div>
       <div class="report-nav">
-        <button type="button" class="year-btn" id="reportPrev" aria-label="前の日">‹</button>
-        <span class="report-nav__date" id="reportDate">2026年8月9日（日）</span>
-        <button type="button" class="year-btn" id="reportNext" aria-label="次の日">›</button>
+        <button type="button" class="year-btn" id="reportMonthPrev" aria-label="前の月">‹</button>
+        <span class="report-nav__date" id="reportMonth">2026年8月</span>
+        <button type="button" class="year-btn" id="reportMonthNext" aria-label="次の月">›</button>
         <button type="button" class="today-btn" id="reportToday">今日</button>
       </div>
-      <p class="report-summary" id="reportSummary"></p>
+
+      <div class="cal">
+        <div class="cal__head" id="calHead"></div>
+        <div class="cal__grid" id="calGrid"></div>
+      </div>
+
+      <ul class="cal-legend">
+        <li><span class="logo-chip cal-logo is-fallback" aria-hidden="true"></span>提出済み（店舗のアイコン）</li>
+        <li><span class="logo-chip cal-logo is-fallback is-closed" aria-hidden="true"></span>定休日（うすいアイコン）</li>
+        <li><span class="cal-yet is-late" aria-hidden="true">未2</span>まだ出していない店舗の数</li>
+        <li><span class="cal-miss" aria-hidden="true">!</span>ミスの記録あり</li>
+      </ul>
+      <p class="report-summary" id="reportMonthSummary"></p>
     </div>
 
-    <ul class="report-list" id="reportList"></ul>
+    <!-- えらんだ日の中身 -->
+    <div class="report-day">
+      <div class="report-day__head">
+        <h3 class="report-day__title" id="reportDate">2026年8月9日（日）</h3>
+        <div class="report-day__nav">
+          <button type="button" class="year-btn" id="reportPrev" aria-label="前の日">‹</button>
+          <button type="button" class="year-btn" id="reportNext" aria-label="次の日">›</button>
+        </div>
+      </div>
+      <p class="report-summary" id="reportSummary"></p>
+      <ul class="report-list" id="reportList"></ul>
+    </div>
+
+    <!-- ミスの記録。「この月」と「すべて」を切り替えられます -->
+    <div class="meeting-bar meeting-bar--sub">
+      <h3 class="meeting-bar__title">ミスの記録<span class="meeting-bar__count" id="missCount"></span></h3>
+      <div class="seg seg--mode" id="missRange">
+        <button type="button" class="seg__btn is-on" data-range="near">この月</button>
+        <button type="button" class="seg__btn" data-range="all">すべて</button>
+      </div>
+      <button type="button" class="btn btn--primary" id="missAdd">＋ ミスを記録する</button>
+    </div>
+    <!-- 店舗でしぼる -->
+    <div class="exp-chips miss-filter" id="missFilter"></div>
+    <p class="miss-tally" id="missTally"></p>
+    <ul class="miss-list" id="missList"></ul>
   </section>
+
+  <!-- ミスを記録する画面 -->
+  <div class="modal is-hidden" id="missModal">
+    <div class="modal__backdrop" data-close-miss></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="missFormTitle">
+      <h2 class="modal__title" id="missFormTitle">ミスを記録する</h2>
+
+      <div class="field">
+        <label class="field__label" for="missDate">日付</label>
+        <input type="date" id="missDate" class="field__input">
+      </div>
+
+      <div class="field">
+        <span class="field__label">どの店舗か</span>
+        <div class="exp-chips" id="missStores"></div>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="missWho">ミスした人</label>
+        <select id="missWho" class="field__input"></select>
+        <!-- リストに無い人（アルバイトなど）は、ここに名前を書きます -->
+        <input type="text" id="missWhoFree" class="field__input miss-who-free is-hidden"
+               placeholder="名前" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="missText">内容</label>
+        <textarea id="missText" class="field__input miss-text" rows="4"
+          placeholder="例）提出したが、冷蔵庫の温度を見ていなかった"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="missBy">記録した人</label>
+        <select id="missBy" class="field__input"></select>
+      </div>
+
+      <p class="pin-error" id="missError"></p>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--primary" id="missSave">記録する</button>
+        <button type="button" class="btn" data-close-miss>やめる</button>
+      </div>
+      <div class="modal__actions is-hidden" id="missDeleteRow">
+        <button type="button" class="btn" id="missDelete">この記録を消す</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== 立替金 =====
        買い出しなどを現金で立て替えたときの記録。お店ではなく「人」と「月」で
@@ -685,7 +772,10 @@
     </section>
   </section>
 
-  <!-- ===== 全店舗の週間掃除 達成状況 ===== -->
+  <!-- ===== 全店舗の週間掃除 達成状況 =====
+       週間掃除は2週間（期）が1つの区切りなので、日ではなく
+       「期」を1年分ならべます。中の見かたは提出記録のカレンダーと同じで、
+       出した店舗はアイコン、定休日はうすく、まだの店舗は数で出ます -->
   <section class="view view--weekall is-hidden" id="viewWeekAll">
     <div class="report-head">
       <div class="report-head__row">
@@ -693,15 +783,48 @@
         <button type="button" class="btn" id="weekAllBack">店舗一覧に戻る</button>
       </div>
       <div class="report-nav">
-        <button type="button" class="year-btn" id="weekAllPrev" aria-label="前の2週間">‹</button>
-        <span class="report-nav__date" id="weekAllRange">8/9（日）〜8/22（土）</span>
-        <button type="button" class="year-btn" id="weekAllNext" aria-label="次の2週間">›</button>
+        <button type="button" class="year-btn" id="weekAllYearPrev" aria-label="前の年">‹</button>
+        <span class="report-nav__date" id="weekAllYear">2026年</span>
+        <button type="button" class="year-btn" id="weekAllYearNext" aria-label="次の年">›</button>
         <button type="button" class="today-btn" id="weekAllToday">今期</button>
       </div>
-      <p class="report-summary" id="weekAllSummary"></p>
+
+      <div class="period-grid" id="weekAllGrid"></div>
+
+      <ul class="cal-legend">
+        <li><span class="logo-chip cal-logo is-fallback" aria-hidden="true"></span>提出済み（店舗のアイコン）</li>
+        <li><span class="logo-chip cal-logo is-fallback is-closed" aria-hidden="true"></span>この期は項目なし</li>
+        <li><span class="cal-yet is-late" aria-hidden="true">未2</span>まだ出していない店舗の数</li>
+        <li><span class="cal-miss" aria-hidden="true">!</span>ミスの記録あり</li>
+      </ul>
+      <p class="report-summary" id="weekAllYearSummary"></p>
     </div>
 
-    <ul class="rate-list" id="weekAllList"></ul>
+    <!-- えらんだ期の中身 -->
+    <div class="report-day">
+      <div class="report-day__head">
+        <h3 class="report-day__title" id="weekAllRange">8/9（日）〜8/22（土）</h3>
+        <div class="report-day__nav">
+          <button type="button" class="year-btn" id="weekAllPrev" aria-label="前の2週間">‹</button>
+          <button type="button" class="year-btn" id="weekAllNext" aria-label="次の2週間">›</button>
+        </div>
+      </div>
+      <p class="report-summary" id="weekAllSummary"></p>
+      <ul class="rate-list" id="weekAllList"></ul>
+    </div>
+
+    <!-- 週間掃除のミス -->
+    <div class="meeting-bar meeting-bar--sub">
+      <h3 class="meeting-bar__title">ミスの記録<span class="meeting-bar__count" id="wmissCount"></span></h3>
+      <div class="seg seg--mode" id="wmissRange">
+        <button type="button" class="seg__btn is-on" data-range="near">この期</button>
+        <button type="button" class="seg__btn" data-range="all">すべて</button>
+      </div>
+      <button type="button" class="btn btn--primary" id="wmissAdd">＋ ミスを記録する</button>
+    </div>
+    <div class="exp-chips miss-filter" id="wmissFilter"></div>
+    <p class="miss-tally" id="wmissTally"></p>
+    <ul class="miss-list" id="wmissList"></ul>
   </section>
 
   <!-- ===== 月間表ビュー ===== -->
@@ -819,12 +942,12 @@
   </div>
 </div>
 
-<script src="js/config.js?v=63ff5e99"></script>
+<script src="js/config.js?v=11ffbe9e"></script>
 <script src="js/storage.js?v=c163d4c1"></script>
 <script src="js/sync.js?v=a633c4c7"></script>
 <script src="js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="js/meeting-data.js?v=36389c67"></script>
-<script src="js/app.js?v=0f730b6e"></script>
+<script src="js/app.js?v=97b6fbd8"></script>
 </body>
 </html>
