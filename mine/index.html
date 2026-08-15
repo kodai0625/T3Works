@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=d19d2d30">
-<meta name="app-version" content="c8d82b05">
+<link rel="stylesheet" href="../css/style.css?v=79d68a8f">
+<meta name="app-version" content="1651b83b">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -982,6 +982,25 @@
   </div>
 </div>
 
+<!-- ===== キャッチの明細（まとめた1行の中身） =====
+     一覧は「日付×立て替えた人×店舗」で1行にまとめてあるので、
+     誰にいくら渡したかは、ここで見て1件ずつ直します -->
+<div class="modal is-hidden" id="catchDetailModal">
+  <div class="modal__backdrop" data-close-catch-detail></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="catchDetailTitle">
+    <h2 class="modal__title" id="catchDetailTitle">キャッチの明細</h2>
+    <p class="catch-detail__head" id="catchDetailHead"></p>
+
+    <ul class="catch-detail" id="catchDetailList"></ul>
+    <p class="catch-detail__foot" id="catchDetailFoot"></p>
+    <p class="modal__note is-hidden" id="catchDetailNote"></p>
+
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-close-catch-detail>とじる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 誤チェック防止の確認ダイアログ ===== -->
 <div class="modal is-hidden" id="confirmDialog">
   <div class="modal__backdrop" data-confirm-cancel></div>
@@ -1053,12 +1072,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=95c3a68e"></script>
-<script src="../js/storage.js?v=0f16ff26"></script>
-<script src="../js/sync.js?v=9f5d6fcb"></script>
+<script src="../js/config.js?v=5afe904b"></script>
+<script src="../js/storage.js?v=dbd1411f"></script>
+<script src="../js/sync.js?v=08e6b687"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=fb226e29"></script>
+<script src="../js/app.js?v=5bcb0e36"></script>
 </body>
 </html>

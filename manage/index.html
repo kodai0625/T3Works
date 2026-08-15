@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=d19d2d30">
+<link rel="stylesheet" href="../css/style.css?v=79d68a8f">
 <link rel="stylesheet" href="css/admin.css?v=234f2929">
-<meta name="app-version" content="c8d82b05">
+<meta name="app-version" content="1651b83b">
 </head>
 <body class="no-daytabs">
 
@@ -77,12 +77,12 @@
     </div>
     <p class="admin-note">
       1行に1人。現金支払い管理表で<b>「キャッチ」</b>をえらんだときの、
-      <b>「渡した相手」</b>のプルダウンに この順番で並びます。全店舗で共通です。<br>
+      <b>「渡した相手」</b>のプルダウンに <b>店舗ごとにまとまって</b>並びます
+      （そのとき選んでいる店舗の人が、いちばん上に出ます）。<br>
       クローズの担当者とは別のリストです（あちらは社員、こちらはアルバイト）。<br>
       名前を消しても、その人の<b>過去の記録は残ります</b>。
     </p>
-    <textarea id="catchStaffInput" class="field__input field__input--area" rows="12"
-      placeholder="（まだ登録していません）&#10;1行に1人ずつ書いてください"></textarea>
+    <div class="admin-fields" id="catchStaffFields"></div>
     <div class="admin-actions">
       <button type="button" class="btn btn--primary" id="saveCatchStaff">名前を保存</button>
       <span class="admin-saved is-hidden" id="catchStaffSaved">保存しました</span>
@@ -372,14 +372,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=95c3a68e"></script>
-<script src="../js/storage.js?v=0f16ff26"></script>
-<script src="../js/sync.js?v=9f5d6fcb"></script>
+<script src="../js/config.js?v=5afe904b"></script>
+<script src="../js/storage.js?v=dbd1411f"></script>
+<script src="../js/sync.js?v=08e6b687"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=f0d5d8bd"></script>
+<script src="js/admin.js?v=4240fc23"></script>
 </body>
 </html>

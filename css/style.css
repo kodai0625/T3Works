@@ -1110,6 +1110,61 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 .row-edit:active { background: var(--surface-2); }
 
+/* まとめた行に添える「3件」。名前のうしろに、小さく続けます */
+.exp-row__n {
+  margin-left: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--text-weak); white-space: nowrap;
+}
+
+/* ===================== キャッチの明細（まとめた1行の中身） =====================
+   一覧は「日付×立て替えた人×店舗」で1行にまとめてあるので、
+   誰にいくら渡したかは、この画面で見て1件ずつ直します */
+.catch-detail__head {
+  margin: 0 0 12px; padding: 7px 0 7px 11px;
+  border-left: 3px solid var(--card-color, var(--money));
+  font-size: 13px; font-weight: 700; color: var(--text-sub);
+  overflow-wrap: anywhere;
+}
+
+.catch-detail { list-style: none; margin: 0; padding: 0; }
+.catch-detail__row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 2px; border-top: 1px solid var(--line-2);
+  font-size: 13.5px;
+}
+.catch-detail__row:first-child { border-top: 0; }
+
+/* 渡した相手。長い名前でも折り返して、人数と金額は右にそろえたまま */
+.catch-detail__who { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+.catch-detail__people {
+  flex: 0 0 auto; min-width: 42px; text-align: right;
+  font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-sub);
+}
+.catch-detail__yen {
+  flex: 0 0 auto; min-width: 66px; text-align: right;
+  font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+/* いちばん下の合計。帳簿の〆と同じく、上に二重線を引きます */
+.catch-detail__foot {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0; padding: 10px 2px 0;
+  border-top: 2px solid color-mix(in srgb, var(--money) 30%, var(--line));
+  font-size: 14px;
+}
+.catch-detail__foot .catch-detail__yen { font-size: 16px; }
+
+/* 直す・× を入れる場所。合計行には空のまま置いて、
+   金額のたてのラインが1本になるようにそろえます */
+.catch-detail__act {
+  flex: 0 0 auto; width: 80px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+}
+
+#catchDetailNote { margin: 12px 0 0; }
+/* 合計とボタンがくっつくので、すこし離します */
+#catchDetailModal .modal__actions { margin-top: 16px; }
+
 /* ===================== 配達記録（交通費・バグる専用の別アプリ） =====================
    人ごとに 合計距離 と 合計金額 を出します。
 

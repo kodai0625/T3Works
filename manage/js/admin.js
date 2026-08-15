@@ -40,7 +40,7 @@ const el = {};
   'weeklyStoreName', 'weeklyCount', 'weeklyEditor',
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
-  'catchStaffInput', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
+  'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1000,48 +1000,35 @@ function renderDrivers() {
 }
 
 function renderCatchStaff() {
-  const names = CatchStaff.list();
-  el.catchStaffInput.value = names.join('\n');
-  el.catchStaffCount.textContent = names.length ? `${names.length}人` : 'まだ登録なし';
-}
+  const map = CatchStaff.all();
+  const n = CatchStaff.count();
+  el.catchStaffCount.textContent = n ? `${n}人` : 'まだ登録なし';
 
-/** 店舗ごとの日報フォルダ。会議資料の「日報から取り込む」で使います */
-function renderNippouFolders() {
-  const saved = NippouFolders.all();
-  const n = STORES.filter((s) => saved[s.id]).length;
-  el.nippouCount.textContent = n ? `${n}／${STORES.length}店舗` : 'まだ登録なし';
-
-  el.nippouFields.innerHTML = '';
+  el.catchStaffFields.innerHTML = '';
   STORES.forEach((s) => {
     const wrap = document.createElement('label');
     wrap.className = 'field';
     const label = document.createElement('span');
     label.className = 'field__label';
-    label.textContent = s.name;
-    const input = document.createElement('input');
-    input.type = 'url';
-    input.className = 'field__input';
-    input.dataset.store = s.id;
-    input.placeholder = 'https://drive.google.com/drive/folders/…';
-    input.value = saved[s.id] || '';
-    wrap.append(label, input);
-    el.nippouFields.appendChild(wrap);
+    const names = map[s.id] || [];
+    label.textContent = `${s.name}（${names.length}人）`;
+    const area = document.createElement('textarea');
+    area.className = 'field__input field__input--area';
+    area.rows = 6;
+    area.dataset.store = s.id;
+    area.placeholder = '1行に1人ずつ';
+    area.value = names.join('\n');
+    wrap.append(label, area);
+    el.catchStaffFields.appendChild(wrap);
   });
-}
-
-function saveNippouFolders() {
-  const map = {};
-  [...el.nippouFields.querySelectorAll('input[data-store]')].forEach((i) => {
-    map[i.dataset.store] = i.value;
-  });
-  NippouFolders.save(map);
-  renderNippouFolders();
-  el.nippouSaved.classList.remove('is-hidden');
-  setTimeout(() => el.nippouSaved.classList.add('is-hidden'), 2500);
 }
 
 function saveCatchStaff() {
-  CatchStaff.saveFromText(el.catchStaffInput.value);
+  const map = {};
+  [...el.catchStaffFields.querySelectorAll('textarea[data-store]')].forEach((a) => {
+    map[a.dataset.store] = a.value.split('\n');
+  });
+  CatchStaff.save(map);
   renderCatchStaff();
   el.catchStaffSaved.classList.remove('is-hidden');
   setTimeout(() => el.catchStaffSaved.classList.add('is-hidden'), 2500);

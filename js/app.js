@@ -84,6 +84,9 @@ const el = {
   rankCount: $('rankCount'), rankFilter: $('rankFilter'),
   rankRows: $('rankRows'), rankFoot: $('rankFoot'), rankNote: $('rankNote'),
   rankPie: $('rankPie'), rankPieBox: $('rankPieBox'),
+  catchDetailModal: $('catchDetailModal'), catchDetailHead: $('catchDetailHead'),
+  catchDetailList: $('catchDetailList'), catchDetailFoot: $('catchDetailFoot'),
+  catchDetailNote: $('catchDetailNote'),
   viewSettle: $('viewSettle'), settleYear: $('settleYear'), settleSummary: $('settleSummary'),
   settleLockBtn: $('settleLockBtn'),
   settleRows: $('settleRows'), settleFoot: $('settleFoot'),
@@ -766,6 +769,68 @@ function expenseByPerson(rec) {
     .sort((a, b) => rank(a.name) - rank(b.name) || b.total - a.total);
 }
 
+/* ------------------------------------------------------------
+ *  キャッチの明細を1行にまとめる
+ *
+ *  キャッチは「1人に渡すごとに1件」入れるので、同じ日の同じ店舗で
+ *  何人にも渡すと、明細が同じような行でうまってしまいます。
+ *  そこで一覧では
+ *
+ *      日付 × 立て替えた人 × 店舗
+ *
+ *  を1行にまとめ、合計の人数と金額だけを出します。
+ *  渡した相手は一覧には出さず、「明細」を押して開く画面で見ます
+ *  （店舗が違えば、同じ日・同じ人でも別の行になります）。
+ *
+ *  キャッチ以外は、まとめる意味がないので1件が1行のままです。
+ *  並びは、そのかたまりの いちばん最初の1件があった場所です。
+ * ---------------------------------------------------------- */
+
+/** まとめるときの目じるし（日付・立て替えた人・店舗） */
+function catchGroupKey(e) {
+  return [e.d || '', e.by || '', e.store || ''].join('');
+}
+
+function catchGroups(list) {
+  const map = new Map();
+  const out = [];
+  list.forEach((e) => {
+    if (e.kind !== 'catch') {
+      // キャッチ以外は、そのまま1件で1つのかたまりにします
+      out.push({
+        d: e.d || '', by: e.by || '', store: e.store || '',
+        list: [e], people: 0, yen: Number(e.yen) || 0, isCatch: false,
+      });
+      return;
+    }
+    const key = catchGroupKey(e);
+    let g = map.get(key);
+    if (!g) {
+      g = {
+        d: e.d || '', by: e.by || '', store: e.store || '',
+        list: [], people: 0, yen: 0, isCatch: true,
+      };
+      map.set(key, g);
+      out.push(g);
+    }
+    g.list.push(e);
+    g.people += Number(e.people) || 0;
+    g.yen += Number(e.yen) || 0;
+  });
+  return out;
+}
+
+/**
+ * まとめた行の領収書のしるし
+ *   ぜんぶ有り → ◯ ／ ぜんぶ無し → × ／ まざっている → △
+ */
+function groupReceipt(g) {
+  const yes = g.list.filter((e) => e.receipt).length;
+  if (yes === g.list.length) return { mark: '◯', none: false, title: '領収書あり' };
+  if (yes === 0) return { mark: '×', none: true, title: '領収書なし' };
+  return { mark: '△', none: true, title: `領収書あり ${yes}件／なし ${g.list.length - yes}件` };
+}
+
 function yenText(n) {
   return '¥' + (Number(n) || 0).toLocaleString('ja-JP');
 }
@@ -854,15 +919,18 @@ function renderExpense() {
   el.expenseList.innerHTML = '';
   paying.forEach((p) => {
     const done = !!(p.paid && p.paid.done);
+    // キャッチは「日付×店舗」でまとめます（立て替えた人はこのカードの人）
+    const groups = catchGroups(p.list);
     const card = document.createElement('section');
     card.className = 'exp-card' + (done ? ' is-paid' : '');
 
     const head = document.createElement('div');
     head.className = 'exp-card__head';
     // 名前・件数・その人の合計。上の表を見に戻らなくても分かるようにします
+    // 件数は「下に出ている行の数」です（キャッチはまとめた後の数になります）
     head.innerHTML =
       '<span class="exp-card__name"></span>' +
-      `<span class="exp-card__count">${p.list.length}件</span>` +
+      `<span class="exp-card__count">${groups.length}件</span>` +
       `<span class="exp-card__total">${yenMarkup(p.total)}</span>`;
     head.querySelector('.exp-card__name').textContent = p.name;
     if (done) {
@@ -875,18 +943,39 @@ function renderExpense() {
 
     const list = document.createElement('ul');
     list.className = 'exp-rows';
-    p.list.forEach((e) => {
+    groups.forEach((g) => {
+      const e = g.list[0];
       const li = document.createElement('li');
       li.className = 'exp-row';
-      const [, m, d] = (e.d || '').split('-');
+      const [, m, d] = (g.d || '').split('-');
+      const receipt = groupReceipt(g);
+      // キャッチは合計の人数で名前を作り直します（例：こじゃれキャッチ 63名）
+      const label = g.isCatch
+        ? expenseLabelOf('catch', g.store, g.people)
+        : (e.label || '（項目なし）');
       li.innerHTML =
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
-        `<span class="exp-row__label"></span>` +
-        `<span class="exp-row__receipt${e.receipt ? '' : ' is-none'}">${e.receipt ? '◯' : '×'}</span>` +
-        `<span class="exp-row__yen">${yenMarkup(e.yen)}</span>`;
-      li.querySelector('.exp-row__label').textContent = e.label || '（項目なし）';
-      // 精算が済むまでは、間違えて入れたものを直したり消したりできます
-      if (!done) {
+        '<span class="exp-row__label"></span>' +
+        `<span class="exp-row__receipt${receipt.none ? ' is-none' : ''}"` +
+        ` title="${receipt.title}">${receipt.mark}</span>` +
+        `<span class="exp-row__yen">${yenMarkup(g.yen)}</span>`;
+      li.querySelector('.exp-row__label').textContent = label;
+      /* ここには何件分かを添えていません。
+         「こじゃれキャッチ 69名」だけで幅がいっぱいで、
+         足すと iPhone の幅で名前ごと折り返してしまうためです。
+         件数は「明細」を押すと、いちばん下の合計に出ます */
+
+      if (g.isCatch) {
+        // キャッチは渡した相手を一覧に出さないので、明細の画面で見て直します
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'row-edit';
+        open.textContent = '明細';
+        open.title = '渡した相手を見る・直す';
+        open.addEventListener('click', () => openCatchDetail(g));
+        li.appendChild(open);
+      } else if (!done) {
+        // 精算が済むまでは、間違えて入れたものを直したり消したりできます
         const edit = document.createElement('button');
         edit.type = 'button';
         edit.className = 'row-edit';
@@ -943,8 +1032,19 @@ async function removeExpense(e) {
   if (!ok) return;
   // 金額を0にすると一覧から外れます（消したことも同期で全端末に伝わります）
   Store.setItem(EXPENSE_STORE, expenseMonthKey(state.y, state.m), e.id, { yen: 0, done: false });
-  renderExpense();
+  renderLedger();
   renderSyncStatus();
+}
+
+/**
+ * お金の一覧を出しなおす
+ *
+ * 現金支払い管理表とキャッチ集計は同じ記録を見ているので、
+ * どちらから直しても、いま開いている方を出しなおします。
+ */
+function renderLedger() {
+  if (state.view === 'catch') renderCatch();
+  else renderExpense();
 }
 
 /* ---- 入力画面 ----
@@ -958,6 +1058,37 @@ let expKind = '';     // 支払い項目の種類（parking / buy / catch / chan
 let expStore = '';    // 買い出し・キャッチのときの店舗
 let expEditing = null; // 直しているとき、その1件
 
+/**
+ * 「渡した相手」のえらび方。店舗ごとにまとめて出します。
+ * いま選んでいる店舗の人がいちばん上、そのあとに他店舗の人が続きます
+ * （他店舗の子に渡すこともあるので、消さずに残しています）。
+ */
+function fillWhoOptions(who) {
+  const map = CatchStaff.all();
+  el.expWho.innerHTML = '<option value="">選んでください</option>';
+  const order = STORES.map((x) => x.id)
+    .sort((a, b) => (b === expStore ? 1 : 0) - (a === expStore ? 1 : 0));
+  const known = [];
+  order.forEach((id) => {
+    const names = map[id] || [];
+    if (!names.length) return;
+    const g = document.createElement('optgroup');
+    g.label = getStore(id).name;
+    names.forEach((n) => {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n;
+      g.appendChild(o);
+      known.push(n);
+    });
+    el.expWho.appendChild(g);
+  });
+  const other = document.createElement('option');
+  other.value = CATCH_OTHER;
+  other.textContent = 'その他（名前を書く）';
+  el.expWho.appendChild(other);
+  el.expWho.value = (who && known.includes(who)) ? who : (who ? CATCH_OTHER : '');
+}
+
 function openExpenseForm(entry) {
   expEditing = entry || null;
   el.expDate.value = expEditing ? expEditing.d : ymd(TODAY.y, TODAY.m, TODAY.d);
@@ -967,20 +1098,8 @@ function openExpenseForm(entry) {
 
   /* 渡した相手（キャッチのとき）。リストに無い人は「その他」で名前を書きます */
   const who = expEditing ? (expEditing.who || '') : '';
-  const catchNames = CatchStaff.list();
-  el.expWho.innerHTML = '<option value="">選んでください</option>';
-  catchNames.forEach((n) => {
-    const o = document.createElement('option');
-    o.value = n; o.textContent = n;
-    el.expWho.appendChild(o);
-  });
-  const otherOpt = document.createElement('option');
-  otherOpt.value = CATCH_OTHER;
-  otherOpt.textContent = 'その他（名前を書く）';
-  el.expWho.appendChild(otherOpt);
-  const knownWho = who && catchNames.includes(who);
-  el.expWho.value = knownWho ? who : (who ? CATCH_OTHER : '');
-  el.expWhoFree.value = knownWho ? '' : who;
+  fillWhoOptions(who);
+  el.expWhoFree.value = el.expWho.value === CATCH_OTHER ? who : '';
   el.expenseError.textContent = '';
   expReceipt = expEditing ? !!expEditing.receipt : true;
   expKind = expEditing ? (expEditing.kind || '') : '';
@@ -1029,7 +1148,11 @@ function openExpenseForm(entry) {
     b.style.setProperty('--pick-color', s.color);
     // 略さない名前を出します（「おいでん」ではなく「おいでんテラス」）
     b.textContent = s.name;
-    b.addEventListener('click', () => { expStore = s.id; renderExpenseForm(); });
+    b.addEventListener('click', () => {
+      expStore = s.id;
+      fillWhoOptions(el.expWho.value === CATCH_OTHER ? el.expWhoFree.value : el.expWho.value);
+      renderExpenseForm();
+    });
     el.expStores.appendChild(b);
   });
 
@@ -1099,7 +1222,7 @@ function saveExpense() {
   state.m = mm;
   el.expenseModal.classList.add('is-hidden');
   writeHash();
-  renderExpense();
+  renderLedger();
   renderSyncStatus();
 }
 
@@ -1433,6 +1556,8 @@ function renderCatch() {
   /* ---- 店舗ごとの明細 ---- */
   el.catchList.innerHTML = '';
   rows.filter((r) => r.list.length).forEach((r) => {
+    // 同じ日に同じ人が立て替えた分は1行にまとめます（店舗はこのカードの店舗）
+    const groups = catchGroups(r.list);
     const card = document.createElement('section');
     card.className = 'exp-card';
     // 左の帯と店舗名の色。一覧画面の店舗カードと同じ色を使います
@@ -1449,22 +1574,148 @@ function renderCatch() {
 
     const list = document.createElement('ul');
     list.className = 'exp-rows';
-    r.list.forEach((e) => {
+    groups.forEach((g) => {
       const li = document.createElement('li');
       li.className = 'exp-row';
-      const [, m, d] = (e.d || '').split('-');
+      const [, m, d] = (g.d || '').split('-');
       li.innerHTML =
         `<span class="exp-row__date">${m ? `${+m}/${+d}` : '—'}</span>` +
         '<span class="exp-row__label"></span>' +
-        `<span class="exp-row__yen">${yenMarkup(e.yen)}</span>`;
-      // 渡した相手 → 人数 → 立て替えた人 の順に出します
-      li.querySelector('.exp-row__label').textContent =
-        `${e.who ? e.who + '　' : ''}${e.people || 0}名${e.by ? '　立替 ' + e.by : ''}`;
+        `<span class="exp-row__yen">${yenMarkup(g.yen)}</span>`;
+      // 人数 → 立て替えた人 の順に出します（渡した相手は「明細」の中）
+      const labelEl = li.querySelector('.exp-row__label');
+      labelEl.textContent = `${g.people}名${g.by ? '　立替 ' + g.by : ''}`;
+
+      // こちらは名前が短いので、何件分かを添えても折り返しません
+      if (g.list.length > 1) {
+        const n = document.createElement('span');
+        n.className = 'exp-row__n';
+        n.textContent = `${g.list.length}件`;
+        labelEl.appendChild(n);
+      }
+
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'row-edit';
+      open.textContent = '明細';
+      open.title = '渡した相手を見る・直す';
+      open.addEventListener('click', () => openCatchDetail(g));
+      li.appendChild(open);
+
       list.appendChild(li);
     });
     card.appendChild(list);
     el.catchList.appendChild(card);
   });
+}
+
+/* ------------------------------------------------------------
+ *  キャッチの明細（まとめた1行の中身）
+ *
+ *  一覧では「日付 × 立て替えた人 × 店舗」で1行にまとめているので、
+ *  誰にいくら渡したかは、この画面で見て、1件ずつ直します。
+ * ---------------------------------------------------------- */
+
+/** いま開いているかたまり。{ d, by, store } */
+let catchDetail = null;
+
+function openCatchDetail(g) {
+  catchDetail = { d: g.d, by: g.by, store: g.store };
+  renderCatchDetail();
+  el.catchDetailModal.classList.remove('is-hidden');
+}
+
+function closeCatchDetail() {
+  catchDetail = null;
+  el.catchDetailModal.classList.add('is-hidden');
+}
+
+/** 「8/6（水）」のかたち */
+function catchDetailDate(str) {
+  const [y, m, d] = (str || '').split('-').map(Number);
+  if (!y || !m || !d) return '日付なし';
+  return `${m}/${d}（${DOW[new Date(y, m - 1, d).getDay()]}）`;
+}
+
+/**
+ * 中身を出す
+ *
+ * 開いたまま直したり消したりできるので、そのつど数えなおします。
+ * ぜんぶ消して空になったら、この画面は閉じます。
+ */
+function renderCatchDetail() {
+  if (!catchDetail) return;
+  const { d, by, store } = catchDetail;
+  const rec = expenseRec();
+  const list = expenseEntries(rec).filter((e) => e.kind === 'catch'
+    && (e.d || '') === d && (e.by || '') === by && (e.store || '') === store);
+  if (!list.length) { closeCatchDetail(); return; }
+
+  const people = list.reduce((t, e) => t + (Number(e.people) || 0), 0);
+  const yen = list.reduce((t, e) => t + (Number(e.yen) || 0), 0);
+  // 精算が済んだ月の分は、金額が変わってしまうと困るので直せなくします
+  const paid = (rec.items || {})[expensePaidKey(by)];
+  const locked = !!(paid && paid.done);
+
+  /* 見出し：いつ・どの店舗・誰が立て替えたか */
+  el.catchDetailHead.textContent =
+    `${catchDetailDate(d)}　${store ? getStore(store).name : '（店舗なし）'}　立替 ${by || '（名前なし）'}`;
+  // 店舗の色を細い帯で添えます（キャッチ集計のカードと同じ色）
+  el.catchDetailHead.style.setProperty('--card-color', store ? getStore(store).color : 'var(--money)');
+
+  /* 1件ずつ：渡した相手・人数・金額 */
+  el.catchDetailList.innerHTML = '';
+  list.forEach((e) => {
+    const li = document.createElement('li');
+    li.className = 'catch-detail__row';
+    li.innerHTML =
+      '<span class="catch-detail__who"></span>' +
+      `<span class="catch-detail__people">${Number(e.people) || 0}<span class="ledger-unit">名</span></span>` +
+      `<span class="catch-detail__yen">${yenMarkup(e.yen)}</span>`;
+    li.querySelector('.catch-detail__who').textContent = (e.who || '').trim() || '（相手なし）';
+
+    if (!locked) {
+      const act = document.createElement('span');
+      act.className = 'catch-detail__act';
+
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'row-edit';
+      edit.textContent = '直す';
+      edit.title = 'この1件を直す';
+      edit.addEventListener('click', () => {
+        closeCatchDetail();
+        openExpenseForm(e);
+      });
+      act.appendChild(edit);
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'exp-row__del';
+      del.textContent = '×';
+      del.title = 'この1件を消す';
+      del.addEventListener('click', async () => {
+        await removeExpense(e);
+        renderCatchDetail();   // 消したあとの中身を出しなおす
+      });
+      act.appendChild(del);
+
+      li.appendChild(act);
+    }
+    el.catchDetailList.appendChild(li);
+  });
+
+  /* いちばん下の合計。ボタンの場所は空のまま置いて、金額の位置をそろえます */
+  el.catchDetailFoot.innerHTML =
+    `<span class="catch-detail__who">合計　<span class="ledger-foot__note">${list.length}件</span></span>` +
+    `<span class="catch-detail__people">${people}<span class="ledger-unit">名</span></span>` +
+    `<span class="catch-detail__yen">${yenMarkup(yen)}</span>` +
+    (locked ? '' : '<span class="catch-detail__act"></span>');
+
+  el.catchDetailNote.textContent = locked
+    ? '精算が済んでいるので、直したり消したりはできません。'
+    : '';
+  el.catchDetailNote.classList.toggle('is-hidden', !locked);
 }
 
 /* ============================================================
@@ -4647,6 +4898,10 @@ function bindEvents() {
   });
   /* 渡した相手で「その他」をえらんだら、名前を書く欄を出す */
   el.expWho.addEventListener('change', renderExpenseForm);
+  /* まとめた行を開いた「キャッチの明細」 */
+  el.catchDetailModal.querySelectorAll('[data-close-catch-detail]').forEach((n) =>
+    n.addEventListener('click', closeCatchDetail)
+  );
   $('catchThisMonth').addEventListener('click', () => {
     state.y = TODAY.y; state.m = TODAY.m;
     writeHash(); render();
@@ -4801,6 +5056,7 @@ function bindEvents() {
     if (e.key !== 'Escape') return;
     if (!el.confirmDialog.classList.contains('is-hidden')) closeConfirm(false);
     else if (!el.doerModal.classList.contains('is-hidden')) closeDoerModal();
+    else if (!el.catchDetailModal.classList.contains('is-hidden')) closeCatchDetail();
     else closeModal();
   });
 

@@ -358,26 +358,56 @@ const Staff = {
 const CatchStaff = {
   _key: APP.storageKey + ':catchStaff',
 
-  /** 設定で保存されたリスト。未設定・壊れている場合は config.js の CATCH_STAFF を使う */
-  list() {
+  /** { 店舗id: [名前] } をまるごと返します */
+  all() {
     try {
       const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
-      if (Array.isArray(saved)) return saved;
+      // 前は全店舗ひとまとめの配列でした。そのときの分は、そのまま全店舗の人として扱います
+      if (Array.isArray(saved)) {
+        const map = {};
+        if (saved.length) STORES.forEach((s) => { map[s.id] = saved.slice(); });
+        return map;
+      }
+      if (saved && typeof saved === 'object') return saved;
     } catch (e) {
       /* 壊れていたら初期値に戻す */
     }
-    return CATCH_STAFF.slice();
+    return { ...CATCH_STAFF };
   },
 
-  /** 改行区切りの文字列から保存（空行と重複は除く） */
-  saveFromText(text) {
-    const names = [];
-    text.split('\n').forEach((line) => {
-      const name = line.trim();
-      if (name && !names.includes(name)) names.push(name);
+  /** その店舗の人。店舗を指定しなければ、全店舗をつないだ一覧（重複なし） */
+  list(storeId) {
+    const map = this.all();
+    if (storeId) return (map[storeId] || []).slice();
+    const out = [];
+    STORES.forEach((s) => (map[s.id] || []).forEach((n) => {
+      if (!out.includes(n)) out.push(n);
+    }));
+    return out;
+  },
+
+  /** 何人登録されているか（重複は1人と数えます） */
+  count() { return this.list().length; },
+
+  save(map) {
+    const clean = {};
+    Object.keys(map || {}).forEach((id) => {
+      const names = [];
+      (map[id] || []).forEach((n) => {
+        const name = String(n).trim();
+        if (name && !names.includes(name)) names.push(name);
+      });
+      if (names.length) clean[id] = names;
     });
-    localStorage.setItem(this._key, JSON.stringify(names));
-    return names;
+    localStorage.setItem(this._key, JSON.stringify(clean));
+    return clean;
+  },
+
+  /** 1店舗分を、改行区切りの文字列から保存 */
+  saveFromText(storeId, text) {
+    const map = this.all();
+    map[storeId] = String(text || '').split('\n');
+    return this.save(map);
   },
 };
 

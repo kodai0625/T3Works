@@ -370,11 +370,11 @@ function summaryFor(key) {
     return names;
   };
 
-  const _saveCatch = CatchStaff.saveFromText.bind(CatchStaff);
-  CatchStaff.saveFromText = function (text) {
-    const names = _saveCatch(text);
-    Sync.enqueue({ t: 'setting', n: 'catchStaff', v: names });
-    return names;
+  const _saveCatch = CatchStaff.save.bind(CatchStaff);
+  CatchStaff.save = function (map) {
+    const clean = _saveCatch(map);
+    Sync.enqueue({ t: 'setting', n: 'catchStaff', v: clean });
+    return clean;
   };
 
   const _saveNippou = NippouFolders.save.bind(NippouFolders);

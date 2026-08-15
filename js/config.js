@@ -1010,7 +1010,7 @@ const CATCH_STORES = ['kojare', 'sumimaro', 'chacoru', 'popo', 'oiden'];
  * 「誰に渡したか」のプルダウンに並びます。全店舗で共通です。
  * ★中身はマネージの「キャッチをする人」で登録します（ここは空のままでOK）。
  */
-const CATCH_STAFF = [];
+const CATCH_STAFF = {};   // { 店舗id: ['名前', …] }。マネージで登録します
 
 /** プルダウンで、リストに無い人を書くときの目印 */
 const CATCH_OTHER = '__other__';
