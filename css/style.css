@@ -2805,3 +2805,36 @@ body.is-wide .page { max-width: 1700px; }
   .table-scroll { overflow: visible; border: 0; box-shadow: none; }
   .month-table { font-size: 9px; width: 100%; }
 }
+
+/* -------- 会議資料：日報からの取り込み -------- */
+.nippou { margin: 10px 0 12px; }
+.nippou__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nippou__note { font-size: 12.5px; color: var(--text-sub); }
+.nippou__list {
+  list-style: none; margin: 10px 0 0; padding: 10px 12px;
+  display: grid; gap: 6px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); font-size: 13px;
+}
+.nippou__list.is-hidden { display: none; }
+.nippou__row { color: var(--text-sub); }
+.nippou__row b { color: var(--text); margin-right: 10px; }
+.nippou__row.is-ng { color: color-mix(in srgb, var(--ng) 85%, var(--text)); }
+/* マネージの日報フォルダ。店舗ごとに1行ずつ */
+.admin-fields { display: grid; gap: 10px; margin-bottom: 12px; }
+.admin-fields .field { display: block; }
+
+/* -------- 会議資料：光熱費の手入力 -------- */
+.btn--small { padding: 6px 12px; font-size: 12.5px; }
+.btn--small.is-hidden { display: none; }
+.modal__panel--wide { max-width: 560px; }
+.util-year { margin-bottom: 12px; }
+.util-table th, .util-table td { padding: 8px 10px; }
+.util-table .util-name { font-weight: 700; white-space: nowrap; }
+.util-input {
+  width: 100%; min-width: 92px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  color: inherit; font: inherit; font-size: 14px; font-weight: 700;
+  padding: 7px 9px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.util-input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }

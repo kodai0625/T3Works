@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=557de634">
+<link rel="stylesheet" href="../css/style.css?v=356fde5b">
 <link rel="stylesheet" href="css/admin.css?v=234f2929">
-<meta name="app-version" content="e828fb48">
+<meta name="app-version" content="d8282344">
 </head>
 <body class="no-daytabs">
 
@@ -86,6 +86,27 @@
     <div class="admin-actions">
       <button type="button" class="btn btn--primary" id="saveCatchStaff">名前を保存</button>
       <span class="admin-saved is-hidden" id="catchStaffSaved">保存しました</span>
+    </div>
+  </section>
+
+  <!-- ===== 日報フォルダ（会議資料の自動取り込みに使います） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">日報フォルダ</h2>
+      <span class="admin-count" id="nippouCount"></span>
+    </div>
+    <p class="admin-note">
+      店舗ごとの<b>日報フォルダ</b>のURLを入れてください。Googleドライブでそのフォルダを開いて、
+      アドレスをそのまま貼れば大丈夫です。<br>
+      会議資料のページで<b>「日報から取り込む」</b>を押すと、このフォルダから
+      <b>「年月」で始まるファイル</b>（例：202607_こじゃれ_日報）を探して数字を読みます。
+      去年の分は、中の年フォルダ（例：2025年_こじゃれ日報）からも探します。<br>
+      読むのは <b>売上・客数・原価・人件費</b> だけです。光熱費は日報に無いので手で入れます。
+    </p>
+    <div class="admin-fields" id="nippouFields"></div>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveNippou">フォルダを保存</button>
+      <span class="admin-saved is-hidden" id="nippouSaved">保存しました</span>
     </div>
   </section>
 
@@ -351,14 +372,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=3a5dc972"></script>
-<script src="../js/storage.js?v=eeb1200d"></script>
-<script src="../js/sync.js?v=02349b0d"></script>
+<script src="../js/config.js?v=1ddb6945"></script>
+<script src="../js/storage.js?v=64e6f8a1"></script>
+<script src="../js/sync.js?v=9f5d6fcb"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=910f6cbe"></script>
+<script src="js/admin.js?v=e9aad4dd"></script>
 </body>
 </html>

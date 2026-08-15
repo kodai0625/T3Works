@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=557de634">
-<meta name="app-version" content="e828fb48">
+<link rel="stylesheet" href="../css/style.css?v=356fde5b">
+<meta name="app-version" content="d8282344">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -583,11 +583,22 @@
 
     <div class="meeting-bar" id="meetingBar">
       <h3 class="meeting-bar__title">店舗ごとの数字</h3>
+      <!-- 光熱費は日報に入っていないので、ここから手で入れます -->
+      <button type="button" class="btn btn--small is-hidden" id="utilEdit">光熱費を入れる</button>
       <div class="seg seg--mode" id="meetingMode">
         <button type="button" class="seg__btn is-on" data-mode="sales">売上</button>
         <button type="button" class="seg__btn" data-mode="cost">原価と人件費</button>
         <button type="button" class="seg__btn" data-mode="util">光熱費</button>
       </div>
+    </div>
+
+    <!-- 日報から数字を取り込む。中身は app.js が入れます -->
+    <div class="nippou" id="nippouBox">
+      <div class="nippou__head">
+        <button type="button" class="btn" id="nippouPull">日報から取り込む</button>
+        <span class="nippou__note" id="nippouNote"></span>
+      </div>
+      <ul class="nippou__list is-hidden" id="nippouResult"></ul>
     </div>
 
     <div class="table-scroll" id="meetingTableWrap">
@@ -679,6 +690,39 @@
       </div>
       <div class="modal__actions">
         <button type="button" class="btn" id="settleClear">この月の精算を消す</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 光熱費を手で入れる画面（日報に無いので、ここだけ手入力です） -->
+  <div class="modal is-hidden" id="utilModal">
+    <div class="modal__backdrop" data-close-util></div>
+    <div class="modal__panel modal__panel--wide" role="dialog" aria-modal="true"
+         aria-labelledby="utilFormTitle">
+      <h2 class="modal__title" id="utilFormTitle">光熱費を入れる</h2>
+
+      <div class="seg seg--mode util-year" id="utilYear">
+        <button type="button" class="seg__btn is-on" data-side="now">今年</button>
+        <button type="button" class="seg__btn" data-side="last">昨年</button>
+      </div>
+
+      <div class="table-scroll">
+        <table class="exp-total ledger util-table">
+          <thead>
+            <tr><th>店舗</th><th>ガス</th><th>水道</th><th>電気</th></tr>
+          </thead>
+          <tbody id="utilRows"></tbody>
+        </table>
+      </div>
+
+      <p class="expense-note">
+        その月に払った金額を、そのまま入れてください。合計と、売上に対する率は
+        アプリが計算します。<b>日報から取り込んでも、ここで入れた金額は消えません。</b>
+      </p>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--primary" id="utilSave">保存する</button>
+        <button type="button" class="btn" data-close-util>やめる</button>
       </div>
     </div>
   </div>
@@ -984,12 +1028,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=3a5dc972"></script>
-<script src="../js/storage.js?v=eeb1200d"></script>
-<script src="../js/sync.js?v=02349b0d"></script>
+<script src="../js/config.js?v=1ddb6945"></script>
+<script src="../js/storage.js?v=64e6f8a1"></script>
+<script src="../js/sync.js?v=9f5d6fcb"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=98d403d5"></script>
+<script src="../js/app.js?v=cc8f29b8"></script>
 </body>
 </html>

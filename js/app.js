@@ -96,6 +96,10 @@ const el = {
   meetingLast: $('meetingLast'), meetingLastTitle: $('meetingLastTitle'),
   meetingLastList: $('meetingLastList'),
   meetingBar: $('meetingBar'), meetingModeSeg: $('meetingMode'),
+  nippouBox: $('nippouBox'), nippouPull: $('nippouPull'),
+  nippouNote: $('nippouNote'), nippouResult: $('nippouResult'),
+  utilEdit: $('utilEdit'), utilModal: $('utilModal'), utilYear: $('utilYear'),
+  utilRows: $('utilRows'), utilSave: $('utilSave'),
   meetingTableWrap: $('meetingTableWrap'), meetingScrollHint: $('meetingScrollHint'),
   meetingHead: $('meetingHead'), meetingBody: $('meetingBody'),
   meetingCumWrap: $('meetingCumWrap'), meetingCumBody: $('meetingCumBody'),
@@ -1717,10 +1721,55 @@ function latestMeetingMonth() {
 }
 
 /** その月のデータ。無ければ null */
+/**
+ * その月の数字。
+ *   下じき … meeting-data.js（2026年1〜6月を取り込んだもの）
+ *   上ぬり … _meeting/YYYY-MM に保存された数字
+ *            num:店舗id  … 日報から取り込んだ5項目
+ *            util:店舗id … 手で入れた光熱費
+ * 何度も呼ばれるので、取り込みや手入力があるまでは覚えたものを返します。
+ */
+let meetingSeq = 0;
+const meetingMemo = { key: '', seq: -1, val: null };
+
 function meetingOf(y, m) {
-  return (typeof MEETING_DATA === 'undefined')
-    ? null
-    : (MEETING_DATA[`${y}-${String(m).padStart(2, '0')}`] || null);
+  const key = meetingMonthKey(y, m);
+  if (meetingMemo.key === key && meetingMemo.seq === meetingSeq) return meetingMemo.val;
+  const base = (typeof MEETING_DATA === 'undefined') ? null : (MEETING_DATA[key] || null);
+  const val = meetingWithSaved(base, key);
+  meetingMemo.key = key;
+  meetingMemo.seq = meetingSeq;
+  meetingMemo.val = val;
+  return val;
+}
+
+function meetingWithSaved(base, key) {
+  const items = Store.getDay(MEETING_STORE, key).items || {};
+  const ids = Object.keys(items).filter((k) => k.indexOf('num:') === 0 || k.indexOf('util:') === 0);
+  if (!ids.length) return base;
+
+  const out = { rows: {}, notes: (base && base.notes) || [] };
+  if (base) {
+    Object.entries(base.rows).forEach(([id, v]) => {
+      out.rows[id] = { now: (v.now || []).slice(), last: (v.last || []).slice() };
+    });
+  }
+  ids.forEach((k) => {
+    const sid = k.split(':')[1];
+    const saved = items[k] && items[k].value;
+    if (!saved || !sid) return;
+    if (!out.rows[sid]) out.rows[sid] = { now: [], last: [] };
+    ['now', 'last'].forEach((side) => {
+      const src = saved[side];
+      if (!src) return;
+      if (!out.rows[sid][side]) out.rows[sid][side] = [];
+      Object.keys(src).forEach((f) => {
+        const i = MEETING_FIELDS.indexOf(f);
+        if (i >= 0 && typeof src[f] === 'number') out.rows[sid][side][i] = src[f];
+      });
+    });
+  });
+  return out;
 }
 
 /** 数字の配列（meeting-data.js の並び）を名前つきに開く */
@@ -1796,6 +1845,19 @@ function meetingCumByStore(y, m) {
  *    goodWhen… 増えたほうが良いか（差の色分けに使います）
  *  1つの表に全部入れると横に長くなりすぎるので、3つに分けています。
  * ---------------------------------------------------------- */
+/**
+ * 原価率。★日報の「まとめ」タブが出している原材料費率と同じ出し方です
+ *   原価（＝仕入の税込累計）÷ 税込売上
+ * 原価はもともと税込の数字なので、割る相手も税込にそろえます。
+ * もとのスプレッドシートは昨年だけ税抜売上で割っていて土俵が違いました。
+ * ko-dai の指示で、今年も昨年も税込にそろえてあります（2026年8月15日）。
+ * 人件費率と光熱費率は税のない数字なので、今年・昨年とも税抜売上で割ります。
+ * F/L はこの2つの率の足し算です（6月のシートと同じ）。
+ */
+function meetingCostRate(v) {
+  return v.inc ? v.cost / v.inc : null;
+}
+
 const MEETING_MODES = {
   sales: [
     { label: '税込売上', mainKind: 'yen', main: (v) => v.inc, goodWhen: 'up' },
@@ -1807,11 +1869,15 @@ const MEETING_MODES = {
   cost: [
     // big … 金額と率のどちらも大きく出します（会議でいちばん見る2つ）
     { label: '原価', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
-      main: (v) => v.cost, sub: (v) => (v.ex ? v.cost / v.ex : null) },
+      main: (v) => v.cost, sub: (v) => meetingCostRate(v) },
     { label: '人件費', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
       main: (v) => v.labor, sub: (v) => (v.ex ? v.labor / v.ex : null) },
     { label: 'F/L', mainKind: 'pct', goodWhen: 'down',
-      main: (v) => (v.ex ? (v.cost + v.labor) / v.ex : null) },
+      main: (v) => {
+        const c = meetingCostRate(v);
+        const l = v.ex ? v.labor / v.ex : null;
+        return (c === null || l === null) ? null : c + l;
+      } },
     // キャッチだけは、差の下段を「増減率」ではなく「人数の差」にします。
     // 人数も会議で見る数字なので、金額と同じ大きさで出します（big）
     { label: 'キャッチ', mainKind: 'yen', subKind: 'num', subUnit: '人', diffSub: 'sub', big: true,
@@ -2054,6 +2120,8 @@ function renderMeeting() {
     el.meetingScrollHint.classList.add('is-hidden');
   }
   renderMeetingMonths();
+  renderNippou();
+  el.utilEdit.classList.toggle('is-hidden', meetingMode !== 'util');
   renderMeetingLast();
   renderMeetingCum();
   renderMeetingGoals();
@@ -2191,6 +2259,168 @@ function renderMeetingCum() {
     + row(`年間${five.length}店舗累計`, now5, last5);
 
   el.meetingCumWrap.classList.toggle('is-hidden', !shown.length);
+}
+
+/* ------------------------------------------------------------
+ *  日報からの取り込み
+ *
+ *  ブラウザからスプレッドシートは読めないので、GAS（バックエンド）に
+ *  「このフォルダの、この年月のファイルの、このセルを読んで」と頼みます。
+ *  返ってきた数字は _meeting/YYYY-MM に入れるので、ふだんの同期で
+ *  みんなの端末にも届きます。光熱費とキャッチは日報にないので触りません。
+ * ---------------------------------------------------------- */
+let nippouBusy = false;
+
+function renderNippou() {
+  const folders = NippouFolders.all();
+  const n = STORES.filter((s) => folders[s.id]).length;
+  el.nippouNote.textContent = n
+    ? `${state.y}年${state.m}月と、${state.y - 1}年${state.m}月の日報を読みます（${n}店舗）`
+    : 'マネージの「日報フォルダ」に登録すると使えます';
+  el.nippouPull.disabled = !n || nippouBusy || !Sync.enabled();
+}
+
+async function pullNippou() {
+  if (nippouBusy) return;
+  const folders = NippouFolders.all();
+  const targets = STORES.filter((s) => folders[s.id]);
+  if (!targets.length) return;
+
+  nippouBusy = true;
+  el.nippouPull.disabled = true;
+  el.nippouPull.textContent = '読んでいます…';
+  el.nippouResult.classList.add('is-hidden');
+
+  const res = await Sync.ask('nippou', {
+    y: state.y,
+    m: state.m,
+    stores: targets.map((s) => ({
+      id: s.id, folder: NippouFolders.idOf(s.id), cells: nippouCells(s.id),
+    })),
+  });
+
+  nippouBusy = false;
+  el.nippouPull.textContent = '日報から取り込む';
+
+  const lines = [];
+  if (!res.ok) {
+    lines.push({ ok: false, text: res.error || '取り込めませんでした' });
+  } else {
+    const key = meetingMonthKey(state.y, state.m);
+    targets.forEach((s) => {
+      const got = (res.stores || {})[s.id] || {};
+      const val = {};
+      const parts = [];
+      [['now', state.y], ['last', state.y - 1]].forEach(([side, year]) => {
+        const g = got[side];
+        if (!g || g.error) { parts.push(`${year}年 ${(g && g.error) || '読めません'}`); return; }
+        const o = {};
+        NIPPOU_FIELDS.forEach((f) => { if (typeof g[f] === 'number') o[f] = g[f]; });
+        // 売上が0の日報は、まだ書きこまれていないものとして入れません
+        if (!o.inc && !o.ex) { parts.push(`${year}年 まだ数字が入っていません`); return; }
+        val[side] = o;
+        parts.push(`${year}年 ✓`);
+      });
+      if (val.now || val.last) Store.setItem(MEETING_STORE, key, `num:${s.id}`, { value: val });
+      lines.push({ ok: !!val.now, name: s.name, text: parts.join('　') });
+    });
+    meetingSeq += 1;
+  }
+
+  el.nippouResult.innerHTML = '';
+  lines.forEach((l) => {
+    const li = document.createElement('li');
+    li.className = 'nippou__row' + (l.ok ? '' : ' is-ng');
+    if (l.name) {
+      const b = document.createElement('b');
+      b.textContent = l.name;
+      li.appendChild(b);
+    }
+    li.appendChild(document.createTextNode(l.text));
+    el.nippouResult.appendChild(li);
+  });
+  el.nippouResult.classList.remove('is-hidden');
+  renderMeeting();
+}
+
+/* ------------------------------------------------------------
+ *  光熱費の手入力
+ *
+ *  日報にはガス・水道・電気が入っていないので、ここだけ手で入れます。
+ *  取り込みとは別の項目（util:店舗id）に入れるので、日報から取り込んでも
+ *  消えません。逆に、ここで保存しても取り込んだ数字は消しません。
+ * ---------------------------------------------------------- */
+let utilSide = 'now';
+
+/** その月・その年の光熱費（画面に出ているもの）を取り出します */
+function utilValues(side) {
+  const rec = meetingOf(state.y, state.m);
+  const out = {};
+  STORES.forEach((s) => {
+    const row = rec && rec.rows[s.id];
+    const v = meetingRow(row && row[side]);
+    out[s.id] = {};
+    MEETING_UTIL_FIELDS.forEach((f) => { out[s.id][f] = Number(v[f]) || 0; });
+  });
+  return out;
+}
+
+function openUtilForm() {
+  utilSide = 'now';
+  [...el.utilYear.children].forEach((b) => b.classList.toggle('is-on', b.dataset.side === 'now'));
+  fillUtilForm();
+  el.utilModal.classList.remove('is-hidden');
+}
+
+function fillUtilForm() {
+  const vals = utilValues(utilSide);
+  el.utilRows.innerHTML = '';
+  STORES.forEach((s) => {
+    const tr = document.createElement('tr');
+    const name = document.createElement('td');
+    name.className = 'util-name';
+    name.textContent = s.name;
+    tr.appendChild(name);
+    MEETING_UTIL_FIELDS.forEach((f) => {
+      const td = document.createElement('td');
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.inputMode = 'numeric';
+      input.className = 'util-input';
+      input.dataset.store = s.id;
+      input.dataset.field = f;
+      input.value = vals[s.id][f] || '';
+      input.placeholder = '0';
+      td.appendChild(input);
+      tr.appendChild(td);
+    });
+    el.utilRows.appendChild(tr);
+  });
+}
+
+function saveUtilForm() {
+  const key = meetingMonthKey(state.y, state.m);
+  // 画面に出ていないほうの年も、いまの数字をそのまま書き写します
+  // （片方だけ保存して、もう片方が消えてしまわないように）
+  const other = utilSide === 'now' ? 'last' : 'now';
+  const otherVals = utilValues(other);
+  const typed = {};
+  [...el.utilRows.querySelectorAll('.util-input')].forEach((i) => {
+    const sid = i.dataset.store;
+    if (!typed[sid]) typed[sid] = {};
+    typed[sid][i.dataset.field] = Math.max(Math.round(Number(i.value) || 0), 0);
+  });
+
+  STORES.forEach((s) => {
+    const val = {};
+    val[utilSide] = typed[s.id] || {};
+    val[other] = otherVals[s.id] || {};
+    Store.setItem(MEETING_STORE, key, `util:${s.id}`, { value: val });
+  });
+
+  meetingSeq += 1;
+  el.utilModal.classList.add('is-hidden');
+  renderMeeting();
 }
 
 /** 年間目標に対する進み具合（円グラフ） */
@@ -4414,6 +4644,23 @@ function bindEvents() {
     meetingMode = b.dataset.mode;
     [...el.meetingModeSeg.children].forEach((n) => n.classList.toggle('is-on', n === b));
     renderMeeting();
+  });
+
+  /* 日報からの取り込み */
+  el.nippouPull.addEventListener('click', pullNippou);
+
+  /* 光熱費の手入力 */
+  el.utilEdit.addEventListener('click', openUtilForm);
+  el.utilSave.addEventListener('click', saveUtilForm);
+  el.utilYear.addEventListener('click', (e) => {
+    const b = e.target.closest('.seg__btn');
+    if (!b) return;
+    utilSide = b.dataset.side;
+    [...el.utilYear.children].forEach((n) => n.classList.toggle('is-on', n === b));
+    fillUtilForm();
+  });
+  el.utilModal.querySelectorAll('[data-close-util]').forEach((n) => {
+    n.addEventListener('click', () => el.utilModal.classList.add('is-hidden'));
   });
 
   /* 精算履歴。ひらくたびに「見るだけ」に戻します */

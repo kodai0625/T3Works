@@ -41,6 +41,7 @@ const el = {};
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'catchStaffInput', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
+  'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
   'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
@@ -1004,6 +1005,41 @@ function renderCatchStaff() {
   el.catchStaffCount.textContent = names.length ? `${names.length}人` : 'まだ登録なし';
 }
 
+/** 店舗ごとの日報フォルダ。会議資料の「日報から取り込む」で使います */
+function renderNippouFolders() {
+  const saved = NippouFolders.all();
+  const n = STORES.filter((s) => saved[s.id]).length;
+  el.nippouCount.textContent = n ? `${n}／${STORES.length}店舗` : 'まだ登録なし';
+
+  el.nippouFields.innerHTML = '';
+  STORES.forEach((s) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'field';
+    const label = document.createElement('span');
+    label.className = 'field__label';
+    label.textContent = s.name;
+    const input = document.createElement('input');
+    input.type = 'url';
+    input.className = 'field__input';
+    input.dataset.store = s.id;
+    input.placeholder = 'https://drive.google.com/drive/folders/…';
+    input.value = saved[s.id] || '';
+    wrap.append(label, input);
+    el.nippouFields.appendChild(wrap);
+  });
+}
+
+function saveNippouFolders() {
+  const map = {};
+  [...el.nippouFields.querySelectorAll('input[data-store]')].forEach((i) => {
+    map[i.dataset.store] = i.value;
+  });
+  NippouFolders.save(map);
+  renderNippouFolders();
+  el.nippouSaved.classList.remove('is-hidden');
+  setTimeout(() => el.nippouSaved.classList.add('is-hidden'), 2500);
+}
+
 function saveCatchStaff() {
   CatchStaff.saveFromText(el.catchStaffInput.value);
   renderCatchStaff();
@@ -1428,6 +1464,7 @@ function renderAll() {
     renderStorePicker();
     renderStaff();
     renderCatchStaff();
+    renderNippouFolders();
     renderSyncStatus();
     return;
   }
@@ -1555,6 +1592,7 @@ function bindEvents() {
   el.saveStaff.addEventListener('click', saveStaff);
   el.saveDrivers.addEventListener('click', saveDrivers);
   el.saveCatchStaff.addEventListener('click', saveCatchStaff);
+  el.saveNippou.addEventListener('click', saveNippouFolders);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));
   el.expImportLast.addEventListener('click', () => importExpenseRecords(true));

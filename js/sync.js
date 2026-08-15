@@ -145,6 +145,25 @@ const Sync = {
     }
   },
 
+  /**
+   * 同期とは別の頼みごとを1回だけ送ります（いまは日報の取り込みだけ）。
+   * 送信箱は通さないので、失敗しても後から勝手に送り直したりはしません。
+   */
+  async ask(action, extra = {}) {
+    if (!this.enabled()) return { ok: false, error: '共有の設定がされていません' };
+    if (!this.pin()) return { ok: false, error: 'PINが入っていません' };
+    try {
+      const res = await fetch(APP.syncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ pin: this.pin(), action, ...extra }),
+      });
+      return await res.json();
+    } catch (e) {
+      return { ok: false, error: 'オフライン、または通信できません' };
+    }
+  },
+
   /** 送る操作に、提出記録シート用のまとめを添える */
   _withSummaries(ops) {
     const keys = [...new Set(ops.filter((o) => o.k).map((o) => o.k))];
@@ -179,6 +198,7 @@ const Sync = {
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
       if (settings.drivers) localStorage.setItem(Drivers._key, JSON.stringify(settings.drivers));
       if (settings.catchStaff) localStorage.setItem(CatchStaff._key, JSON.stringify(settings.catchStaff));
+      if (settings.nippouFolders) localStorage.setItem(NippouFolders._key, JSON.stringify(settings.nippouFolders));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
     }
@@ -355,6 +375,13 @@ function summaryFor(key) {
     const names = _saveCatch(text);
     Sync.enqueue({ t: 'setting', n: 'catchStaff', v: names });
     return names;
+  };
+
+  const _saveNippou = NippouFolders.save.bind(NippouFolders);
+  NippouFolders.save = function (map) {
+    const clean = _saveNippou(map);
+    Sync.enqueue({ t: 'setting', n: 'nippouFolders', v: clean });
+    return clean;
   };
 
   const _setDows = Closed.setDows.bind(Closed);

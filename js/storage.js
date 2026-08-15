@@ -415,3 +415,43 @@ const Drivers = {
     return names;
   },
 };
+
+/**
+ * 店舗ごとの日報フォルダ（マネージで登録）
+ *
+ *  { 店舗id: 'フォルダのURL' } の形で持ちます。
+ *  取り込みのときは、このフォルダの中（と、1つ下の年フォルダの中）から
+ *  「年月」で始まるファイルを探します。
+ */
+const NippouFolders = {
+  _key: APP.storageKey + ':nippouFolders',
+
+  all() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
+      if (saved && typeof saved === 'object') return saved;
+    } catch (e) {
+      /* 壊れていたら初期値に戻す */
+    }
+    return { ...NIPPOU_FOLDERS };
+  },
+
+  get(storeId) { return this.all()[storeId] || ''; },
+
+  /** フォルダのURLからIDだけ取り出す（URLでもIDでも入れられるように） */
+  idOf(storeId) {
+    const v = String(this.get(storeId) || '').trim();
+    const m = /\/folders\/([a-zA-Z0-9_-]+)/.exec(v);
+    return m ? m[1] : v;
+  },
+
+  save(map) {
+    const clean = {};
+    Object.keys(map || {}).forEach((k) => {
+      const v = String(map[k] || '').trim();
+      if (v) clean[k] = v;
+    });
+    localStorage.setItem(this._key, JSON.stringify(clean));
+    return clean;
+  },
+};
