@@ -2429,6 +2429,9 @@ body.is-wide .page { max-width: 1700px; }
 .settle-link {
   border-left: 3px solid color-mix(in srgb, var(--money) 55%, var(--line));
 }
+/* ★このアプリでは .is-hidden を部品ごとに書く決まりです。
+     display:flex なので、書かないと隠したつもりが出たままになります */
+.settle-link.is-hidden { display: none; }
 .settle-link__name { color: var(--money); }
 .settle-link:active { background: var(--line-2); }
 .settle-link__icon { flex: 0 0 auto; font-size: 20px; }

@@ -145,6 +145,14 @@ const el = {
  */
 const ALL_STORE_VIEWS = ['report', 'weekall', 'expense', 'catch', 'settle', 'meeting'];
 
+/**
+ * いま出さない画面。URLを直に叩かれても入れないようにします
+ * （ブックマークや履歴から古いURLで来ることがあるため）
+ */
+function viewIsOff(view) {
+  return view === 'settle' && !SETTLE_PAGE_ON;
+}
+
 function readHash() {
   const parts = (location.hash || '').replace(/^#\/?/, '').split('/').filter((s) => s !== '');
   const [first, second, third] = parts;
@@ -162,7 +170,8 @@ function readHash() {
   /* 全店舗の画面（店舗に属さない） */
   if (ALL_STORE_VIEWS.includes(first)) {
     state.storeId = '';
-    state.view = first;
+    // 出さないことにした画面は、現金支払い管理表へ回します
+    state.view = viewIsOff(first) ? 'expense' : first;
     setDate(second);
     return;
   }
@@ -4999,7 +5008,9 @@ function bindEvents() {
     n.addEventListener('click', () => el.utilModal.classList.add('is-hidden'));
   });
 
-  /* 精算履歴。ひらくたびに「見るだけ」に戻します */
+  /* 精算履歴。ひらくたびに「見るだけ」に戻します
+     （SETTLE_PAGE_ON が false のあいだは、入口ごと出しません） */
+  $('expenseSettleBtn').classList.toggle('is-hidden', !SETTLE_PAGE_ON);
   $('expenseSettleBtn').addEventListener('click', () => {
     settleUnlocked = false;
     openAllStores('settle');
