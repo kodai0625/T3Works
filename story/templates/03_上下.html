@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<style>
+{{共通CSS}}
+
+/* 03_上下 ── 上が写真、下が無地の帯。文字は下半分にまとめる */
+
+.写真枠 {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1050px;
+  overflow: hidden;
+}
+
+.下地 {
+  position: absolute;
+  top: 1050px; left: 0; right: 0; bottom: 0;
+  background: var(--背景);
+}
+
+/* 写真と下地のつなぎ目をなじませる */
+.つなぎ {
+  position: absolute;
+  top: 810px; left: 0; right: 0;
+  height: 240px;
+  background: linear-gradient(180deg, rgba(20,16,13,0) 0%, var(--背景) 100%);
+}
+
+.本文 {
+  position: absolute;
+  left: var(--余白);
+  right: var(--余白);
+  bottom: var(--安全下);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* 店舗名は本文のいちばん上に並べる（重なりが起きない） */
+.本文 .店舗 { margin-bottom: -14px; color: var(--差し色); }
+
+.コピー { color: var(--うすい文字); }
+
+.名前 {
+  padding-bottom: 32px;
+  border-bottom: 5px solid rgba(255,255,255,0.18);
+}
+
+.価格 { color: #fff; display: flex; align-items: baseline; }
+.価格 .税 { color: rgba(255,255,255,0.65); }
+
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="下地"></div>
+  <div class="写真枠"><img class="写真" src="{{写真URL}}" alt=""></div>
+  <div class="つなぎ"></div>
+  <div class="本文">
+    <div class="店舗">{{店舗名}}</div>
+    <div class="コピー">{{キャッチコピー}}</div>
+    <h1 class="名前 {{名前サイズ}}">{{商品名}}</h1>
+    {{価格ブロック}}
+  </div>
+  {{イベント札}}
+  {{ガイド}}
+</div>
+</body>
+</html>

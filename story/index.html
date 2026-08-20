@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ストーリーズ作成">
+<meta name="theme-color" content="#1c1f26">
+<link rel="apple-touch-icon" href="../img/mine-icon-180.png?v=cbafcd5d">
+<link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
+<link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
+<title>ストーリーズ作成｜T3 Works</title>
+<link rel="stylesheet" href="../css/style.css?v=a5ef1b49">
+<link rel="stylesheet" href="css/story.css?v=76643b95">
+<meta name="app-version" content="ff985b05">
+</head>
+<body class="no-daytabs app-story" data-assets="../">
+
+<!-- ===== ヘッダー ===== -->
+<header class="app-header">
+  <div class="app-header__inner">
+    <div class="app-title">
+      <span class="logo-chip logo-chip--app"><img src="../img/mine-icon-64.png?v=ea09f133" alt=""></span>
+      <span class="app-title__text">
+        <span class="app-title__main">ストーリーズ作成</span>
+        <span class="app-title__sub">T3Dining｜インスタ</span>
+      </span>
+    </div>
+    <div class="header-actions">
+      <!-- マインから来たときだけ出します（配達記録と同じ考え方） -->
+      <a class="settings-btn is-hidden" id="toMineBtn" href="../mine/" title="T3 Works Mine に戻る">
+        <span aria-hidden="true">🏠</span><span>もどる</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="story-main">
+
+  <!-- ===== 1. 店舗をえらぶ ===== -->
+  <section class="story-view" id="viewStores">
+    <div class="stores-head">
+      <h1 class="stores-head__title">店舗をえらんでください</h1>
+    </div>
+    <div class="story-stores" id="storeList"></div>
+  </section>
+
+  <!-- ===== 2. 商品をえらぶ ===== -->
+  <section class="story-view is-hidden" id="viewList">
+    <button type="button" class="story-back" id="backToStores">‹ 店舗をえらびなおす</button>
+    <div class="stores-head">
+      <h1 class="stores-head__title"><span id="storeName"></span>の商品</h1>
+      <p class="stores-head__date" id="listNote"></p>
+    </div>
+    <ul class="story-products" id="productList"></ul>
+  </section>
+
+  <!-- ===== 3. デザインをえらんで作る ===== -->
+  <section class="story-view is-hidden" id="viewMake">
+    <button type="button" class="story-back" id="backToList">‹ 商品をえらびなおす</button>
+
+    <div class="story-designs" id="designTabs"></div>
+
+    <!-- 肉の日のようなイベントの札。イベントのある店舗でだけ出ます -->
+    <label class="story-event is-hidden" id="eventWrap">
+      <input type="checkbox" id="eventToggle">
+      <span id="eventLabel"></span>
+    </label>
+
+    <div class="story-photopick is-hidden" id="photoPick">
+      <button type="button" id="photoPrev" aria-label="前の写真">‹</button>
+      <span id="photoNow"></span>
+      <button type="button" id="photoNext" aria-label="次の写真">›</button>
+    </div>
+
+    <div class="story-stage" id="stage">
+      <iframe class="story-stage__frame" id="preview" title="できあがりの見本" scrolling="no"></iframe>
+    </div>
+
+    <details class="story-edit">
+      <summary>文字をなおす（この1枚だけ）</summary>
+      <label class="story-field">
+        <span>商品名</span>
+        <input type="text" id="editName" autocomplete="off">
+      </label>
+      <label class="story-field">
+        <span>キャッチコピー</span>
+        <input type="text" id="editCopy" autocomplete="off">
+      </label>
+      <label class="story-field">
+        <span>価格</span>
+        <input type="text" id="editPrice" inputmode="numeric" autocomplete="off">
+      </label>
+      <label class="story-field">
+        <span>説明（1行ずつ。バグる型で出ます）</span>
+        <textarea id="editText" rows="3"></textarea>
+      </label>
+      <p class="story-note">ここで直しても、商品リストは書きかわりません。</p>
+    </details>
+
+    <button type="button" class="story-go" id="makeBtn">画像にする</button>
+  </section>
+
+  <!-- ===== 4. できあがり ===== -->
+  <section class="story-view is-hidden" id="viewDone">
+    <button type="button" class="story-back" id="backToMake">‹ 作りなおす</button>
+    <p class="story-done-note">画像を長押しして［写真に保存］を選んでください。</p>
+    <div class="story-result"><img id="resultImg" alt="できあがった画像"></div>
+    <a class="story-download" id="downloadLink" download>パソコンならこちら（ダウンロード）</a>
+  </section>
+
+  <p class="story-error is-hidden" id="errorBox"></p>
+</main>
+
+<script src="js/story.js?v=7fbcd802"></script>
+</body>
+</html>

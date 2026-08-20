@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=0d3717b4">
-<meta name="app-version" content="f843ac6c">
+<link rel="stylesheet" href="css/style.css?v=a5ef1b49">
+<meta name="app-version" content="ff985b05">
 </head>
 <body>
 
@@ -71,6 +71,7 @@
            ・お金のこと       … 緑（--money）  .stores-big-btn--money
            ・バグるのこと     … バグるの色     .stores-big-btn--baguru
            ・確認の記録       … 青             .stores-big-btn--check
+           ・インスタのこと   … 紫             .stores-big-btn--story
            ・これから増える分 … 新しい色を決めて、その仲間で使い回してください
 
          ★並べる順番は「同じ仲間どうしを続けて」置くこと。
@@ -131,6 +132,19 @@
       </span>
       <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
     </button>
+
+    <!-- ストーリーズ作成は「別のページ」なので、ボタンではなくリンクです。
+         現場スタッフが使う T3 Works には出しません（.mine-only）。
+         ?from=mine … あちらで「マインから来た」と分かるようにする印。
+         これが付いているときだけ、戻るボタンが出ます -->
+    <a class="stores-big-btn stores-big-btn--story mine-only" id="storesStoryBtn" href="story/?from=mine">
+      <span class="stores-big-btn__icon" aria-hidden="true">📸</span>
+      <span class="stores-big-btn__text">
+        <span class="stores-big-btn__name">ストーリーズ作成</span>
+        <span class="stores-big-btn__sub">商品をえらんで、その場で画像を作る</span>
+      </span>
+      <span class="stores-big-btn__arrow" aria-hidden="true">›</span>
+    </a>
   </section>
 
   <!-- ===== 業務選択（店舗をえらんだあとの画面） ===== -->

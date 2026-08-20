@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<style>
+{{共通CSS}}
+
+/* 11_popo ── これまでのpopoのストーリーズと同じ形。
+   上の写真は下ぎわが丸く抜けていて、下はベージュの下地。
+   白い帯に黒文字のキャッチ、写真の裾に筆記体の店名、下にロゴ。
+
+   ★ transform は使わない（マインのページの画像変換で落ちるため） */
+
+.下地 {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 60% at 50% 105%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 60%),
+    var(--ブランド下地);
+}
+
+.写真枠 {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1210px;
+  overflow: hidden;
+  border-radius: 0 0 46% 46% / 0 0 13% 13%;
+}
+
+/* 写真の裾を少し暗くして、白い筆記体を読めるようにする */
+.覆い {
+  position: absolute;
+  top: 860px; left: 0; right: 0;
+  height: 350px;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.42) 100%);
+  border-radius: 0 0 46% 46% / 0 0 13% 13%;
+}
+
+/* 白い帯に黒文字。1行目がキャッチコピー、2行目が商品名 */
+.帯たち {
+  position: absolute;
+  left: 0;
+  top: calc(var(--安全上) + 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.帯 {
+  background: #fff;
+  color: #1d1712;
+  padding: 12px 40px 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.帯.コピー { font-size: 50px; }
+.帯.コピー:empty { display: none; }
+.帯.名前 { font-size: 62px; line-height: 1.2; max-width: 940px; }
+.帯.名前.小 { font-size: 50px; }
+
+.筆記 {
+  position: absolute;
+  left: 40px; right: 40px;
+  top: 1000px;
+  text-align: center;
+  font-family: var(--筆記);
+  font-size: 108px;
+  color: #fff;
+  text-shadow: 0 6px 30px rgba(0,0,0,0.45);
+}
+
+.ロゴ {
+  position: absolute;
+  left: 0; right: 0;
+  top: 1270px;
+  width: 200px;
+  height: 210px;
+  margin: 0 auto;
+}
+
+.本文 {
+  position: absolute;
+  left: 80px; right: 80px;
+  top: 1500px;
+  bottom: var(--安全下);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  text-align: center;
+  color: var(--ブランド文字);
+}
+
+.価格 {
+  font-size: 56px;
+  color: var(--ブランド文字);
+}
+.価格 .税 { color: var(--ブランドうすい); }
+
+.営業時間 { color: var(--ブランド文字); }
+.営業時間 .見出し { display: none; }   /* popoは時間だけ出す */
+.営業時間 .時間 { font-size: 32px; }
+.営業時間 .定休日 { color: var(--ブランドうすい); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="下地"></div>
+  <div class="写真枠"><img class="写真" src="{{写真URL}}" alt=""><div class="覆い"></div></div>
+  <div class="帯たち">
+    <div class="帯 コピー">{{キャッチコピー}}</div>
+    <h1 class="帯 名前 {{名前サイズ}}">{{商品名}}</h1>
+  </div>
+  <div class="筆記">{{店舗説明}}</div>
+  <img class="ロゴ" src="{{ロゴURL}}" alt="">
+  <div class="本文">
+    {{価格ブロック}}
+    {{営業時間ブロック}}
+  </div>
+  {{イベント札}}
+  {{ガイド}}
+</div>
+</body>
+</html>
