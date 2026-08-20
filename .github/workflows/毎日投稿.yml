@@ -39,6 +39,12 @@ jobs:
 
       - name: 何を投稿するか見る
         if: ${{ github.event.inputs.dry_run == 'true' }}
+        env:
+          IG_USER_ID_BAGURU: ${{ secrets.IG_USER_ID_BAGURU }}
+          IG_TOKEN_BAGURU: ${{ secrets.IG_TOKEN_BAGURU }}
+          IG_USER_ID_POPO: ${{ secrets.IG_USER_ID_POPO }}
+          IG_TOKEN_POPO: ${{ secrets.IG_TOKEN_POPO }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
         run: python3 投稿する.py --試す
 
       - name: 投稿する

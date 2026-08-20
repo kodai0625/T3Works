@@ -148,6 +148,28 @@ def えらぶ(並び, 履歴, 店舗, 日付, 枚数):
     return 選ぶ
 
 
+def のぞく(url):
+    """GETで確かめる（投稿はしない）。"""
+    try:
+        with urllib.request.urlopen(url, timeout=30) as 返事:
+            return json.loads(返事.read().decode("utf-8")), None
+    except urllib.error.HTTPError as e:
+        return None, e.read().decode("utf-8", "ignore")[:400]
+    except Exception as e:
+        return None, str(e)
+
+
+def つながりを確かめる(ig_id, トークン):
+    """そのIDとトークンで、本当にそのInstagramが見えるか確かめる。"""
+    url = (f"{API}/{ig_id}?fields=username,name&access_token="
+           + urllib.parse.quote(トークン))
+    出来, しくじり = のぞく(url)
+    if 出来:
+        名 = 出来.get("username") or 出来.get("name") or ig_id
+        return f"つながりました（@{名}）"
+    return f"つながりません → {しくじり}"
+
+
 def たたく(url, データ):
     体 = urllib.parse.urlencode(データ).encode("utf-8")
     お願い = urllib.request.Request(url, data=体, method="POST")
@@ -219,6 +241,9 @@ def main():
             print(f"  {鍵} が無いので飛ばします")
             continue
         用意できている = True
+
+        if 引数.dry and トークン:
+            print(f"  {つながりを確かめる(ig_id, トークン)}")
 
         for もの in えらぶ(並び, 履歴, 店舗, 日付, 枚数):
             道 = f"story/できあがり/{店舗['id']}/{もの['ファイル']}"
