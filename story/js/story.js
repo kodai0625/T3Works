@@ -370,6 +370,19 @@ function 写真の場所(商品, 番号 = 0) {
   return 一覧.length ? 一覧[((番号 % 一覧.length) + 一覧.length) % 一覧.length] : '';
 }
 
+/**
+ * 商品をえらぶ画面にならべる、小さい写真
+ *
+ * ★ 元の写真は1枚1MB近くある。20品ぶんを一覧で読むとiPhoneが表示しきれず、
+ *   写真が出ないまま灰色になる。一覧は photos/<店舗>/小/ の軽い写真を使う。
+ */
+function 小さい写真(商品, 番号 = 0) {
+  const 場所 = 写真の場所(商品, 番号);
+  if (!場所) return '';
+  const 切れ目 = 場所.lastIndexOf('/');
+  return 場所.slice(0, 切れ目) + '/%E5%B0%8F' + 場所.slice(切れ目);
+}
+
 async function 一枚のHTML(商品, 型, 写真番号 = 0) {
   const 雛形 = await 雛形を読む(型);
   const 写真URL = await 画像を読む(写真の場所(商品, 写真番号));
@@ -537,8 +550,15 @@ function 商品を並べる() {
     const img = document.createElement('img');
     img.className = 'story-product__photo';
     img.loading = 'lazy';
+    img.decoding = 'async';
     img.alt = '';
-    img.src = 印つき(写真の場所(商品, 0));
+    img.src = 印つき(小さい写真(商品, 0));
+    // 小さい写真がまだ無いときは、元の写真で出す
+    img.addEventListener('error', function () {
+      if (this.dataset.やりなおし) { this.classList.add('is-dame'); return; }
+      this.dataset.やりなおし = '1';
+      this.src = 印つき(写真の場所(商品, 0));
+    }, { once: false });
 
     const body = document.createElement('div');
     body.className = 'story-product__body';

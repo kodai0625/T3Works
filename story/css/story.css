@@ -32,6 +32,7 @@
   background: var(--card, #fff);
   text-align: left;
   cursor: pointer;
+  color: inherit;          /* iPhoneのSafariはボタンの文字を青くするため */
   font-family: inherit;
 }
 
@@ -101,6 +102,8 @@
   overflow: hidden;
   text-align: left;
   cursor: pointer;
+  color: inherit;          /* iPhoneのSafariはボタンの文字を青くするため */
+  font-family: inherit;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -112,6 +115,12 @@
   object-fit: cover;
   display: block;
   background: #eee;
+}
+
+/* 写真がどうしても出せなかったとき、灰色のままにせず理由が分かるようにする */
+.story-product__photo.is-dame {
+  background: #f3d9d9;
+  position: relative;
 }
 
 .story-product__body { padding: 10px 12px 12px; }
