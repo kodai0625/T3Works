@@ -199,6 +199,7 @@ def main():
         raise SystemExit("設定.json の共通に「公開の場所」（公開URL）を書いてください")
 
     出した = 0
+    用意できている = False
     for 店舗 in 設定.get("店舗", []):
         鍵 = f"IG_USER_ID_{店舗['id'].upper()}"
         ig_id = os.environ.get(鍵, "").strip()
@@ -211,6 +212,7 @@ def main():
         if not ig_id:
             print(f"  {鍵} が無いので飛ばします")
             continue
+        用意できている = True
 
         for もの in えらぶ(並び, 履歴, 店舗, 日付, 枚数):
             道 = f"story/できあがり/{店舗['id']}/{もの['ファイル']}"
@@ -234,9 +236,15 @@ def main():
     if 出した:
         書く(履歴の場所, 履歴)
         print(f"\n{日付} に {出した}枚 投稿しました")
-    else:
-        print("\n投稿できるものがありませんでした")
-        sys.exit(1)
+        return
+
+    if not 用意できている:
+        # まだ Secrets を入れていないだけ。毎日エラーを出さないよう、これは失敗にしない
+        print("\nまだ投稿の設定ができていません（自動投稿/はじめかた.md を見てください）")
+        return
+
+    print("\n投稿できるものがありませんでした")
+    sys.exit(1)
 
 
 if __name__ == "__main__":
