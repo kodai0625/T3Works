@@ -1,0 +1,60 @@
+# 毎日きまった時刻に、その日の分をInstagramのストーリーズへ投稿します。
+#
+# 画像はすでに公開してあるものを使うので、ここではChromeもフォントも要りません。
+# うまくいくと 投稿履歴.json が更新され、次の日は別の画像が選ばれます。
+#
+# 必要な Secrets（リポジトリの Settings → Secrets and variables → Actions）
+#   IG_ACCESS_TOKEN    … Instagramの長期アクセストークン
+#   IG_USER_ID_BAGURU  … バグるのInstagramユーザーID
+#   IG_USER_ID_POPO    … popoのぶん（無ければバグるだけ投稿します）
+#
+# ★ 仕組みの名前（job の id や入力の名前）は英数字にしないと動きません。
+#   画面に出る name: は日本語で大丈夫です。
+
+name: 毎日ストーリーズを投稿
+
+on:
+  schedule:
+    # 日本時間の11:00（UTCでは02:00）。時刻を変えるならここ
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "投稿せず、何を出すかだけ見る"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write          # 投稿履歴.json を書き戻すため
+
+jobs:
+  post:
+    name: 投稿する
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 何を投稿するか見る
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: python3 投稿する.py --試す
+
+      - name: 投稿する
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID_BAGURU: ${{ secrets.IG_USER_ID_BAGURU }}
+          IG_USER_ID_POPO: ${{ secrets.IG_USER_ID_POPO }}
+        run: python3 投稿する.py
+
+      - name: 投稿履歴を残す
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          if [ -n "$(git status --porcelain 投稿履歴.json)" ]; then
+            git config user.name "T3Works 自動投稿"
+            git config user.email "306216695+kodai0625@users.noreply.github.com"
+            git add 投稿履歴.json
+            git commit -m "投稿履歴（$(date -u +%Y-%m-%d)）"
+            git push
+          else
+            echo "投稿履歴に変わりはありません"
+          fi

@@ -6,7 +6,7 @@
     "セーフゾーン下": 320,
     "価格の書き方": "¥{価格}",
     "税表示": "税込",
-    "1日の枚数": 4,
+    "1日の枚数": 2,
     "テンプレートの使い方": "順番",
     "色": {
       "背景": "#14100d",
@@ -14,7 +14,9 @@
       "差し色": "#e8552d",
       "うすい文字": "#ffd9a8"
     },
-    "Chromeの場所": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "Chromeの場所": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "アプリ用のデザイン": 2,
+    "公開の場所": "https://kodai0625.github.io/T3Works/"
   },
   "店舗": [
     {
