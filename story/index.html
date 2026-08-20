@@ -12,8 +12,8 @@
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>ストーリーズ作成｜T3 Works</title>
 <link rel="stylesheet" href="../css/style.css?v=a5ef1b49">
-<link rel="stylesheet" href="css/story.css?v=e77e8c70">
-<meta name="app-version" content="0ee9e367">
+<link rel="stylesheet" href="css/story.css?v=daf577be">
+<meta name="app-version" content="9c73a101">
 </head>
 <body class="no-daytabs app-story" data-assets="../">
 
@@ -42,77 +42,33 @@
   <section class="story-view" id="viewStores">
     <div class="stores-head">
       <h1 class="stores-head__title">店舗をえらんでください</h1>
+      <p class="stores-head__date" id="madeOn"></p>
     </div>
     <div class="story-stores" id="storeList"></div>
   </section>
 
-  <!-- ===== 2. 商品をえらぶ ===== -->
+  <!-- ===== 2. 画像をえらぶ ===== -->
   <section class="story-view is-hidden" id="viewList">
     <button type="button" class="story-back" id="backToStores">‹ 店舗をえらびなおす</button>
     <div class="stores-head">
-      <h1 class="stores-head__title"><span id="storeName"></span>の商品</h1>
+      <h1 class="stores-head__title"><span id="storeName"></span>の画像</h1>
       <p class="stores-head__date" id="listNote"></p>
     </div>
-    <ul class="story-products" id="productList"></ul>
+    <ul class="story-cards" id="imageList"></ul>
   </section>
 
-  <!-- ===== 3. デザインをえらんで作る ===== -->
-  <section class="story-view is-hidden" id="viewMake">
-    <button type="button" class="story-back" id="backToList">‹ 商品をえらびなおす</button>
-
-    <div class="story-designs" id="designTabs"></div>
-
-    <!-- 肉の日のようなイベントの札。イベントのある店舗でだけ出ます -->
-    <label class="story-event is-hidden" id="eventWrap">
-      <input type="checkbox" id="eventToggle">
-      <span id="eventLabel"></span>
-    </label>
-
-    <div class="story-photopick is-hidden" id="photoPick">
-      <button type="button" id="photoPrev" aria-label="前の写真">‹</button>
-      <span id="photoNow"></span>
-      <button type="button" id="photoNext" aria-label="次の写真">›</button>
-    </div>
-
-    <div class="story-stage" id="stage">
-      <iframe class="story-stage__frame" id="preview" title="できあがりの見本" scrolling="no"></iframe>
-    </div>
-
-    <details class="story-edit">
-      <summary>文字をなおす（この1枚だけ）</summary>
-      <label class="story-field">
-        <span>商品名</span>
-        <input type="text" id="editName" autocomplete="off">
-      </label>
-      <label class="story-field">
-        <span>キャッチコピー</span>
-        <input type="text" id="editCopy" autocomplete="off">
-      </label>
-      <label class="story-field">
-        <span>価格</span>
-        <input type="text" id="editPrice" inputmode="numeric" autocomplete="off">
-      </label>
-      <label class="story-field">
-        <span>説明（1行ずつ。バグる型で出ます）</span>
-        <textarea id="editText" rows="3"></textarea>
-      </label>
-      <p class="story-note">ここで直しても、商品リストは書きかわりません。</p>
-    </details>
-
-    <button type="button" class="story-go" id="makeBtn">画像にする</button>
-  </section>
-
-  <!-- ===== 4. できあがり ===== -->
+  <!-- ===== 3. 大きく出して保存 ===== -->
   <section class="story-view is-hidden" id="viewDone">
-    <button type="button" class="story-back" id="backToMake">‹ 作りなおす</button>
+    <button type="button" class="story-back" id="backToList">‹ ほかの画像をえらぶ</button>
     <p class="story-done-note">画像を長押しして［写真に保存］を選んでください。</p>
-    <div class="story-result"><img id="resultImg" alt="できあがった画像"></div>
+    <p class="story-done-name" id="resultName"></p>
+    <div class="story-result"><img id="resultImg" alt="ストーリーズ用の画像"></div>
     <a class="story-download" id="downloadLink" download>パソコンならこちら（ダウンロード）</a>
   </section>
 
   <p class="story-error is-hidden" id="errorBox"></p>
 </main>
 
-<script src="js/story.js?v=0bbf22c0"></script>
+<script src="js/story.js?v=3ac5030b"></script>
 </body>
 </html>

@@ -38,13 +38,11 @@
 
 .story-store:active { transform: scale(0.99); }
 
+/* ロゴはそのままの色で見せる（下地の色を敷かない） */
 .story-store__logo {
   width: 54px;
   height: 54px;
   object-fit: contain;
-  border-radius: 12px;
-  background: var(--下地, #eee);
-  padding: 4px;
   flex: 0 0 auto;
 }
 
@@ -80,9 +78,9 @@
   color: var(--muted, #9aa0a6);
 }
 
-/* ---------------- 商品のならび ---------------- */
+/* ---------------- できあがりの画像をならべる ---------------- */
 
-.story-products {
+.story-cards {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -91,7 +89,7 @@
   gap: 12px;
 }
 
-.story-product {
+.story-card {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -107,51 +105,60 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.story-product:active { transform: scale(0.98); }
+.story-card:active { transform: scale(0.98); }
 
-.story-product__photo {
+/* できあがりは縦長（1080×1920）なので、そのままの形で見せる */
+.story-card__photo {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 9 / 16;
   object-fit: cover;
+  object-position: top;
   display: block;
   background: #eee;
 }
 
-/* 写真がどうしても出せなかったとき、灰色のままにせず理由が分かるようにする */
-.story-product__photo.is-dame {
-  background: #f3d9d9;
-  position: relative;
-}
+.story-card__photo.is-dame { background: #f3d9d9; }
 
-.story-product__body { padding: 10px 12px 12px; }
+.story-card__body { padding: 10px 12px 12px; }
 
-.story-product__name {
+.story-card__name {
   display: block;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.35;
 }
 
-.story-product__price {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--muted, #6b7280);
-}
-
-.story-product__stop {
+.story-card__chip {
   display: inline-block;
   margin-top: 6px;
+  margin-right: 4px;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: #9aa0a6;
 }
 
-/* ---------------- 作る画面 ---------------- */
+.story-card__chip--event { background: #c0392b; }
+.story-card__chip--label { background: #2f7d4f; }
 
+/* ---------------- できあがり ---------------- */
+
+.story-done-note {
+  max-width: 420px;
+  margin: 0 auto 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.story-done-name {
+  max-width: 420px;
+  margin: 0 auto 12px;
+  font-size: 14px;
+  color: var(--muted, #6b7280);
+}
+
+/* 「もどる」のボタン */
 .story-back {
   display: inline-block;
   margin: 0 0 12px;
@@ -162,180 +169,7 @@
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.story-designs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  margin-bottom: 12px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.story-design {
-  flex: 0 0 auto;
-  padding: 9px 18px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card, #fff);
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.story-design.is-active {
-  background: #7b4bd6;
-  border-color: #7b4bd6;
-  color: #fff;
-}
-
-/* イベントの札の入り／切り */
-.story-event {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 420px;
-  margin: 0 auto 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card, #fff);
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.story-event.is-hidden { display: none; }
-.story-event input { width: 20px; height: 20px; }
-
-/* 写真の切り替え（1商品に何枚かあるとき） */
-.story-photopick {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  max-width: 420px;
-  margin: 0 auto 10px;
-  font-weight: 700;
-  font-size: 15px;
-}
-
-.story-photopick.is-hidden { display: none; }
-
-.story-photopick button {
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--card, #fff);
-  font-size: 22px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.story-product__count {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted, #6b7280);
-}
-
-/* 実物は1080×1920。画面の幅に合わせて縮めて見せる */
-.story-stage {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #14100d;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.18);
-}
-
-.story-stage__frame {
-  width: 1080px;
-  height: 1920px;
-  border: 0;
-  display: block;
-  transform-origin: top left;
-}
-
-/* ---------------- 文字なおし ---------------- */
-
-.story-edit {
-  max-width: 420px;
-  margin: 16px auto 0;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--card, #fff);
-  padding: 0 14px;
-}
-
-.story-edit summary {
-  padding: 14px 0;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.story-field {
-  display: block;
-  margin-bottom: 12px;
-}
-
-.story-field span {
-  display: block;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted, #6b7280);
-  margin-bottom: 4px;
-}
-
-.story-field input,
-.story-field textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  font-size: 16px;   /* iPhoneで勝手に拡大されないように16px以上 */
   font-family: inherit;
-  line-height: 1.6;
-  resize: vertical;
-}
-
-.story-note {
-  margin: 0 0 14px;
-  font-size: 13px;
-  color: var(--muted, #6b7280);
-}
-
-/* ---------------- 作るボタン ---------------- */
-
-.story-go {
-  display: block;
-  width: 100%;
-  max-width: 420px;
-  margin: 18px auto 0;
-  padding: 16px;
-  border: 0;
-  border-radius: 14px;
-  background: #7b4bd6;
-  color: #fff;
-  font-size: 17px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.story-go:disabled { opacity: 0.55; }
-
-/* ---------------- できあがり ---------------- */
-
-.story-done-note {
-  max-width: 420px;
-  margin: 0 auto 12px;
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .story-result {
