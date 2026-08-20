@@ -129,8 +129,10 @@ function 画像を並べる() {
   const 並び = (一覧['店舗'][いまの店舗['id']] || []).slice();
   const 当日 = きょうのイベント(いまの店舗).map((イ) => イ['名前']);
 
-  // きょうがイベントの日なら、その分を先に出す
-  並び.sort((a, b) => (当日.includes(b['イベント']) ? 1 : 0) - (当日.includes(a['イベント']) ? 1 : 0));
+  // きょうがイベントの日なら、その分を先に出す。期間限定はいつも上のほう
+  const 重み = (も) =>
+    (当日.includes(も['イベント']) ? 2 : 0) + (も['区分'] ? 1 : 0);
+  並び.sort((a, b) => 重み(b) - 重み(a));
 
   const ul = el('imageList');
   ul.innerHTML = '';
@@ -156,7 +158,9 @@ function 画像を並べる() {
     名.textContent = もの['商品名'];
     body.appendChild(名);
 
-    for (const [文字, 種] of [[もの['イベント'], 'event'], [もの['札'], 'label']]) {
+    for (const [文字, 種] of [[もの['区分'], 'kikan'],
+                             [もの['イベント'], 'event'],
+                             [もの['札'], 'label']]) {
       if (!文字) continue;
       const 印 = document.createElement('span');
       印.className = `story-card__chip story-card__chip--${種}`;
@@ -179,8 +183,8 @@ function 画像を並べる() {
 function 大きく出す(もの) {
   const 道 = 大きい画像(いまの店舗['id'], もの['ファイル']);
   el('resultImg').src = 印つき(道);
-  el('resultName').textContent =
-    もの['商品名'] + (もの['イベント'] ? `（${もの['イベント']}）` : '');
+  const そえ = もの['区分'] || もの['イベント'] || '';
+  el('resultName').textContent = もの['商品名'] + (そえ ? `（${そえ}）` : '');
 
   const link = el('downloadLink');
   link.href = 印つき(道);

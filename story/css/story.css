@@ -140,6 +140,7 @@
 }
 
 .story-card__chip--event { background: #c0392b; }
+.story-card__chip--kikan { background: #7b4bd6; }   /* 期間限定（そのまま投稿する画像） */
 .story-card__chip--label { background: #2f7d4f; }
 
 /* ---------------- できあがり ---------------- */
