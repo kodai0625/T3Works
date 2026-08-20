@@ -9,9 +9,13 @@ GitHub Actions から毎日呼ばれます。すでに公開してある画像�
     python3 投稿する.py             その日の分を投稿する
 
 いる環境変数（GitHubのSecretsに入れておく）
-    IG_ACCESS_TOKEN        長期のアクセストークン
     IG_USER_ID_BAGURU      バグるのInstagramユーザーID（店舗idを大文字にしたもの）
+    IG_TOKEN_BAGURU        バグるのアクセストークン
     IG_USER_ID_POPO        popoのぶん。無い店舗は飛ばします
+    IG_TOKEN_POPO          popoのぶん
+
+    ★店舗ごとにビジネスポートフォリオが分かれているので、トークンも店舗ごとです。
+      1つのトークンで両方いける場合は、代わりに IG_ACCESS_TOKEN を1つ入れてもかまいません。
 
 しくみ
     1. story/できあがり/一覧.json から、その店舗の画像を読む
@@ -191,7 +195,7 @@ def main():
     設定 = 読む(設定の場所)
     一覧 = 読む(一覧の場所, {"店舗": {}})
     履歴 = 読む(履歴の場所, {})
-    トークン = os.environ.get("IG_ACCESS_TOKEN", "").strip()
+    共通トークン = os.environ.get("IG_ACCESS_TOKEN", "").strip()
     もと = (設定.get("共通", {}).get("公開の場所") or "").rstrip("/")
     枚数 = int(設定.get("共通", {}).get("1日の枚数", 2))
 
@@ -201,8 +205,10 @@ def main():
     出した = 0
     用意できている = False
     for 店舗 in 設定.get("店舗", []):
-        鍵 = f"IG_USER_ID_{店舗['id'].upper()}"
+        大文字 = 店舗["id"].upper()
+        鍵 = f"IG_USER_ID_{大文字}"
         ig_id = os.environ.get(鍵, "").strip()
+        トークン = os.environ.get(f"IG_TOKEN_{大文字}", "").strip() or 共通トークン
         並び = 一覧.get("店舗", {}).get(店舗["id"], [])
 
         print(f"\n■ {店舗['名前']}")
@@ -224,7 +230,7 @@ def main():
             if 引数.dry:
                 continue
             if not トークン:
-                raise SystemExit("IG_ACCESS_TOKEN がありません")
+                raise SystemExit(f"IG_TOKEN_{大文字}（またはIG_ACCESS_TOKEN）がありません")
             投稿id = 投稿する(ig_id, トークン, 画像URL)
             履歴[f"{店舗['id']}/{もの['ファイル']}"] = 日付
             出した += 1
