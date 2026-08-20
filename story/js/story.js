@@ -206,8 +206,10 @@ async function 起動() {
     }
     店舗を並べる();
 
-    if (new URLSearchParams(location.search).get('from') === 'mine') {
-      el('toMineBtn').classList.remove('is-hidden');
+    // オーナー（?from=owner）から開いたときだけ、ホームに戻るボタンを出す。
+    // 前はマインの中にあったので、古いリンクの ?from=mine でも出るようにしてある
+    if (/(^|[?&])from=(owner|mine)([&#]|$)/.test(location.search)) {
+      el('toOwnerBtn').classList.remove('is-hidden');
     }
   } catch (err) {
     しくじり(err);

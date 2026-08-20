@@ -2962,4 +2962,3 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 /* 確認の記録（クローズの提出記録・週間掃除の達成状況）。青 */
 .stores-big-btn--check { --pick: #2b7fd4; }
 /* インスタのこと（ストーリーズ作成）。紫 */
-.stores-big-btn--story { --pick: #7b4bd6; }
