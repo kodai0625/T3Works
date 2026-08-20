@@ -6,7 +6,11 @@ GitHub Actions から毎日呼ばれます。すでに公開してある画像�
 
 つかいかた
     python3 投稿する.py --試す      何を投稿するか出すだけ（投稿しない）
-    python3 投稿する.py             その日の分を投稿する
+    python3 投稿する.py             その回の分を投稿する
+    python3 投稿する.py --枚数 2    枚数を決め打ちする
+
+    1日に2回（10:00と17:00）動きます。1回ぶんの枚数は
+    設定.json の「1日の枚数」÷「投稿する時刻」の数で決まります。
 
 いる環境変数（GitHubのSecretsに入れておく）
     IG_USER_ID_BAGURU      バグるのInstagramユーザーID（店舗idを大文字にしたもの）
@@ -20,7 +24,8 @@ GitHub Actions から毎日呼ばれます。すでに公開してある画像�
 しくみ
     1. story/できあがり/一覧.json から、その店舗の画像を読む
     2. 投稿履歴.json を見て、いちばん長く出していないものから枚数分えらぶ
-       （イベントの日は、その日の分を先に出す）
+       （イベントの日は、その日の分を先に出す。同じ日に2回目のときは、
+         1回目に出したものと同じ商品を出さない）
     3. コンテナを作る → 公開する、の2段階で投稿する
     4. 投稿履歴.json に書き戻す（Actionsがコミットして次回に引き継ぎます）
 """
@@ -89,6 +94,20 @@ def 何日前(履歴, 鍵, 日付):
     return (datetime.date.fromisoformat(日付) - datetime.date.fromisoformat(前)).days
 
 
+def きょう出したもの(並び, 履歴, 店舗, 日付):
+    """同じ日にすでに投稿したものを返す（ファイル名と商品名）。
+
+    1日に2回（朝と夕方）動くので、朝に出したものが夕方にまた出ないようにする。
+    """
+    ファイル = set()
+    商品 = set()
+    for もの in 並び:
+        if 履歴.get(f"{店舗['id']}/{もの['ファイル']}") == 日付:
+            ファイル.add(もの["ファイル"])
+            商品.add(もの["商品名"])
+    return ファイル, 商品
+
+
 def えらぶ(並び, 履歴, 店舗, 日付, 枚数):
     """その日に出す画像をえらぶ。
 
@@ -114,8 +133,12 @@ def えらぶ(並び, 履歴, 店舗, 日付, 枚数):
     候補 = [も for も in 候補
             if not (も.get("イベント") and も["イベント"] not in きょうのイベント)]
 
+    # 朝と夕方で2回動くので、今日もう出したものは外しておく
+    済みファイル, 済み商品 = きょう出したもの(並び, 履歴, 店舗, 日付)
+    候補 = [も for も in 候補 if も["ファイル"] not in 済みファイル]
+
     選ぶ = []
-    出した商品 = set()
+    出した商品 = set(済み商品)
 
     def 足す(もの):
         選ぶ.append(もの)
@@ -211,6 +234,8 @@ def main():
     p = argparse.ArgumentParser(description="その日の分をInstagramのストーリーズに投稿します。")
     p.add_argument("--試す", dest="dry", action="store_true", help="投稿せず、何を出すかだけ見る")
     p.add_argument("--日付", dest="date", default=None, help="YYYY-MM-DD（既定は今日）")
+    p.add_argument("--枚数", dest="count", type=int, default=None,
+                   help="この回に出す枚数（既定は 1日の枚数 ÷ 投稿する時刻の数）")
     引数 = p.parse_args()
 
     日付 = 引数.date or datetime.date.today().isoformat()
@@ -219,7 +244,11 @@ def main():
     履歴 = 読む(履歴の場所, {})
     共通トークン = os.environ.get("IG_ACCESS_TOKEN", "").strip()
     もと = (設定.get("共通", {}).get("公開の場所") or "").rstrip("/")
-    枚数 = int(設定.get("共通", {}).get("1日の枚数", 2))
+    一日の枚数 = int(設定.get("共通", {}).get("1日の枚数", 2))
+    時刻 = 設定.get("共通", {}).get("投稿する時刻") or []
+    # 1日に何回動くかで、1回ぶんの枚数を決める（10:00と17:00なら1回1枚）
+    回数 = max(1, len(時刻))
+    枚数 = 引数.count or max(1, -(-一日の枚数 // 回数))
 
     if not もと:
         raise SystemExit("設定.json の共通に「公開の場所」（公開URL）を書いてください")
