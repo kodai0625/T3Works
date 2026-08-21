@@ -41,6 +41,7 @@ const el = {};
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
+  'shiftStaffFields', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1036,6 +1037,47 @@ function saveCatchStaff() {
   setTimeout(() => el.catchStaffSaved.classList.add('is-hidden'), 2500);
 }
 
+/* -------- シフトに入る人 --------
+ *
+ *  提出ページ（…/shift/）の名前えらびに出る人です。
+ *  シフトを組む店舗（config.js の SHIFT_STORES）だけを並べます。
+ */
+function renderShiftStaff() {
+  const map = ShiftStaff.all();
+  const n = ShiftStaff.count();
+  el.shiftStaffCount.textContent = n ? `${n}人` : 'まだ登録なし';
+
+  el.shiftStaffFields.innerHTML = '';
+  SHIFT_STORES.forEach((id) => {
+    const s = getStore(id);
+    const wrap = document.createElement('label');
+    wrap.className = 'field';
+    const label = document.createElement('span');
+    label.className = 'field__label';
+    const names = map[id] || [];
+    label.textContent = `${s.name}（${names.length}人）`;
+    const area = document.createElement('textarea');
+    area.className = 'field__input field__input--area';
+    area.rows = 10;
+    area.dataset.store = id;
+    area.placeholder = '1行に1人ずつ';
+    area.value = names.join('\n');
+    wrap.append(label, area);
+    el.shiftStaffFields.appendChild(wrap);
+  });
+}
+
+function saveShiftStaff() {
+  const map = ShiftStaff.all();
+  [...el.shiftStaffFields.querySelectorAll('textarea[data-store]')].forEach((a) => {
+    map[a.dataset.store] = a.value.split('\n');
+  });
+  ShiftStaff.save(map);
+  renderShiftStaff();
+  el.shiftStaffSaved.classList.remove('is-hidden');
+  setTimeout(() => el.shiftStaffSaved.classList.add('is-hidden'), 2500);
+}
+
 /* -------- 日報フォルダ --------
  *
  *  会議資料の「日報から取り込む」が見に行く、店舗ごとのGoogleドライブの
@@ -1496,6 +1538,7 @@ function renderAll() {
     renderStorePicker();
     renderStaff();
     renderCatchStaff();
+    renderShiftStaff();
     renderNippouFolders();
     renderSyncStatus();
     return;
@@ -1624,6 +1667,7 @@ function bindEvents() {
   el.saveStaff.addEventListener('click', saveStaff);
   el.saveDrivers.addEventListener('click', saveDrivers);
   el.saveCatchStaff.addEventListener('click', saveCatchStaff);
+  el.saveShiftStaff.addEventListener('click', saveShiftStaff);
   el.saveNippou.addEventListener('click', saveNippouFolders);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));

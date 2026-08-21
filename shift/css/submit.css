@@ -1,0 +1,197 @@
+/* ============================================================
+ *  シフト提出ページ — スタイル
+ *
+ *  アルバイトが開く画面です。ここだけで完結させたいので、
+ *  アプリ本体の style.css は読み込んでいません（あちらは3000行あり、
+ *  この画面には要らないものばかりだからです）。
+ *  色の決め方だけ、本体とそろえてあります。
+ * ============================================================ */
+
+:root {
+  --bg:        #f4f5f7;
+  --surface:   #ffffff;
+  --surface-2: #fafbfc;
+  --line:      #e2e5ea;
+  --line-2:    #eef0f3;
+  --text:      #1c1f26;
+  --text-sub:  #6b7280;
+  --text-weak: #9aa1ac;
+  --accent:    #2b7fd4;
+  --ok:        #2f9e44;
+  --ng:        #d64545;
+  --open:      #b4631a;
+  --lunch:     #2d7a58;
+  --dinner:    #4a5fa8;
+  --header-bg: #1c1f26;
+  --header-fg: #ffffff;
+  --radius:    12px;
+  --shadow:    0 1px 2px rgba(18, 22, 30, .06), 0 1px 8px rgba(18, 22, 30, .04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #14161a;
+    --surface:   #1e2126;
+    --surface-2: #23272d;
+    --line:      #33383f;
+    --line-2:    #2a2e34;
+    --text:      #e7e9ec;
+    --text-sub:  #a3aab5;
+    --text-weak: #7b828d;
+    --open:      #e0a05c;
+    --lunch:     #62c39a;
+    --dinner:    #8fa3e0;
+    --header-bg: #0f1114;
+    --shadow:    none;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-size: 15px; line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+.is-hidden { display: none !important; }
+
+/* -------- 見出し -------- */
+.head {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--header-bg); color: var(--header-fg);
+  padding-top: env(safe-area-inset-top);
+}
+.head__inner {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 620px; margin: 0 auto; padding: 12px 16px;
+}
+.head__title { font-size: 15px; font-weight: 700; }
+.head__me {
+  margin-left: auto; border: 1px solid rgba(255,255,255,.28); border-radius: 999px;
+  background: rgba(255,255,255,.08); color: var(--header-fg);
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 5px 12px; cursor: pointer;
+}
+
+.page {
+  max-width: 620px; margin: 0 auto;
+  padding: 16px 14px calc(28px + env(safe-area-inset-bottom));
+}
+
+/* -------- かたまり -------- */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 15px; margin-bottom: 12px;
+}
+.card__title { margin: 0 0 6px; font-size: 16px; }
+.card__note { margin: 0 0 14px; font-size: 12.5px; color: var(--text-sub); }
+
+.input {
+  width: 100%; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 15px; padding: 10px 12px;
+}
+.input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+/* 合言葉の欄。英数字が入るので、桁を空けすぎると長いものがはみ出します。
+   1文字ずつ数えられる程度の字間にとどめてあります */
+.input--big {
+  font-size: 22px; font-weight: 700; text-align: center;
+  letter-spacing: .08em; padding: 13px 12px;
+  margin-bottom: 12px;   /* すぐ下の「すすむ」とくっつかないように */
+}
+.field { display: block; }
+.field__label { display: block; font-size: 12.5px; color: var(--text-sub); margin-bottom: 5px; }
+
+.btn {
+  border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 700;
+  padding: 11px 16px; cursor: pointer;
+}
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--wide { width: 100%; padding: 14px; font-size: 15.5px; }
+.btn[disabled] { opacity: .5; }
+
+.err {
+  margin: 10px 0 0; font-size: 13px;
+  color: color-mix(in srgb, var(--ng) 85%, var(--text));
+}
+.ok {
+  margin: 10px 0 0; font-size: 13.5px; font-weight: 700;
+  color: color-mix(in srgb, var(--ok) 85%, var(--text));
+}
+
+/* -------- 名前えらび -------- */
+.names { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.names .btn { padding: 14px 6px; font-size: 16px; }
+
+/* -------- 半月えらび -------- */
+.card--period { padding: 12px 14px; }
+.period { display: flex; align-items: center; gap: 8px; }
+.period__btn {
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2);
+  color: var(--text); font: inherit; font-size: 19px; line-height: 1;
+  padding: 8px 14px; cursor: pointer;
+}
+.period__label { flex: 1 1 auto; text-align: center; min-width: 0; }
+.period__main { display: block; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.period__sub { display: block; font-size: 11.5px; color: var(--text-sub); }
+.period__state { margin: 9px 0 0; font-size: 12.5px; color: var(--text-sub); text-align: center; }
+.period__state.is-sent { color: color-mix(in srgb, var(--ok) 85%, var(--text)); font-weight: 700; }
+
+.hint {
+  margin: 0 2px 10px; font-size: 12.5px; color: var(--text-sub); line-height: 1.7;
+}
+
+/* -------- 日ごと -------- */
+.days { display: grid; gap: 8px; margin-bottom: 12px; }
+.day {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 10px 12px;
+}
+.day.is-closed { background: var(--surface-2); opacity: .6; }
+.day.is-on { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.day__head { display: flex; align-items: center; gap: 10px; }
+.day__date {
+  flex: 0 0 84px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.day.is-sun .day__date { color: var(--ng); }
+.day.is-sat .day__date { color: var(--dinner); }
+.day__closed { font-size: 12.5px; color: var(--text-sub); }
+.day__slots { display: flex; gap: 6px; flex: 1 1 auto; }
+
+.slot {
+  flex: 1 1 0; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--text-weak);
+  font: inherit; font-size: 13px; font-weight: 700;
+  padding: 10px 4px; cursor: pointer; min-height: 42px;
+}
+.slot.is-on { color: #fff; }
+.slot--open.is-on   { background: var(--open);   border-color: var(--open); }
+.slot--lunch.is-on  { background: var(--lunch);  border-color: var(--lunch); }
+.slot--dinner.is-on { background: var(--dinner); border-color: var(--dinner); }
+
+/* えらんだ枠の開始時刻。
+   「Lunch は何時から？」を1行使って書き、時刻のボタンは幅いっぱいに並べます
+   （84pxの見出し欄に押し込むと、iPhoneでは文字が2行に折れて読みにくいため） */
+.times { margin-top: 9px; }
+.times__label {
+  display: block; margin-bottom: 5px;
+  font-size: 12px; font-weight: 700;
+}
+.times__label--open   { color: var(--open); }
+.times__label--lunch  { color: var(--lunch); }
+.times__label--dinner { color: var(--dinner); }
+.times__btns { display: flex; gap: 5px; flex: 1 1 auto; flex-wrap: wrap; }
+.time {
+  flex: 1 1 60px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px; font-weight: 700;
+  padding: 8px 4px; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.time.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* -------- 送る -------- */
+.foot { margin-top: 16px; }
+.foot__note { margin: 9px 0 0; font-size: 12px; color: var(--text-sub); text-align: center; }

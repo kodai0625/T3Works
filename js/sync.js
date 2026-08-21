@@ -198,6 +198,7 @@ const Sync = {
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
       if (settings.drivers) localStorage.setItem(Drivers._key, JSON.stringify(settings.drivers));
       if (settings.catchStaff) localStorage.setItem(CatchStaff._key, JSON.stringify(settings.catchStaff));
+      if (settings.shiftStaff) localStorage.setItem(ShiftStaff._key, JSON.stringify(settings.shiftStaff));
       if (settings.nippouFolders) localStorage.setItem(NippouFolders._key, JSON.stringify(settings.nippouFolders));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
@@ -374,6 +375,13 @@ function summaryFor(key) {
   CatchStaff.save = function (map) {
     const clean = _saveCatch(map);
     Sync.enqueue({ t: 'setting', n: 'catchStaff', v: clean });
+    return clean;
+  };
+
+  const _saveShiftStaff = ShiftStaff.save.bind(ShiftStaff);
+  ShiftStaff.save = function (map) {
+    const clean = _saveShiftStaff(map);
+    Sync.enqueue({ t: 'setting', n: 'shiftStaff', v: clean });
     return clean;
   };
 

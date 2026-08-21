@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=e5d64a48">
-<meta name="app-version" content="24c52797">
+<link rel="stylesheet" href="css/style.css?v=2b7004e0">
+<meta name="app-version" content="7687996e">
 </head>
 <body>
 
@@ -896,6 +896,42 @@
        週間掃除は2週間（期）が1つの区切りなので、日ではなく
        「期」を1年分ならべます。中の見かたは提出記録のカレンダーと同じで、
        出した店舗はアイコン、定休日はうすく、まだの店舗は数で出ます -->
+  <!-- ===== シフト（管理者だけの画面） =====
+       アルバイトが希望を出すのは、別に配る提出ページ（…/shift/）です。
+       ここは出してもらった希望を集めて、こちらで組む場所です -->
+  <section class="view view--shift is-hidden" id="viewShift">
+
+    <!-- 半月の送り戻し（今のシフト表の1シートと同じ区切り） -->
+    <div class="week-nav">
+      <button type="button" class="year-btn" id="shiftPrev" aria-label="前の半月">‹</button>
+      <div class="week-nav__label">
+        <span class="week-nav__main" id="shiftNavMain">9/1〜9/15</span>
+        <span class="week-nav__sub" id="shiftNavSub">2026年9月 前半</span>
+      </div>
+      <button type="button" class="year-btn" id="shiftNext" aria-label="次の半月">›</button>
+      <button type="button" class="today-btn" id="shiftToday">今期</button>
+    </div>
+
+    <!-- 提出の集まりぐあいと、取り込み -->
+    <div class="shift-top">
+      <div class="shift-top__line">
+        <span class="shift-top__count" id="shiftWishCount">提出 0 / 0人</span>
+        <span class="shift-top__note" id="shiftWishNote"></span>
+      </div>
+      <div class="shift-top__acts">
+        <button type="button" class="btn" id="shiftWishBtn">提出を見る</button>
+        <button type="button" class="btn btn--primary" id="shiftTakeBtn">希望を取り込む</button>
+      </div>
+    </div>
+
+    <div class="shift-days" id="shiftDays"></div>
+
+    <div class="shift-foot">
+      <button type="button" class="btn" id="shiftSheetBtn">表で見る（印刷）</button>
+      <button type="button" class="btn" id="shiftCopyBtn">文字でコピー</button>
+    </div>
+  </section>
+
   <section class="view view--weekall is-hidden" id="viewWeekAll">
     <div class="report-head">
       <div class="report-head__row">
@@ -975,6 +1011,56 @@
 </div>
 
 <!-- ===== 週間掃除：やった人を選ぶ ===== -->
+<!-- ===== シフト：人をえらぶ・直す ===== -->
+<div class="modal is-hidden" id="shiftPickModal">
+  <div class="modal__backdrop" data-shift-pick-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="shiftPickTitle">
+    <h2 class="modal__title" id="shiftPickTitle">入る人をえらぶ</h2>
+    <p class="doer__item" id="shiftPickWhen"></p>
+
+    <div class="field is-hidden" id="shiftPickTimeField">
+      <span class="field__label" id="shiftPickTimeLabel">開始時刻</span>
+      <div class="seg seg--wrap" id="shiftPickTimes"></div>
+    </div>
+
+    <div class="field" id="shiftPickNameField">
+      <div id="shiftPickNames"></div>
+    </div>
+
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-shift-pick-close>キャンセル</button>
+      <button type="button" class="btn btn--danger is-hidden" id="shiftPickRemove">この人を外す</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== シフト：出してもらった希望の一覧 ===== -->
+<div class="modal is-hidden" id="shiftWishModal">
+  <div class="modal__backdrop" data-shift-wish-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="shiftWishTitle">
+    <h2 class="modal__title" id="shiftWishTitle">出してもらった希望</h2>
+    <p class="doer__item" id="shiftWishWhen"></p>
+    <ul class="shift-wishes" id="shiftWishList"></ul>
+    <div class="modal__actions">
+      <button type="button" class="btn btn--primary" data-shift-wish-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== シフト：表で見る（印刷用） =====
+     印刷すると、ここだけが紙に出ます（css の @media print） -->
+<div class="modal is-hidden" id="shiftSheetModal">
+  <div class="modal__backdrop" data-shift-sheet-close></div>
+  <div class="modal__panel modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="shiftSheetTitle">
+    <h2 class="modal__title" id="shiftSheetTitle">シフト表</h2>
+    <div class="shift-sheet-wrap" id="shiftSheet"></div>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-shift-sheet-close>閉じる</button>
+      <button type="button" class="btn btn--primary" id="shiftPrintBtn">印刷する</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal is-hidden" id="doerModal">
   <div class="modal__backdrop" data-doer-close></div>
   <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="doerTitle">
@@ -1081,12 +1167,12 @@
   </div>
 </div>
 
-<script src="js/config.js?v=a5b039fe"></script>
-<script src="js/storage.js?v=345e690c"></script>
-<script src="js/sync.js?v=08e6b687"></script>
+<script src="js/config.js?v=15b9d792"></script>
+<script src="js/storage.js?v=d021588d"></script>
+<script src="js/sync.js?v=fcaa8418"></script>
 <script src="js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="js/meeting-data.js?v=36389c67"></script>
-<script src="js/app.js?v=b1cc2c18"></script>
+<script src="js/app.js?v=c56d3ee7"></script>
 </body>
 </html>

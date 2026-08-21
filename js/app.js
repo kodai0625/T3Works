@@ -124,6 +124,20 @@ const el = {
   weekAllYear: $('weekAllYear'), weekAllGrid: $('weekAllGrid'),
   weekAllYearSummary: $('weekAllYearSummary'),
   weekAllSummary: $('weekAllSummary'), weekAllList: $('weekAllList'),
+  viewShift: $('viewShift'), shiftPrev: $('shiftPrev'), shiftNext: $('shiftNext'),
+  shiftToday: $('shiftToday'), shiftNavMain: $('shiftNavMain'), shiftNavSub: $('shiftNavSub'),
+  shiftWishCount: $('shiftWishCount'), shiftWishNote: $('shiftWishNote'),
+  shiftWishBtn: $('shiftWishBtn'), shiftTakeBtn: $('shiftTakeBtn'),
+  shiftDays: $('shiftDays'), shiftSheetBtn: $('shiftSheetBtn'), shiftCopyBtn: $('shiftCopyBtn'),
+  shiftPickModal: $('shiftPickModal'), shiftPickTitle: $('shiftPickTitle'),
+  shiftPickWhen: $('shiftPickWhen'), shiftPickTimeField: $('shiftPickTimeField'),
+  shiftPickTimes: $('shiftPickTimes'), shiftPickTimeLabel: $('shiftPickTimeLabel'),
+  shiftPickNameField: $('shiftPickNameField'),
+  shiftPickNames: $('shiftPickNames'), shiftPickRemove: $('shiftPickRemove'),
+  shiftWishModal: $('shiftWishModal'), shiftWishWhen: $('shiftWishWhen'),
+  shiftWishList: $('shiftWishList'),
+  shiftSheetModal: $('shiftSheetModal'), shiftSheetTitle: $('shiftSheetTitle'),
+  shiftSheet: $('shiftSheet'), shiftPrintBtn: $('shiftPrintBtn'),
   doerModal: $('doerModal'), doerItem: $('doerItem'), doerWeek: $('doerWeek'),
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
   settingsBtn: $('settingsBtn'), modal: $('modal'),
@@ -190,6 +204,8 @@ function readHash() {
     return;
   }
   state.view = task.id;
+  // シフトは半月ずつの画面。URLの日付から、前半か後半かを決めます
+  if (task.id === 'shift') shiftHalf = shiftHalfOf(state.d);
 }
 
 
@@ -4512,6 +4528,634 @@ function renderMonthView() {
 /* ============================================================
  *  全体描画
  * ============================================================ */
+/* ============================================================
+ *  シフト（管理者だけの画面）
+ *
+ *  アルバイトは別に配る提出ページ（…/shift/）から希望を出します。
+ *  ここはその希望を集めて、こちらで組む場所です。
+ *
+ *  組み方
+ *    1.「希望を取り込む」で、出してもらった人を枠に並べます
+ *    2. 多い日は名前をタップして外す／時刻を直す
+ *    3.「表で見る」で印刷、「文字でコピー」でLINEに貼る
+ *
+ *  ★取り込みは何度押しても、外した人を戻しません。
+ *    一度取り込んだ組み合わせを taken に控えているためです。
+ * ============================================================ */
+
+/** いま開いている半月（1 = 1〜15日／2 = 16日〜末日）。年と月は state を使います */
+let shiftHalf = 1;
+
+/** 名前をタップしたときに、どこを直そうとしているか */
+let shiftPickAt = null;   // { dateStr, slotId, index }（index が null なら「足す」）
+
+function shiftRecKey() {
+  return shiftKey(state.storeId, state.y, state.m, shiftHalf);
+}
+
+function shiftRec() {
+  return Store.getDay(SHIFT_STORE, shiftRecKey());
+}
+
+/** その日の組んだ結果（無ければ空） */
+function shiftDayOf(rec, dateStr) {
+  const v = (rec.items || {})[shiftDayKey(dateStr)] || {};
+  const arr = (x) => (Array.isArray(x) ? x : []);
+  return { open: arr(v.open), lunch: arr(v.lunch), dinner: arr(v.dinner), memo: v.memo || '' };
+}
+
+function saveShiftDay(dateStr, day) {
+  Store.setItem(SHIFT_STORE, shiftRecKey(), shiftDayKey(dateStr), {
+    open: day.open, lunch: day.lunch, dinner: day.dinner, memo: day.memo,
+  });
+}
+
+/** 出してもらった希望をぜんぶ。名簿の順に並べます */
+function shiftWishes(rec) {
+  const order = ShiftStaff.list(state.storeId);
+  const out = [];
+  Object.keys(rec.items || {}).forEach((k) => {
+    if (k.indexOf('w:') !== 0) return;
+    const v = rec.items[k] || {};
+    out.push({
+      name: k.slice(2),
+      days: v.days && typeof v.days === 'object' ? v.days : {},
+      note: v.note || '',
+      sentAt: v.sentAt || null,
+    });
+  });
+  return out.sort((a, b) => {
+    const ia = order.indexOf(a.name), ib = order.indexOf(b.name);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  });
+}
+
+/**
+ * その日・その枠に希望を出した人
+ *
+ * ★wishes は shiftWishes() の結果です。画面を描くときは15日×3枠＝45回
+ *   呼ばれるので、そのつど作り直さずに1回作ったものを渡します
+ *   （名簿の読み込みが毎回入ると、古い端末で目に見えて重くなります）。
+ */
+function shiftWishFor(wishes, dateStr, slotId) {
+  const out = [];
+  wishes.forEach((w) => {
+    (w.days[dateStr] || []).forEach((e) => {
+      if (e && e.s === slotId) out.push({ name: w.name, t: e.t || '' });
+    });
+  });
+  return out;
+}
+
+/** 一度取り込んだ組み合わせ（'日付|枠|名前'） */
+function shiftTakenSet(rec) {
+  const v = (rec.items || {})[SHIFT_TAKEN_KEY];
+  return new Set(v && Array.isArray(v.list) ? v.list : []);
+}
+
+/** 枠の中の並び順。早い時刻から、同じ時刻なら名簿の順 */
+function shiftSort(list) {
+  const order = ShiftStaff.list(state.storeId);
+  return list.slice().sort((a, b) => {
+    const ta = a.t === '' || a.t === undefined ? -1 : Number(a.t);
+    const tb = b.t === '' || b.t === undefined ? -1 : Number(b.t);
+    if (ta !== tb) return ta - tb;
+    const ia = order.indexOf(a.n), ib = order.indexOf(b.n);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  });
+}
+
+/** その日が定休日か（半月の画面は月をまたがないので、日付から直に見ます） */
+function shiftClosedOn(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Closed.isClosed(state.storeId, y, m, d);
+}
+
+/* -------- 半月を動かす -------- */
+
+function shiftGo(y, m, half) {
+  state.y = y;
+  state.m = m;
+  shiftHalf = half;
+  state.d = Math.min(half === 1 ? 1 : 16, daysInMonth(y, m));
+  writeHash(true);
+  render();
+}
+
+function shiftGoStep(step) {
+  const n = shiftStep(state.y, state.m, shiftHalf, step);
+  shiftGo(n.y, n.m, n.half);
+}
+
+function shiftGoToday() {
+  const t = businessDate();
+  shiftGo(t.getFullYear(), t.getMonth() + 1, shiftHalfOf(t.getDate()));
+}
+
+/* -------- 取り込み -------- */
+
+/**
+ * 出してもらった希望を、まだ入れていない分だけ枠に並べます
+ *
+ * ★すでに外した人は戻しません。一度取り込んだ組み合わせを
+ *   taken に控えていて、そこに載っているものは飛ばすためです。
+ */
+function shiftTake() {
+  const rec = shiftRec();
+  const wishes = shiftWishes(rec);
+  const taken = shiftTakenSet(rec);
+  let added = 0;
+
+  shiftDays(state.y, state.m, shiftHalf).forEach((dateStr) => {
+    if (shiftClosedOn(dateStr)) return;
+    const day = shiftDayOf(rec, dateStr);
+    let touched = false;
+
+    SHIFT_SLOTS.forEach((slot) => {
+      shiftWishFor(wishes, dateStr, slot.id).forEach((w) => {
+        const mark = `${dateStr}|${slot.id}|${w.name}`;
+        if (taken.has(mark)) return;
+        taken.add(mark);
+        if (day[slot.id].some((e) => e.n === w.name)) return;
+        day[slot.id].push({ n: w.name, t: w.t || shiftDefaultTime(slot.id) });
+        added += 1;
+        touched = true;
+      });
+    });
+
+    if (touched) {
+      SHIFT_SLOTS.forEach((slot) => { day[slot.id] = shiftSort(day[slot.id]); });
+      saveShiftDay(dateStr, day);
+    }
+  });
+
+  Store.setItem(SHIFT_STORE, shiftRecKey(), SHIFT_TAKEN_KEY, { list: [...taken] });
+  return added;
+}
+
+async function onShiftTake() {
+  const rec = shiftRec();
+  const wishes = shiftWishes(rec);
+  if (!wishes.length) {
+    el.shiftWishNote.textContent = 'まだ誰も希望を出していません';
+    return;
+  }
+  const added = shiftTake();
+  render();
+  el.shiftWishNote.textContent = added
+    ? `${added}人分を入れました`
+    : '新しく入れるものはありませんでした';
+}
+
+/* -------- 描画 -------- */
+
+function renderShift() {
+  el.shiftNavMain.textContent = `${shiftRangeLabel(state.y, state.m, shiftHalf)}`;
+  el.shiftNavSub.textContent = `${state.y}年${state.m}月 ${shiftHalf === 1 ? '前半' : '後半'}`;
+
+  const rec = shiftRec();
+  const names = ShiftStaff.list(state.storeId);
+  const wishes = shiftWishes(rec);
+  const sent = wishes.filter((w) => w.sentAt).length;
+
+  el.shiftWishCount.textContent = names.length ? `提出 ${sent} / ${names.length}人` : '名簿が未登録';
+  if (!names.length) {
+    el.shiftWishNote.textContent = 'マネージの「シフトに入る人」で登録してください';
+  } else if (!sent) {
+    el.shiftWishNote.textContent = 'まだ誰も出していません';
+  } else {
+    const yet = names.filter((n) => !wishes.some((w) => w.name === n && w.sentAt));
+    el.shiftWishNote.textContent = yet.length ? `まだの人：${yet.join('・')}` : '全員そろいました';
+  }
+
+  el.shiftDays.innerHTML = '';
+  shiftDays(state.y, state.m, shiftHalf).forEach((dateStr) => {
+    el.shiftDays.appendChild(shiftDayCard(rec, wishes, dateStr));
+  });
+}
+
+function shiftDayCard(rec, wishes, dateStr) {
+  const [, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
+  const closed = shiftClosedOn(dateStr);
+
+  const card = document.createElement('div');
+  card.className = 'shift-day' + (closed ? ' is-closed' : '');
+  if (dow === 0) card.classList.add('is-sun');
+  if (dow === 6) card.classList.add('is-sat');
+
+  const head = document.createElement('div');
+  head.className = 'shift-day__head';
+  const title = document.createElement('span');
+  title.className = 'shift-day__date';
+  title.textContent = `${m}/${d}（${DOW[dow]}）`;
+  head.appendChild(title);
+
+  if (closed) {
+    const badge = document.createElement('span');
+    badge.className = 'shift-day__closed';
+    badge.textContent = '定休日';
+    head.appendChild(badge);
+    card.appendChild(head);
+    return card;
+  }
+
+  const day = shiftDayOf(rec, dateStr);
+  const total = SHIFT_SLOTS.reduce((n, s) => n + day[s.id].length, 0);
+  const count = document.createElement('span');
+  count.className = 'shift-day__count';
+  count.textContent = total ? `${total}人` : '';
+  head.appendChild(count);
+  card.appendChild(head);
+
+  SHIFT_SLOTS.forEach((slot) => {
+    const row = document.createElement('div');
+    row.className = 'shift-slot';
+
+    const label = document.createElement('span');
+    label.className = `shift-slot__label shift-slot__label--${slot.id}`;
+    label.textContent = slot.name;
+    row.appendChild(label);
+
+    const box = document.createElement('div');
+    box.className = 'shift-slot__names';
+
+    day[slot.id].forEach((entry, i) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'shift-chip';
+      chip.textContent = shiftNameText(slot.id, entry);
+      chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, i));
+      box.appendChild(chip);
+    });
+
+    // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように
+    const rest = shiftWishFor(wishes, dateStr, slot.id)
+      .filter((w) => !day[slot.id].some((e) => e.n === w.name)).length;
+
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'shift-add' + (rest ? ' has-wish' : '');
+    add.textContent = rest ? `＋${rest}` : '＋';
+    add.title = rest ? `希望を出していて、まだ入っていない人が${rest}人います` : '人を足す';
+    add.addEventListener('click', () => openShiftPick(dateStr, slot.id, null));
+    box.appendChild(add);
+
+    row.appendChild(box);
+    card.appendChild(row);
+  });
+
+  const memo = document.createElement('input');
+  memo.type = 'text';
+  memo.className = 'shift-memo';
+  memo.placeholder = '連絡（まさ休み・こうだいpopo など）';
+  memo.value = day.memo;
+  memo.addEventListener('change', () => {
+    const now = shiftDayOf(shiftRec(), dateStr);
+    now.memo = memo.value.trim();
+    saveShiftDay(dateStr, now);
+  });
+  card.appendChild(memo);
+
+  return card;
+}
+
+/* -------- 人をえらぶ・直す -------- */
+
+function openShiftPick(dateStr, slotId, index) {
+  shiftPickAt = { dateStr, slotId, index };
+  const slot = getShiftSlot(slotId);
+  const [, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
+
+  el.shiftPickTitle.textContent = index === null ? '入る人をえらぶ' : '直す';
+  el.shiftPickWhen.textContent = `${m}/${d}（${DOW[dow]}） ${slot.name}`;
+  renderShiftPick();
+  el.shiftPickModal.classList.remove('is-hidden');
+}
+
+function closeShiftPick() {
+  el.shiftPickModal.classList.add('is-hidden');
+  shiftPickAt = null;
+}
+
+function renderShiftPick() {
+  if (!shiftPickAt) return;
+  const { dateStr, slotId, index } = shiftPickAt;
+  const slot = getShiftSlot(slotId);
+  const rec = shiftRec();
+  const day = shiftDayOf(rec, dateStr);
+  const entry = index === null ? null : day[slotId][index];
+
+  /* 開始時刻 */
+  el.shiftPickTimes.innerHTML = '';
+  el.shiftPickTimeField.classList.toggle('is-hidden', !slot.times.length);
+  el.shiftPickTimeLabel.textContent = entry
+    ? '開始時刻（押すと変わります）'
+    : '開始時刻（えらばなければ、その人の希望どおりに入ります）';
+  if (slot.times.length) {
+    slot.times.forEach((t) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      // ★「足す」ときは、押されるまでどれも光らせません。
+      //   既定の時刻を光らせておくと、希望を出した人（18:30など）を選んだときに
+      //   「17:00が選ばれているのに18:30で入る」ことになり、食い違って見えます
+      const on = entry ? String(entry.t || '') === t : shiftPickAt.time === t;
+      b.className = 'seg__btn' + (on ? ' is-on' : '');
+      b.textContent = shiftTimeText(t);
+      b.addEventListener('click', () => {
+        if (entry) {
+          const now = shiftDayOf(shiftRec(), dateStr);
+          now[slotId][index] = { ...now[slotId][index], t };
+          now[slotId] = shiftSort(now[slotId]);
+          saveShiftDay(dateStr, now);
+          closeShiftPick();
+          render();
+        } else {
+          shiftPickAt.time = t;
+          renderShiftPick();
+        }
+      });
+      el.shiftPickTimes.appendChild(b);
+    });
+  }
+
+  /* 名前 */
+  el.shiftPickNames.innerHTML = '';
+  el.shiftPickNameField.classList.toggle('is-hidden', index !== null);
+  el.shiftPickRemove.classList.toggle('is-hidden', index === null);
+
+  if (index === null) {
+    const already = day[slotId].map((e) => e.n);
+    const wish = shiftWishFor(shiftWishes(rec), dateStr, slotId)
+      .filter((w) => !already.includes(w.name));
+    const others = ShiftStaff.list(state.storeId)
+      .filter((n) => !already.includes(n) && !wish.some((w) => w.name === n));
+
+    const addGroup = (title, list, isWish) => {
+      if (!list.length) return;
+      const h = document.createElement('p');
+      h.className = 'shift-pick__group';
+      h.textContent = title;
+      el.shiftPickNames.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'doer-grid';
+      list.forEach((item) => {
+        const name = isWish ? item.name : item;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'doer-btn' + (isWish ? ' is-wish' : '');
+        b.textContent = isWish && item.t ? `${name}（${shiftTimeText(item.t)}）` : name;
+        b.addEventListener('click', () => {
+          const now = shiftDayOf(shiftRec(), dateStr);
+          const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(slotId);
+          now[slotId].push({ n: name, t });
+          now[slotId] = shiftSort(now[slotId]);
+          saveShiftDay(dateStr, now);
+          closeShiftPick();
+          render();
+        });
+        grid.appendChild(b);
+      });
+      el.shiftPickNames.appendChild(grid);
+    };
+
+    addGroup('希望を出している人', wish, true);
+    addGroup('そのほかの人', others, false);
+
+    if (!wish.length && !others.length) {
+      el.shiftPickNames.innerHTML = '<p class="modal__note">入れられる人がいません。'
+        + 'マネージの「シフトに入る人」で登録してください。</p>';
+    }
+  }
+}
+
+function removeShiftPick() {
+  if (!shiftPickAt || shiftPickAt.index === null) return;
+  const { dateStr, slotId, index } = shiftPickAt;
+  const now = shiftDayOf(shiftRec(), dateStr);
+  now[slotId].splice(index, 1);
+  saveShiftDay(dateStr, now);
+  closeShiftPick();
+  render();
+}
+
+/* -------- 提出の一覧 -------- */
+
+function openShiftWishes() {
+  const rec = shiftRec();
+  const names = ShiftStaff.list(state.storeId);
+  const wishes = shiftWishes(rec);
+  const days = shiftDays(state.y, state.m, shiftHalf).filter((s) => !shiftClosedOn(s));
+
+  el.shiftWishWhen.textContent = `${shiftRangeLabel(state.y, state.m, shiftHalf)}（${days.length}日）`;
+  el.shiftWishList.innerHTML = '';
+
+  names.forEach((name) => {
+    const w = wishes.find((x) => x.name === name);
+    const li = document.createElement('li');
+    li.className = 'shift-wish' + (w && w.sentAt ? '' : ' is-yet');
+
+    const head = document.createElement('div');
+    head.className = 'shift-wish__head';
+    const who = document.createElement('span');
+    who.className = 'shift-wish__name';
+    who.textContent = name;
+    head.appendChild(who);
+
+    const when = document.createElement('span');
+    when.className = 'shift-wish__when';
+    if (w && w.sentAt) {
+      const n = days.reduce((sum, s) => sum + ((w.days[s] || []).length ? 1 : 0), 0);
+      when.textContent = `${n}日 ・ ${shortDate(w.sentAt)}`;
+    } else {
+      when.textContent = 'まだ';
+    }
+    head.appendChild(when);
+    li.appendChild(head);
+
+    if (w && w.sentAt) {
+      const body = document.createElement('p');
+      body.className = 'shift-wish__days';
+      const parts = [];
+      days.forEach((s) => {
+        const list = w.days[s] || [];
+        if (!list.length) return;
+        const [, mm, dd] = s.split('-').map(Number);
+        // 枠の頭文字（O/L/D）に、既定でない開始時刻だけを添えます。
+        // 「O9・L11:30・D18」のように時刻の書き方がばらつくと読みにくいので、
+        // 表と同じ考え方（既定の時刻は書かない）にそろえてあります
+        const marks = list.map((e) => {
+          const slot = getShiftSlot(e.s);
+          if (!slot) return '';
+          const t = String(e.t || '');
+          return slot.name[0] + (t && t !== slot.start ? shiftTimeText(t) : '');
+        });
+        parts.push(`${mm}/${dd} ${marks.join('・')}`);
+      });
+      body.textContent = parts.length ? parts.join('　') : '入れる日なし';
+      li.appendChild(body);
+
+      if (w.note) {
+        const note = document.createElement('p');
+        note.className = 'shift-wish__note';
+        note.textContent = w.note;
+        li.appendChild(note);
+      }
+    }
+
+    el.shiftWishList.appendChild(li);
+  });
+
+  if (!names.length) {
+    el.shiftWishList.innerHTML = '<li class="modal__note">'
+      + 'マネージの「シフトに入る人」で名前を登録してください。</li>';
+  }
+
+  el.shiftWishModal.classList.remove('is-hidden');
+}
+
+/* -------- 表で見る（印刷用）・文字でコピー -------- */
+
+/**
+ * 今のシフト表と同じ形の表を作る
+ *
+ * 8日ずつ2段に分けて、行は Open / Lunch / メモ / Dinner です。
+ * 印刷したときに、これまで貼っていたものと同じ見ためになります。
+ */
+function renderShiftSheet() {
+  const rec = shiftRec();
+  const days = shiftDays(state.y, state.m, shiftHalf);
+  const store = getStore(state.storeId);
+
+  el.shiftSheetTitle.textContent =
+    `${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト表`;
+
+  el.shiftSheet.innerHTML = '';
+  for (let from = 0; from < days.length; from += 8) {
+    el.shiftSheet.appendChild(shiftSheetBlock(rec, days.slice(from, from + 8)));
+  }
+}
+
+function shiftSheetBlock(rec, days) {
+  const table = document.createElement('table');
+  table.className = 'shift-sheet';
+
+  const head = document.createElement('tr');
+  head.appendChild(document.createElement('th'));
+  days.forEach((s) => {
+    const [, m, d] = s.split('-').map(Number);
+    const dow = new Date(s.replace(/-/g, '/')).getDay();
+    const th = document.createElement('th');
+    th.className = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
+    th.innerHTML = `${m}/${d}<br><span class="shift-sheet__dow">（${DOW[dow]}）</span>`;
+    head.appendChild(th);
+  });
+  table.appendChild(head);
+
+  const addRow = (label, cellOf) => {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.className = 'shift-sheet__label';
+    th.textContent = label;
+    tr.appendChild(th);
+    days.forEach((s) => {
+      const td = document.createElement('td');
+      if (shiftClosedOn(s)) {
+        td.className = 'is-closed';
+        td.textContent = label === SHIFT_SLOTS[0].name ? '定休日' : '';
+      } else {
+        cellOf(td, s);
+      }
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  };
+
+  SHIFT_SLOTS.forEach((slot) => {
+    addRow(slot.name, (td, s) => {
+      const day = shiftDayOf(rec, s);
+      td.innerHTML = day[slot.id].map((e) => shiftNameText(slot.id, e)).join('<br>');
+    });
+  });
+
+  addRow('メモ', (td, s) => {
+    td.className = 'shift-sheet__memo';
+    td.textContent = shiftDayOf(rec, s).memo;
+  });
+
+  return table;
+}
+
+function openShiftSheet() {
+  renderShiftSheet();
+  // 印刷したときに、この表だけが紙に出るようにするための目印（css の @media print）
+  document.body.classList.add('print-shift');
+  el.shiftSheetModal.classList.remove('is-hidden');
+}
+
+function closeShiftSheet() {
+  el.shiftSheetModal.classList.add('is-hidden');
+  document.body.classList.remove('print-shift');
+}
+
+/** LINEに貼るための文字。時刻は 18:30 の読みやすい書き方にします */
+function shiftAsText() {
+  const rec = shiftRec();
+  const store = getStore(state.storeId);
+  const lines = [`${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト`, ''];
+
+  shiftDays(state.y, state.m, shiftHalf).forEach((s) => {
+    const [, m, d] = s.split('-').map(Number);
+    const dow = new Date(s.replace(/-/g, '/')).getDay();
+    const head = `${m}/${d}（${DOW[dow]}）`;
+    if (shiftClosedOn(s)) {
+      lines.push(`${head} 定休日`, '');
+      return;
+    }
+    const day = shiftDayOf(rec, s);
+    // ★予定のない日も必ず出します。黙って飛ばすと、読む人には
+    //   「その日は誰もいない」のか「書き忘れ」のか分かりません
+    if (!SHIFT_SLOTS.some((slot) => day[slot.id].length) && !day.memo) {
+      lines.push(`${head} 未定`, '');
+      return;
+    }
+
+    lines.push(head);
+    SHIFT_SLOTS.forEach((slot) => {
+      const list = day[slot.id];
+      if (!list.length) return;
+      const names = list.map((e) => {
+        const t = shiftTimeText(e.t);
+        return t && String(e.t) !== slot.start ? `${e.n}(${t})` : e.n;
+      });
+      lines.push(`  ${slot.name} ${names.join(' ')}`);
+    });
+    if (day.memo) lines.push(`  ※${day.memo}`);
+    lines.push('');
+  });
+
+  return lines.join('\n').trim() + '\n';
+}
+
+async function copyShiftText() {
+  const text = shiftAsText();
+  try {
+    await navigator.clipboard.writeText(text);
+    el.shiftWishNote.textContent = 'コピーしました。LINEに貼れます';
+  } catch (e) {
+    // クリップボードが使えない端末では、選んでコピーしてもらいます
+    el.shiftSheetTitle.textContent = 'コピーして貼ってください';
+    el.shiftSheet.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.className = 'shift-text';
+    pre.textContent = text;
+    el.shiftSheet.appendChild(pre);
+    document.body.classList.add('print-shift');
+    el.shiftSheetModal.classList.remove('is-hidden');
+  }
+}
+
 function render() {
   el.appTitle.textContent = APP_NAME;
   el.appCompany.textContent = APP.company;
@@ -4533,6 +5177,7 @@ function render() {
   const isCatch = state.view === 'catch';
   const isSettle = state.view === 'settle';
   const isMeeting = state.view === 'meeting';
+  const isShift = state.view === 'shift';
 
   /* お金の画面にいるあいだは body に印を付けます。
      入力画面や確認ダイアログは画面をまたいで使い回しているので、
@@ -4560,6 +5205,7 @@ function render() {
     el.viewCatch.classList.add('is-hidden');
     el.viewSettle.classList.add('is-hidden');
     el.viewMeeting.classList.add('is-hidden');
+    el.viewShift.classList.add('is-hidden');
     el.viewTasks.classList.remove('is-hidden');
     renderStoreTabs();
     renderTaskPicker();
@@ -4585,6 +5231,7 @@ function render() {
     el.viewCatch.classList.add('is-hidden');
     el.viewSettle.classList.add('is-hidden');
     el.viewMeeting.classList.add('is-hidden');
+    el.viewShift.classList.add('is-hidden');
     el.viewStores.classList.remove('is-hidden');
     renderStorePicker();
     renderSyncStatus();
@@ -4594,7 +5241,7 @@ function render() {
   el.viewStores.classList.add('is-hidden');
   el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch || isSettle || isMeeting);
   // 週間掃除は週ごとに送って見る画面なので、日タブは出しません
-  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle || isMeeting;
+  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle || isMeeting || isShift;
   el.dayTabs.classList.toggle('is-hidden', noDays);
   document.body.classList.toggle('no-daytabs', noDays);
 
@@ -4618,7 +5265,7 @@ function render() {
   // 全店舗の画面は店舗に属さないので、店舗見出しごと隠す
   el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch || isSettle || isMeeting);
   // 週間掃除は2週間ずつ送るので、年・月タブは使いません
-  el.storeHead.classList.toggle('is-weekview', isWeek);
+  el.storeHead.classList.toggle('is-weekview', isWeek || isShift);
   // いま開いている業務の名前（タップで業務の一覧に戻ります）
   const task = getTask(state.view);
   if (task) el.taskBarName.textContent = task.name;
@@ -4632,12 +5279,14 @@ function render() {
   el.viewCatch.classList.toggle('is-hidden', !isCatch);
   el.viewSettle.classList.toggle('is-hidden', !isSettle);
   el.viewMeeting.classList.toggle('is-hidden', !isMeeting);
+  el.viewShift.classList.toggle('is-hidden', !isShift);
 
   // 精算履歴から離れたら、必ず「見るだけ」に戻します
   // （ブラウザの戻るで帰ってきたときも、開けっぱなしにしないため）
   if (!isSettle) settleUnlocked = false;
 
-  if (isMeeting) renderMeeting();
+  if (isShift) renderShift();
+  else if (isMeeting) renderMeeting();
   else if (isSettle) renderSettle();
   else if (isCatch) renderCatch();
   else if (isExpense) renderExpense();
@@ -4900,6 +5549,23 @@ function bindEvents() {
   $('storesExpenseBtn').addEventListener('click', () => openAllStores('expense'));
   $('expenseBack').addEventListener('click', goHome);
   $('expenseAddBtn').addEventListener('click', () => openExpenseForm());
+  /* -------- シフト -------- */
+  el.shiftPrev.addEventListener('click', () => shiftGoStep(-1));
+  el.shiftNext.addEventListener('click', () => shiftGoStep(1));
+  el.shiftToday.addEventListener('click', shiftGoToday);
+  el.shiftWishBtn.addEventListener('click', openShiftWishes);
+  el.shiftTakeBtn.addEventListener('click', onShiftTake);
+  el.shiftSheetBtn.addEventListener('click', openShiftSheet);
+  el.shiftCopyBtn.addEventListener('click', copyShiftText);
+  el.shiftPickRemove.addEventListener('click', removeShiftPick);
+  el.shiftPrintBtn.addEventListener('click', () => window.print());
+  document.querySelectorAll('[data-shift-pick-close]')
+    .forEach((b) => b.addEventListener('click', closeShiftPick));
+  document.querySelectorAll('[data-shift-wish-close]')
+    .forEach((b) => b.addEventListener('click', () => el.shiftWishModal.classList.add('is-hidden')));
+  document.querySelectorAll('[data-shift-sheet-close]')
+    .forEach((b) => b.addEventListener('click', closeShiftSheet));
+
   el.expenseSave.addEventListener('click', saveExpense);
   // 全角の数字で入れても半角に直します（日本語キーボードのままでも入力できる）
   bindNumericInput(el.expYen);

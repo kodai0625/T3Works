@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=e5d64a48">
+<link rel="stylesheet" href="../css/style.css?v=2b7004e0">
 <link rel="stylesheet" href="css/admin.css?v=234f2929">
-<meta name="app-version" content="24c52797">
+<meta name="app-version" content="7687996e">
 </head>
 <body class="no-daytabs">
 
@@ -86,6 +86,25 @@
     <div class="admin-actions">
       <button type="button" class="btn btn--primary" id="saveCatchStaff">名前を保存</button>
       <span class="admin-saved is-hidden" id="catchStaffSaved">保存しました</span>
+    </div>
+  </section>
+
+  <!-- ===== シフトに入る人（店舗ごと） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">シフトに入る人</h2>
+      <span class="admin-count" id="shiftStaffCount"></span>
+    </div>
+    <p class="admin-note">
+      1行に1人。<b>提出ページの名前えらび</b>に、この順番で並びます。<br>
+      クローズの担当者（社員）とも、キャッチをする人とも<b>別のリスト</b>です。
+      同じ人が入っていてもかまいません。<br>
+      名前を消しても、<b>組みおわったシフトはそのまま残ります</b>。
+    </p>
+    <div class="admin-fields" id="shiftStaffFields"></div>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveShiftStaff">名前を保存</button>
+      <span class="admin-saved is-hidden" id="shiftStaffSaved">保存しました</span>
     </div>
   </section>
 
@@ -372,14 +391,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=a5b039fe"></script>
-<script src="../js/storage.js?v=345e690c"></script>
-<script src="../js/sync.js?v=08e6b687"></script>
+<script src="../js/config.js?v=15b9d792"></script>
+<script src="../js/storage.js?v=d021588d"></script>
+<script src="../js/sync.js?v=fcaa8418"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=10da55ce"></script>
+<script src="js/admin.js?v=793ee27e"></script>
 </body>
 </html>

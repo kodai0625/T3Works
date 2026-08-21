@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>シフト提出</title>
+<link rel="stylesheet" href="css/submit.css?v=07bfa2b1">
+<meta name="app-version" content="7687996e">
+</head>
+<body>
+
+<header class="head">
+  <div class="head__inner">
+    <span class="head__title" id="headTitle">シフト提出</span>
+    <button type="button" class="head__me is-hidden" id="headMe"></button>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ===== 1. 合言葉 ===== -->
+  <section class="card" id="gate">
+    <h1 class="card__title">合言葉を入れてください</h1>
+    <p class="card__note">お店から教えてもらった合言葉です。1回入れれば、次からは出ません。</p>
+    <!-- ★英字が入るので type="text"。iPhoneが勝手に大文字にしたり直したりしないよう、
+         autocapitalize / autocorrect / spellcheck を全部切っています -->
+    <input type="text" autocomplete="off" autocapitalize="off"
+           autocorrect="off" spellcheck="false"
+           class="input input--big" id="gatePin" placeholder="合言葉">
+    <p class="err is-hidden" id="gateErr"></p>
+    <button type="button" class="btn btn--primary btn--wide" id="gateGo">すすむ</button>
+  </section>
+
+  <!-- ===== 2. 名前をえらぶ ===== -->
+  <section class="card is-hidden" id="who">
+    <h1 class="card__title">あなたの名前をえらんでください</h1>
+    <p class="card__note">次からは、この名前で開きます。</p>
+    <div class="names" id="whoNames"></div>
+    <p class="err is-hidden" id="whoErr"></p>
+  </section>
+
+  <!-- ===== 3. 希望を入れる ===== -->
+  <section class="is-hidden" id="form">
+
+    <div class="card card--period">
+      <div class="period">
+        <button type="button" class="period__btn" id="periodPrev" aria-label="前">‹</button>
+        <div class="period__label">
+          <span class="period__main" id="periodMain">9/1〜9/15</span>
+          <span class="period__sub" id="periodSub"></span>
+        </div>
+        <button type="button" class="period__btn" id="periodNext" aria-label="次">›</button>
+      </div>
+      <p class="period__state" id="periodState"></p>
+    </div>
+
+    <p class="hint" id="slotHint"></p>
+
+    <div class="days" id="days"></div>
+
+    <div class="card">
+      <label class="field">
+        <span class="field__label">連絡（あれば）</span>
+        <textarea class="input" id="note" rows="3"
+                  placeholder="テスト期間で夜だけです／○日は少し遅れます など"></textarea>
+      </label>
+    </div>
+
+    <p class="err is-hidden" id="sendErr"></p>
+    <p class="ok is-hidden" id="sendOk"></p>
+
+    <div class="foot">
+      <button type="button" class="btn btn--primary btn--wide" id="send">この内容で出す</button>
+      <p class="foot__note" id="footNote">締切までは、何度でも出し直せます。</p>
+    </div>
+  </section>
+
+</main>
+
+<script src="../js/config.js?v=15b9d792"></script>
+<script src="js/submit.js?v=437c420d"></script>
+</body>
+</html>

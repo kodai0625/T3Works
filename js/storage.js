@@ -411,6 +411,66 @@ const CatchStaff = {
   },
 };
 
+/* -------- シフトに入るアルバイトの名簿 --------
+ *
+ *  クローズの担当者（Staff＝社員）とも、キャッチをする人（CatchStaff）とも
+ *  別物です。同じ人が入っていてもかまいません。
+ *  マネージの「シフト」で、店舗ごとに登録します。
+ *
+ *  ここに登録した人だけが、提出ページの名前えらびに出ます。
+ *  名前を消しても、組みおわったシフトはその名前のまま残ります
+ *  （記録の中に名前を書き写しているため）。
+ */
+const ShiftStaff = {
+  _key: APP.storageKey + ':shiftStaff',
+
+  /** { 店舗id: [名前] } をまるごと返します */
+  all() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved;
+    } catch (e) {
+      /* 壊れていたら空に戻す */
+    }
+    return {};
+  },
+
+  /** その店舗の人。店舗を指定しなければ、シフトを組む店舗ぜんぶをつないだ一覧 */
+  list(storeId) {
+    const map = this.all();
+    if (storeId) return (map[storeId] || []).slice();
+    const out = [];
+    SHIFT_STORES.forEach((id) => (map[id] || []).forEach((n) => {
+      if (!out.includes(n)) out.push(n);
+    }));
+    return out;
+  },
+
+  /** 何人登録されているか */
+  count(storeId) { return this.list(storeId).length; },
+
+  save(map) {
+    const clean = {};
+    Object.keys(map || {}).forEach((id) => {
+      const names = [];
+      (map[id] || []).forEach((n) => {
+        const name = String(n).trim();
+        if (name && !names.includes(name)) names.push(name);
+      });
+      if (names.length) clean[id] = names;
+    });
+    localStorage.setItem(this._key, JSON.stringify(clean));
+    return clean;
+  },
+
+  /** 1店舗分を、改行区切りの文字列から保存 */
+  saveFromText(storeId, text) {
+    const map = this.all();
+    map[storeId] = String(text || '').split('\n');
+    return this.save(map);
+  },
+};
+
 /* -------- 配達する人のリスト（交通費アプリのプルダウン） --------
  *
  *  クローズの担当者（Staff）とは別物です。

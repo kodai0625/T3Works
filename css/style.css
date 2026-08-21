@@ -2962,3 +2962,192 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 /* 確認の記録（クローズの提出記録・週間掃除の達成状況）。青 */
 .stores-big-btn--check { --pick: #2b7fd4; }
 /* インスタのこと（ストーリーズ作成）。紫 */
+
+/* ===================== シフト =====================
+   管理者だけの画面です（アルバイトは …/shift/ の提出ページを使います）。
+   半月分を縦に並べ、1日を1枚のカードにしています。
+   横に長い表はiPhoneで読めないので、印刷のときだけ表の形にします。 */
+:root {
+  --shift-open:   #b4631a;
+  --shift-lunch:  #2d7a58;
+  --shift-dinner: #4a5fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shift-open:   #e0a05c;
+    --shift-lunch:  #62c39a;
+    --shift-dinner: #8fa3e0;
+  }
+}
+:root[data-theme="dark"] {
+  --shift-open:   #e0a05c;
+  --shift-lunch:  #62c39a;
+  --shift-dinner: #8fa3e0;
+}
+
+/* -------- 上の帯（提出の集まりぐあい） -------- */
+.shift-top {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 12px 14px; margin: 0 0 12px;
+}
+.shift-top__line {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.shift-top__count {
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.shift-top__note { font-size: 12.5px; color: var(--text-sub); }
+.shift-top__acts { display: flex; gap: 8px; }
+.shift-top__acts .btn { flex: 1 1 0; padding: 10px 8px; }
+
+/* -------- 1日分のカード -------- */
+.shift-days { display: grid; gap: 10px; }
+.shift-day {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 10px 12px 12px;
+}
+.shift-day.is-closed { background: var(--surface-2); opacity: .72; }
+.shift-day__head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding-bottom: 7px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--line-2);
+}
+.shift-day.is-closed .shift-day__head { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+.shift-day__date { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.shift-day.is-sun .shift-day__date { color: var(--ng); }
+.shift-day.is-sat .shift-day__date { color: var(--shift-dinner); }
+.shift-day__closed { font-size: 12px; color: var(--text-sub); }
+.shift-day__count {
+  margin-left: auto; font-size: 12px; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------- 枠（Open / Lunch / Dinner） -------- */
+.shift-slot { display: flex; gap: 8px; margin-bottom: 6px; }
+.shift-slot__label {
+  flex: 0 0 52px; padding-top: 7px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+}
+.shift-slot__label--open   { color: var(--shift-open); }
+.shift-slot__label--lunch  { color: var(--shift-lunch); }
+.shift-slot__label--dinner { color: var(--shift-dinner); }
+.shift-slot__names { display: flex; flex-wrap: wrap; gap: 5px; flex: 1 1 auto; min-width: 0; }
+
+.shift-chip {
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 600;
+  padding: 6px 9px; min-height: 32px; cursor: pointer;
+}
+.shift-chip:active { background: var(--line-2); }
+
+.shift-add {
+  border: 1px dashed var(--line); border-radius: 8px;
+  background: transparent; color: var(--text-weak);
+  font: inherit; font-size: 13.5px; font-weight: 700;
+  padding: 6px 10px; min-height: 32px; cursor: pointer;
+}
+/* まだ入れていない希望がある枠は、押す前に分かるようにしておきます */
+.shift-add.has-wish {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent);
+}
+
+.shift-memo {
+  width: 100%; box-sizing: border-box; margin-top: 6px;
+  border: 1px solid var(--line-2); border-radius: 8px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px; padding: 7px 9px;
+}
+.shift-memo:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.shift-foot { display: flex; gap: 8px; margin: 14px 0 4px; }
+.shift-foot .btn { flex: 1 1 0; padding: 11px 8px; }
+
+/* -------- 人をえらぶ画面 -------- */
+.seg--wrap { flex-wrap: wrap; }
+.seg--wrap .seg__btn { flex: 1 1 72px; }
+.shift-pick__group {
+  margin: 0 0 7px; font-size: 12px; color: var(--text-sub); font-weight: 700;
+}
+/* 希望を出している人。そのほかの人と見分けが付くようにします */
+.doer-btn.is-wish {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  font-size: 14px;
+}
+
+/* -------- 提出の一覧 -------- */
+.shift-wishes { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
+.shift-wish {
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface-2); padding: 9px 11px;
+}
+.shift-wish.is-yet { opacity: .62; }
+.shift-wish__head { display: flex; align-items: baseline; gap: 8px; }
+.shift-wish__name { font-size: 14.5px; font-weight: 700; }
+.shift-wish__when {
+  margin-left: auto; font-size: 12px; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+.shift-wish__days {
+  margin: 5px 0 0; font-size: 12px; color: var(--text-sub); line-height: 1.65;
+}
+.shift-wish__note {
+  margin: 5px 0 0; font-size: 12.5px;
+  padding: 5px 8px; border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* -------- 表で見る（印刷用） --------
+   今のシフト表と同じ、8日ずつ2段の形にします */
+.shift-sheet-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
+.shift-sheet {
+  border-collapse: collapse; width: max-content; min-width: 100%;
+  font-size: 12px; margin-bottom: 14px;
+}
+.shift-sheet th, .shift-sheet td {
+  border: 1px solid var(--line);
+  padding: 5px 6px; vertical-align: top; text-align: left;
+  min-width: 76px;
+}
+.shift-sheet th { background: var(--surface-2); font-weight: 700; text-align: center; }
+.shift-sheet th.is-sun { color: var(--ng); }
+.shift-sheet th.is-sat { color: var(--shift-dinner); }
+.shift-sheet__dow { font-size: 10.5px; font-weight: 400; color: var(--text-sub); }
+.shift-sheet__label {
+  min-width: 52px; text-align: left !important;
+  font-size: 11px; color: var(--text-sub);
+}
+.shift-sheet__memo { font-size: 11px; color: var(--text-sub); }
+.shift-sheet td.is-closed { background: var(--line-2); color: var(--text-sub); text-align: center; }
+.shift-text {
+  margin: 0; padding: 10px; white-space: pre-wrap; word-break: break-all;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px;
+  font-size: 12.5px; line-height: 1.6;
+}
+
+/* 印刷したら、シフト表だけが紙に出るようにします。
+   ★ body に付けた print-shift を目印にしています（openShiftSheet が付けます）。
+     .is-hidden を見て隠す書き方だと、印刷のときだけ中身を出す組み立てができません */
+@media print {
+  body.print-shift > *:not(#shiftSheetModal) { display: none !important; }
+  body.print-shift #shiftSheetModal {
+    position: static; display: block; background: none; padding: 0;
+  }
+  body.print-shift #shiftSheetModal .modal__backdrop,
+  body.print-shift #shiftSheetModal .modal__actions { display: none !important; }
+  body.print-shift #shiftSheetModal .modal__panel {
+    max-width: none; max-height: none; overflow: visible;
+    border: 0; box-shadow: none; padding: 0;
+  }
+  body.print-shift .shift-sheet-wrap { overflow: visible; }
+  body.print-shift .shift-sheet { font-size: 10px; width: 100%; }
+  body.print-shift .shift-sheet th,
+  body.print-shift .shift-sheet td { border-color: #999; }
+}

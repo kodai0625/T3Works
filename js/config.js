@@ -1111,6 +1111,186 @@ function meetingMonthKey(y, m) {
 }
 
 /* ------------------------------------------------------------
+ *  シフト
+ *
+ *  半月分（1〜15日／16日〜末日）を1つのまとまりとして扱います。
+ *  今のスプレッドシートの1シートと同じ区切りです。
+ *
+ *  入れ先は  _shift/baguru-2026-09-1  のような形です。
+ *  （店舗idの場所に _shift を置き、そのうしろに「店舗-年-月-前半1/後半2」を
+ *    つなげています。日付の形ではないので提出記録シートには出ず、
+ *    バックエンドを直さずに同期へ乗ります。現金支払い管理表と同じ手です）
+ *
+ *  1つの入れ先に、3種類のものが入ります。
+ *
+ *    w:ほのか      … 出してもらった希望
+ *        { days: { '2026-09-03': [{ s: 'dinner', t: '18.5' }], … },
+ *          note: '連絡ごと', sentAt: 出した日時 }
+ *
+ *    d:2026-09-03  … 組んだ結果（1日分）
+ *        { open:   [{ n: 'ほのか', t: ''     }],
+ *          lunch:  [{ n: 'わかな', t: '11.5' }],
+ *          dinner: [{ n: 'そう',   t: '18'   }],
+ *          memo: 'まさ休み' }
+ *
+ * ---------------------------------------------------------- */
+const SHIFT_STORE = '_shift';
+
+/** シフトを組む店舗。ここに書いた店舗にだけ「シフト」の業務が出ます */
+const SHIFT_STORES = ['baguru'];
+
+/**
+ * 時間帯（枠）
+ *
+ *   id    : 記録に残す名前（★変えると過去の分が読めなくなります）
+ *   name  : 画面に出る名前。今のシフト表と同じ書き方です
+ *   hint  : 提出ページに出す説明。何時から何時までかを書きます
+ *   start : 既定の開始時刻。この時刻の人は、表に時刻を書きません。
+ *           空にすると、その枠は必ず時刻を書きます（今のDinnerがこれです）
+ *   times : えらべる開始時刻。空なら時刻をえらばせません（今のOpenがこれです）
+ *
+ *  時刻は '17' = 17時、'17.5' = 17時半 の書き方です。
+ *
+ *  ★Openの時刻（下の start: '9'）は、今のシフト表に時刻が
+ *    書かれていないので分かりませんでした。実際の時刻に直してください。
+ *    Openは times が空なので、ここを直しても表の見ためは変わりません
+ *    （提出ページの説明文にだけ出ます）。
+ */
+const SHIFT_SLOTS = [
+  { id: 'open',   name: 'Open',   hint: '開店の準備から',       start: '9',  times: [] },
+  { id: 'lunch',  name: 'Lunch',  hint: 'お昼の営業',           start: '11', times: ['11', '11.5'] },
+  { id: 'dinner', name: 'Dinner', hint: '夜の営業（ラストまで）', start: '',   times: ['17', '17.5', '18', '18.5', '19'] },
+];
+
+function getShiftSlot(id) {
+  return SHIFT_SLOTS.find((s) => s.id === id) || null;
+}
+
+/** その枠で最初にえらばれている時刻 */
+function shiftDefaultTime(slotId) {
+  const slot = getShiftSlot(slotId);
+  if (!slot || !slot.times.length) return '';
+  return slot.start && slot.times.includes(slot.start) ? slot.start : slot.times[0];
+}
+
+/** '17.5' → '17:30'（提出ページで使う、読みやすい書き方） */
+function shiftTimeText(t) {
+  const v = String(t || '');
+  if (!v) return '';
+  const [h, half] = v.split('.');
+  return `${Number(h)}:${half ? '30' : '00'}`;
+}
+
+/**
+ * 表に書くときの時刻の印（今のシフト表と同じ書き方）
+ *
+ *   17    → ⑰       17.5  → (17.5)
+ *   既定の時刻の人には、何も付けません（今のLunchの11時と同じ）
+ */
+function shiftTimeMark(slotId, t) {
+  const slot = getShiftSlot(slotId);
+  const v = String(t || '');
+  if (!slot || !v || v === slot.start) return '';
+  const [h, half] = v.split('.');
+  const n = Number(h);
+  if (half) return `(${n}.5)`;
+  // ①〜⑳ の丸数字。①が U+2460 なので、そこから数えます
+  if (n >= 1 && n <= 20) return String.fromCharCode(0x2460 + n - 1);
+  return `${n}時`;
+}
+
+/** 表に出す1人分（'⑱そう' のような形） */
+function shiftNameText(slotId, entry) {
+  return shiftTimeMark(slotId, entry && entry.t) + String((entry && entry.n) || '');
+}
+
+/* -------- 半月のあつかい -------- */
+
+/** その日が前半(1)か後半(2)か */
+function shiftHalfOf(day) {
+  return day <= 15 ? 1 : 2;
+}
+
+/** その半月の入れ先（'baguru', 2026, 9, 1 → baguru-2026-09-1） */
+function shiftKey(storeId, y, m, half) {
+  return `${storeId}-${y}-${String(m).padStart(2, '0')}-${half}`;
+}
+
+/** その半月に入る日（'YYYY-MM-DD' の配列） */
+function shiftDays(y, m, half) {
+  const last = new Date(y, m, 0).getDate();
+  const from = half === 1 ? 1 : 16;
+  const to = half === 1 ? Math.min(15, last) : last;
+  const out = [];
+  for (let d = from; d <= to; d += 1) out.push(dateToStr(new Date(y, m - 1, d)));
+  return out;
+}
+
+/** 「9/1〜9/15」のような見出し */
+function shiftRangeLabel(y, m, half) {
+  const days = shiftDays(y, m, half);
+  const first = days[0].split('-').map(Number);
+  const last = days[days.length - 1].split('-').map(Number);
+  return `${first[1]}/${first[2]}〜${last[1]}/${last[2]}`;
+}
+
+/** 半月を前後に動かす（step は +1 / -1）。{ y, m, half } を返します */
+function shiftStep(y, m, half, step) {
+  let n = y * 24 + (m - 1) * 2 + (half - 1) + step;
+  const yy = Math.floor(n / 24);
+  n -= yy * 24;
+  return { y: yy, m: Math.floor(n / 2) + 1, half: (n % 2) + 1 };
+}
+
+/* -------- 記録の中の名前 -------- */
+
+/** 出してもらった希望の入れ先 */
+function shiftWishKey(name) {
+  return `w:${name}`;
+}
+
+/** 組んだ結果（1日分）の入れ先 */
+function shiftDayKey(dateStr) {
+  return `d:${dateStr}`;
+}
+
+/**
+ * 一度取り込んだ組み合わせを控えておく入れ先
+ *
+ *   { list: ['2026-09-03|dinner|そう', …] }
+ *
+ * ★これがあるので「希望を取り込む」を何度押しても、
+ *   いちど外した人が戻ってきません。
+ */
+const SHIFT_TAKEN_KEY = 'taken';
+
+/**
+ * 提出ページの合言葉を入れるところ
+ *
+ * アルバイトに配るURLは  …/shift/  です。
+ * 合言葉は Apps Script のスクリプト プロパティに SHIFT_PIN として入れます。
+ * この合言葉では「自分の希望を出す」ことしかできません。
+ * 他の人の希望も、クローズや立替金の記録も、いっさい読めません。
+ */
+const SHIFT_SUBMIT_PATH = 'shift/';
+
+/**
+ * 提出ページで、どの店舗として開くか
+ *
+ * URLに ?store=baguru を付けると、その店舗になります。
+ * 付いていなければ SHIFT_STORES の1つ目です。
+ *
+ * ★店舗を増やしたら、店舗ごとに違うURLを配ってください。
+ *   付け忘れると、みんな1つ目の店舗として出してしまいます。
+ *       …/shift/?store=baguru
+ *       …/shift/?store=kojare
+ */
+function shiftStoreFromUrl(search) {
+  const want = new URLSearchParams(search || '').get('store') || '';
+  return SHIFT_STORES.includes(want) ? want : SHIFT_STORES[0];
+}
+
+/* ------------------------------------------------------------
  *  日報からの取り込み
  *
  *  各店舗の日報は「年月_店舗名_日報」という名前で、店舗ごとの日報フォルダに
@@ -1281,8 +1461,23 @@ const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
   // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します
   { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
+  // シフトは組む人（管理者）だけの画面です。現場アプリには出しません。
+  // アルバイトが希望を出すのは、別に配る提出ページ（…/shift/）です
+  { id: 'shift', name: 'シフト',   sub: '希望を集めて組む',           icon: '🗓',
+    when: (storeId) => isMine() && SHIFT_STORES.includes(storeId) },
   { id: 'month', name: '月間表',   sub: '1か月の一覧',               icon: '📅', when: () => APP.showMonthView !== false },
 ];
+
+/**
+ * 管理者用（T3 Works Mine）で開いているか
+ *
+ * 現場アプリと Mine は同じ index.html から作られていて、
+ * Mine のほうだけ body に data-mode="mine" が付きます
+ * （公開用を作る.py の make_mine が付けています）。
+ */
+function isMine() {
+  return !!(document.body && document.body.dataset.mode === 'mine');
+}
 
 /** いま使える業務だけ（店舗によって出る・出ないが変わるものがあります） */
 function taskList(storeId) {
