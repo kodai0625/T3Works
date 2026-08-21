@@ -9,8 +9,9 @@ GitHub Actions から毎日呼ばれます。すでに公開してある画像�
     python3 投稿する.py             その回の分を投稿する
     python3 投稿する.py --枚数 2    枚数を決め打ちする
 
-    1日に2回（10:00と17:00）動きます。1回ぶんの枚数は
-    設定.json の「1日の枚数」÷「投稿する時刻」の数で決まります。
+    1日に2回（10:00と17:00）出します。★GitHubの予定は遅れたり流れたりするので、
+    そのあと20分おきにも動かしてあり、「まだ足りないぶんだけ」出す作りにしてある。
+    もう出ていれば0枚になるので、二重に出ることはない。
 
 いる環境変数（GitHubのSecretsに入れておく）
     IG_USER_ID_BAGURU      バグるのInstagramユーザーID（店舗idを大文字にしたもの）
@@ -52,6 +53,26 @@ API = "https://graph.facebook.com/v25.0"
 
 # 一度出したら、この日数のあいだは同じ画像を出さない
 あけたい日数 = 14
+
+# 日本時間。GitHubの機械はUTCで動いているので、ここで直す
+日本 = datetime.timezone(datetime.timedelta(hours=9))
+
+
+def いまの目標枚数(共通, いま):
+    """その時刻までに、その日「何枚出ているべきか」を返す。
+
+    ★GitHubの予定どおりの実行は、遅れたり、そのまま流れたりする。
+      そこで少しあとにも動かしておき、「まだ足りないぶんだけ出す」形にしてある。
+      もう出ていれば0枚になるので、二重に出ることはない。
+    """
+    時刻 = [str(t).strip() for t in (共通.get("投稿する時刻") or []) if str(t).strip()]
+    一日の枚数 = int(共通.get("1日の枚数", 2))
+    if not 時刻:
+        return 一日の枚数
+    済んだ回 = sum(1 for t in sorted(時刻) if t <= いま)
+    if 済んだ回 <= 0:
+        return 0
+    return max(1, int(round(一日の枚数 * 済んだ回 / len(時刻))))
 
 
 def 読む(場所, 既定=None):
@@ -250,7 +271,9 @@ def main():
     p.add_argument("--試す", dest="dry", action="store_true", help="投稿せず、何を出すかだけ見る")
     p.add_argument("--日付", dest="date", default=None, help="YYYY-MM-DD（既定は今日）")
     p.add_argument("--枚数", dest="count", type=int, default=None,
-                   help="この回に出す枚数（既定は 1日の枚数 ÷ 投稿する時刻の数）")
+                   help="この回に出す枚数（既定は、その時刻までに出ているべき枚数から足りないぶん）")
+    p.add_argument("--時刻", dest="time", default=None,
+                   help="HH:MM（既定はいまの日本時間）。試すときに使う")
     引数 = p.parse_args()
 
     日付 = 引数.date or datetime.date.today().isoformat()
@@ -259,14 +282,13 @@ def main():
     履歴 = 読む(履歴の場所, {})
     共通トークン = os.environ.get("IG_ACCESS_TOKEN", "").strip()
     もと = (設定.get("共通", {}).get("公開の場所") or "").rstrip("/")
-    一日の枚数 = int(設定.get("共通", {}).get("1日の枚数", 2))
-    時刻 = 設定.get("共通", {}).get("投稿する時刻") or []
-    # 1日に何回動くかで、1回ぶんの枚数を決める（10:00と17:00なら1回1枚）
-    回数 = max(1, len(時刻))
-    枚数 = 引数.count or max(1, -(-一日の枚数 // 回数))
+    共通 = 設定.get("共通", {})
+    いま = 引数.time or datetime.datetime.now(日本).strftime("%H:%M")
+    # その時刻までに出ているべき枚数。足りないぶんだけ出す
+    目標 = いまの目標枚数(共通, いま)
     # 期間限定のポスターなど、1日にかならず出す区分（設定.json の共通）
-    かならず区分 = (設定.get("共通", {}).get("毎日かならず出す区分") or "").strip()
-    かならず枚数 = int(設定.get("共通", {}).get("毎日かならず出す枚数", 1) or 1)
+    かならず区分 = (共通.get("毎日かならず出す区分") or "").strip()
+    かならず枚数 = int(共通.get("毎日かならず出す枚数", 1) or 1)
 
     if not もと:
         raise SystemExit("設定.json の共通に「公開の場所」（公開URL）を書いてください")
@@ -291,6 +313,15 @@ def main():
 
         if 引数.dry and トークン:
             print(f"  {つながりを確かめる(ig_id, トークン)}")
+
+        済みファイル, _, _ = きょう出したもの(並び, 履歴, 店舗, 日付)
+        枚数 = 引数.count if 引数.count is not None else max(0, 目標 - len(済みファイル))
+        if 枚数 <= 0:
+            if 目標 <= 0:
+                print(f"  {いま} は、まだ投稿する時刻ではありません")
+            else:
+                print(f"  {いま} の分は、もう出しています（きょう {len(済みファイル)}枚）")
+            continue
 
         for もの in えらぶ(並び, 履歴, 店舗, 日付, 枚数, かならず区分, かならず枚数):
             道 = f"story/できあがり/{店舗['id']}/{もの['ファイル']}"
@@ -321,6 +352,10 @@ def main():
     if not 用意できている:
         # まだ Secrets を入れていないだけ。毎日エラーを出さないよう、これは失敗にしない
         print("\nまだ投稿の設定ができていません（自動投稿/はじめかた.md を見てください）")
+        return
+
+    if 目標 <= 0:
+        print(f"\n{いま} は、まだ投稿する時刻ではありません")
         return
 
     print("\n投稿できるものがありませんでした")
