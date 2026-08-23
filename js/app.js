@@ -4594,6 +4594,9 @@ function shiftWishes(rec) {
     out.push({
       name: k.slice(2),
       days: v.days && typeof v.days === 'object' ? v.days : {},
+      // 連絡は日ごとに書いてもらいます。note は日ごとにする前の書き方で、
+      // そのころに出してもらった分がまだ残っているので読めるようにしています
+      notes: v.notes && typeof v.notes === 'object' ? v.notes : {},
       note: v.note || '',
       sentAt: v.sentAt || null,
     });
@@ -4687,12 +4690,16 @@ function shiftFirstPeriod(storeId) {
     const rec = Store.getDay(SHIFT_STORE, shiftKey(storeId, p.y, p.m, p.half));
     if (shiftPhaseOf(rec) === SHIFT_OPEN) return p;
   }
-  // 募集中が無ければ、まだ確定していない一番手前の半月
+  // 募集中が無ければ、まだ確定していなくて「もう誰かが出している」半月
   for (let i = 0; i <= 4; i += 1) {
     const p = shiftStep(now.y, now.m, now.half, i);
     const rec = Store.getDay(SHIFT_STORE, shiftKey(storeId, p.y, p.m, p.half));
-    if (shiftPhaseOf(rec) !== SHIFT_BUILT) return p;
+    if (shiftPhaseOf(rec) === SHIFT_BUILT) continue;
+    if (shiftWishes(rec).length) return p;
   }
+  // どれも無ければ「次の半月」。★今の半月は出しません。
+  //   募集をかけるのは先の半月なので、いま動いている半月を開いても
+  //   「取り込んでも何も入らない」ことになるためです
   return shiftStep(now.y, now.m, now.half, 1);
 }
 
@@ -4921,6 +4928,18 @@ function shiftDayCard(rec, wishes, dateStr) {
     card.appendChild(row);
   });
 
+  // アルバイトからのその日の連絡。組むときに見えないと意味がないので、
+  // 枠のすぐ下に出します（こちらの書く連絡とは別ものです）
+  const said = wishes
+    .filter((w) => w.notes[dateStr])
+    .map((w) => `${w.name}「${w.notes[dateStr]}」`);
+  if (said.length) {
+    const box = document.createElement('p');
+    box.className = 'shift-said';
+    box.textContent = said.join('　');
+    card.appendChild(box);
+  }
+
   const memo = document.createElement('input');
   memo.type = 'text';
   memo.className = 'shift-memo';
@@ -5148,10 +5167,16 @@ function openShiftWishes() {
       body.textContent = parts.length ? parts.join('　') : '入れる日なし';
       li.appendChild(body);
 
-      if (w.note) {
+      // 日ごとの連絡（と、日ごとにする前に書いてもらった分）
+      const said = days.filter((s) => w.notes[s]).map((s) => {
+        const [, mm, dd] = s.split('-').map(Number);
+        return `${mm}/${dd} ${w.notes[s]}`;
+      });
+      if (w.note) said.push(w.note);
+      if (said.length) {
         const note = document.createElement('p');
         note.className = 'shift-wish__note';
-        note.textContent = w.note;
+        note.textContent = said.join('　／　');
         li.appendChild(note);
       }
     }
