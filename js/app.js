@@ -739,6 +739,16 @@ function renderTaskPicker() {
       state.view = task.id;
       // 業務を開くときは今日に合わせる（別の店舗に入る日もあるため）
       state.y = TODAY.y; state.m = TODAY.m; state.d = TODAY.d;
+      // ★シフトだけは「今日」ではなく「募集中の半月」を開きます。
+      //   募集は先の半月にかけるものなので、今日の半月を開いてしまうと、
+      //   出してもらった希望がどこにも見えません（実際そうなりました）
+      if (task.id === 'shift') {
+        const p = shiftFirstPeriod(state.storeId);
+        state.y = p.y;
+        state.m = p.m;
+        state.d = p.half === 1 ? 1 : 16;
+        shiftHalf = p.half;
+      }
       writeHash();
       render();
       window.scrollTo(0, 0);
