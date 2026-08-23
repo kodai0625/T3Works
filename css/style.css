@@ -3151,3 +3151,39 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   body.print-shift .shift-sheet th,
   body.print-shift .shift-sheet td { border-color: #999; }
 }
+
+/* -------- シフト：F（ランチからディナーまで通し） --------
+   組んだ表では「ランチ」の枠にだけ名前が出ます。ディナーには出しません。
+   今のスプレッドシートでランチのセルをグレーに塗っているのと同じ意味なので、
+   こちらも塗りつぶしで見せます（色だけに頼らないよう、印刷の表には F も付けます） */
+.shift-chip.is-full,
+.doer-btn.is-full {
+  background: color-mix(in srgb, var(--text) 14%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--text) 26%, var(--line));
+}
+
+/* 印刷の表。1つのマスに何人か入るので、名前ごとに塗ります */
+.shift-sheet__name { display: block; }
+.shift-sheet__name.is-full {
+  background: color-mix(in srgb, var(--text) 15%, transparent);
+  border-radius: 3px;
+  margin: 0 -2px;
+  padding: 0 2px;
+}
+.shift-sheet__name.is-full::after {
+  content: ' F';
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+/* 枠の名前が「立ち上げ」「ディナー」と4文字になったので、少し広げます */
+.shift-slot__label { flex: 0 0 62px; }
+
+@media print {
+  /* 紙では色が薄く出るので、枠線も足して分かるようにします */
+  body.print-shift .shift-sheet__name.is-full {
+    background: #dcdcdc;
+    outline: 1px solid #b4b4b4;
+  }
+}

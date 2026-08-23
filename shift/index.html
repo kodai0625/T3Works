@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>シフト提出</title>
-<link rel="stylesheet" href="css/submit.css?v=07bfa2b1">
-<meta name="app-version" content="80addb4d">
+<link rel="stylesheet" href="css/submit.css?v=cd6b16c0">
+<meta name="app-version" content="8484b600">
 </head>
 <body>
 
@@ -19,28 +19,25 @@
 
 <main class="page">
 
-  <!-- ===== 1. 合言葉 ===== -->
+  <!-- ===== 1. 自分の番号 =====
+       番号で誰なのかが決まります。名前をえらばせないので、
+       ほかの人の名前で出すことはできません -->
   <section class="card" id="gate">
-    <h1 class="card__title">合言葉を入れてください</h1>
-    <p class="card__note">お店から教えてもらった合言葉です。1回入れれば、次からは出ません。</p>
-    <!-- ★英字が入るので type="text"。iPhoneが勝手に大文字にしたり直したりしないよう、
-         autocapitalize / autocorrect / spellcheck を全部切っています -->
+    <h1 class="card__title">あなたの番号を入れてください</h1>
+    <p class="card__note">
+      お店からLINEで送られた、<b>あなただけの番号</b>です。<br>
+      1回入れれば、次からは出ません。
+    </p>
+    <!-- ★英字が入ることもあるので type="text"。iPhoneが勝手に大文字にしたり
+         直したりしないよう、autocapitalize / autocorrect / spellcheck を切っています -->
     <input type="text" autocomplete="off" autocapitalize="off"
            autocorrect="off" spellcheck="false"
-           class="input input--big" id="gatePin" placeholder="合言葉">
+           class="input input--big" id="gatePin" placeholder="番号">
     <p class="err is-hidden" id="gateErr"></p>
     <button type="button" class="btn btn--primary btn--wide" id="gateGo">すすむ</button>
   </section>
 
-  <!-- ===== 2. 名前をえらぶ ===== -->
-  <section class="card is-hidden" id="who">
-    <h1 class="card__title">あなたの名前をえらんでください</h1>
-    <p class="card__note">次からは、この名前で開きます。</p>
-    <div class="names" id="whoNames"></div>
-    <p class="err is-hidden" id="whoErr"></p>
-  </section>
-
-  <!-- ===== 3. 希望を入れる ===== -->
+  <!-- ===== 2. 希望を入れる ===== -->
   <section class="is-hidden" id="form">
 
     <div class="card card--period">
@@ -73,12 +70,13 @@
     <div class="foot">
       <button type="button" class="btn btn--primary btn--wide" id="send">この内容で出す</button>
       <p class="foot__note" id="footNote">締切までは、何度でも出し直せます。</p>
+      <button type="button" class="btn btn--plain" id="signOut">番号を入れ直す</button>
     </div>
   </section>
 
 </main>
 
-<script src="../js/config.js?v=15b9d792"></script>
-<script src="js/submit.js?v=437c420d"></script>
+<script src="../js/config.js?v=b6e773e1"></script>
+<script src="js/submit.js?v=b7f6a39e"></script>
 </body>
 </html>

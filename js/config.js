@@ -1126,12 +1126,14 @@ function meetingMonthKey(y, m) {
  *    w:ほのか      … 出してもらった希望
  *        { days: { '2026-09-03': [{ s: 'dinner', t: '18.5' }], … },
  *          note: '連絡ごと', sentAt: 出した日時 }
+ *        s は 'open' 'full' 'lunch' 'dinner' のどれかです
  *
  *    d:2026-09-03  … 組んだ結果（1日分）
  *        { open:   [{ n: 'ほのか', t: ''     }],
- *          lunch:  [{ n: 'わかな', t: '11.5' }],
- *          dinner: [{ n: 'そう',   t: '18'   }],
+ *          lunch:  [{ n: 'わかな', t: '11.5' }, { n: 'そう', t: '11', f: true }],
+ *          dinner: [{ n: 'いな',   t: '18'   }],
  *          memo: 'まさ休み' }
+ *        f: true が F（通し）です。ランチの枠にだけ入り、灰色で出ます
  *
  * ---------------------------------------------------------- */
 const SHIFT_STORE = '_shift';
@@ -1157,13 +1159,56 @@ const SHIFT_STORES = ['baguru'];
  *    （提出ページの説明文にだけ出ます）。
  */
 const SHIFT_SLOTS = [
-  { id: 'open',   name: 'Open',   hint: '開店の準備から',       start: '9',  times: [] },
-  { id: 'lunch',  name: 'Lunch',  hint: 'お昼の営業',           start: '11', times: ['11', '11.5'] },
-  { id: 'dinner', name: 'Dinner', hint: '夜の営業（ラストまで）', start: '',   times: ['17', '17.5', '18', '18.5', '19'] },
+  { id: 'open',   name: '立ち上げ', hint: '開店の準備から',        start: '9',  times: [] },
+  { id: 'lunch',  name: 'ランチ',   hint: 'お昼の営業',            start: '11', times: ['11', '11.5', '12'] },
+  { id: 'dinner', name: 'ディナー', hint: '夜の営業（ラストまで）', start: '',   times: ['17', '17.5', '18', '18.5', '19'] },
 ];
 
+/**
+ * F（通し）
+ *
+ *  ランチからディナーまで通しで入る、という出し方です。
+ *  **組んだ表では「ランチ」の枠にだけ名前が出て、灰色の印が付きます。**
+ *  ディナーの枠には出しません（今のスプレッドシートで、ランチのセルを
+ *  グレーに塗りつぶしているのと同じ形にしてあります）。
+ *
+ *  開始時刻はランチと同じものからえらべて、あとから組む画面で直せます。
+ */
+const SHIFT_FULL_ID = 'full';
+
+/** 提出ページでえらべる枠。立ち上げ → F → ランチ → ディナー の並びです */
+function shiftWishSlots() {
+  const lunch = SHIFT_SLOTS.find((s) => s.id === 'lunch');
+  const full = {
+    id: SHIFT_FULL_ID,
+    name: 'F',
+    hint: 'ランチからディナーまで通し',
+    start: lunch.start,
+    times: lunch.times,
+  };
+  return [SHIFT_SLOTS[0], full, SHIFT_SLOTS[1], SHIFT_SLOTS[2]];
+}
+
+/** id から枠を引く（F も引けます） */
 function getShiftSlot(id) {
-  return SHIFT_SLOTS.find((s) => s.id === id) || null;
+  return shiftWishSlots().find((s) => s.id === id) || null;
+}
+
+/** その希望が、組んだ表のどの枠に入るか（F はランチへ） */
+function shiftSlotFor(wishSlotId) {
+  return wishSlotId === SHIFT_FULL_ID ? 'lunch' : wishSlotId;
+}
+
+/**
+ * 同じ日に一緒にえらべない組み合わせ
+ *
+ * F はランチとディナーの両方に入るという意味なので、
+ * F を押したらランチとディナーは消え、ランチかディナーを押したら F が消えます。
+ */
+function shiftClashes(slotId) {
+  if (slotId === SHIFT_FULL_ID) return ['lunch', 'dinner'];
+  if (slotId === 'lunch' || slotId === 'dinner') return [SHIFT_FULL_ID];
+  return [];
 }
 
 /** その枠で最初にえらばれている時刻 */
@@ -1265,29 +1310,38 @@ function shiftDayKey(dateStr) {
 const SHIFT_TAKEN_KEY = 'taken';
 
 /**
- * 提出ページの合言葉を入れるところ
+ * 提出ページ
  *
- * アルバイトに配るURLは  …/shift/  です。
- * 合言葉は Apps Script のスクリプト プロパティに SHIFT_PIN として入れます。
- * この合言葉では「自分の希望を出す」ことしかできません。
- * 他の人の希望も、クローズや立替金の記録も、いっさい読めません。
+ * アルバイトに配るURLは  …/shift/  です。全員に同じURLを配って構いません。
+ *
+ * ★入るときは「自分の番号」を入れます。番号は1人に1つで、
+ *   マネージの「シフトに入る人」で作ります。
+ *   番号で誰なのかが決まるので、**他の人の名前では出せません**。
+ *   名前の一覧も出しません（誰が働いているかを見せないため）。
+ *
+ * 番号でできるのは、その人自身の希望を出すことと、出したものを読み返すことだけです。
+ * ほかの人の希望も、クローズや立替金の記録も、いっさい読めません。
  */
 const SHIFT_SUBMIT_PATH = 'shift/';
 
+/** 番号の桁数。増やすと当てにくくなりますが、打つのが手間になります */
+const SHIFT_CODE_LENGTH = 6;
+
 /**
- * 提出ページで、どの店舗として開くか
+ * 誰とも重ならない番号を作る
  *
- * URLに ?store=baguru を付けると、その店舗になります。
- * 付いていなければ SHIFT_STORES の1つ目です。
- *
- * ★店舗を増やしたら、店舗ごとに違うURLを配ってください。
- *   付け忘れると、みんな1つ目の店舗として出してしまいます。
- *       …/shift/?store=baguru
- *       …/shift/?store=kojare
+ * ★店舗をまたいで重ならないようにします。番号だけで「どの店舗の誰か」が
+ *   決まる作りなので、重なると別の人として入ってしまいます。
  */
-function shiftStoreFromUrl(search) {
-  const want = new URLSearchParams(search || '').get('store') || '';
-  return SHIFT_STORES.includes(want) ? want : SHIFT_STORES[0];
+function makeShiftCode(used) {
+  const taken = new Set(used || []);
+  const top = 10 ** SHIFT_CODE_LENGTH;
+  const low = 10 ** (SHIFT_CODE_LENGTH - 1);
+  for (let i = 0; i < 5000; i += 1) {
+    const n = String(low + Math.floor(Math.random() * (top - low)));
+    if (!taken.has(n)) return n;
+  }
+  return '';   // ここまで来ることはありませんが、念のため
 }
 
 /* ------------------------------------------------------------

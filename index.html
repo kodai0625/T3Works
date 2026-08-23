@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=2b7004e0">
-<meta name="app-version" content="80addb4d">
+<link rel="stylesheet" href="css/style.css?v=1bdea0c1">
+<meta name="app-version" content="8484b600">
 </head>
 <body>
 
@@ -1023,6 +1023,15 @@
       <div class="seg seg--wrap" id="shiftPickTimes"></div>
     </div>
 
+    <!-- F（通し）。ランチの枠のときだけ出ます -->
+    <div class="field is-hidden" id="shiftPickFullField">
+      <span class="field__label">ランチだけか、通し（F）か</span>
+      <div class="seg">
+        <button type="button" class="seg__btn is-on" id="shiftPickFullOff">ランチだけ</button>
+        <button type="button" class="seg__btn" id="shiftPickFullOn">F（通し）</button>
+      </div>
+    </div>
+
     <div class="field" id="shiftPickNameField">
       <div id="shiftPickNames"></div>
     </div>
@@ -1167,12 +1176,12 @@
   </div>
 </div>
 
-<script src="js/config.js?v=15b9d792"></script>
-<script src="js/storage.js?v=d021588d"></script>
+<script src="js/config.js?v=b6e773e1"></script>
+<script src="js/storage.js?v=14e77bf4"></script>
 <script src="js/sync.js?v=fcaa8418"></script>
 <script src="js/update.js?v=bf53b433"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="js/meeting-data.js?v=36389c67"></script>
-<script src="js/app.js?v=c56d3ee7"></script>
+<script src="js/app.js?v=7c85c8e1"></script>
 </body>
 </html>

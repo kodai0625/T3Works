@@ -4,10 +4,12 @@
  *  アルバイトが半月分の希望を出すためだけの画面です。
  *  URLをLINEで配って開いてもらいます（アプリの導入もログインも要りません）。
  *
- *  合言葉について
- *    ここで使うのは「提出用の合言葉」です。現場用PINでも管理用PINでもありません。
- *    この合言葉でできるのは
- *      ・自分の名前で希望を出す
+ *  番号について
+ *    入口は「1人に1つの番号」です。現場用PINでも管理用PINでもありません。
+ *    番号で誰なのかが決まるので、**ほかの人の名前では出せません**。
+ *    名前の一覧も出しません（誰が働いているかを見せないため）。
+ *    番号でできるのは
+ *      ・自分の希望を出す
  *      ・自分がさっき出した内容を見直す
  *    の2つだけです。ほかの人の希望も、クローズや立替金の記録も読めません
  *    （Apps Script 側で action:'shift' 以外を受け付けていません）。
@@ -22,14 +24,17 @@ const SAVE = 't3d-shift-submit';
 
 const el = (id) => document.getElementById(id);
 
+/**
+ * この端末の持ち主
+ *
+ * 覚えておくのは番号だけです。名前と店舗は、番号からサーバーが決めます。
+ * （こちらで名前を持っていても、送るときには使いません。
+ *   なりすましの余地をなくすため、サーバーは番号だけを見ます）
+ */
 const me = {
-  pin: localStorage.getItem(`${SAVE}:pin`) || '',
-  name: localStorage.getItem(`${SAVE}:store`) === shiftStoreFromUrl(location.search)
-    ? (localStorage.getItem(`${SAVE}:name`) || '')
-    : '',
-  // 店舗はURL（?store=baguru）で決めます。名前は店舗ごとに別なので、
-  // 前に別の店舗で開いていたら、覚えている名前は忘れます
-  store: shiftStoreFromUrl(location.search),
+  code: localStorage.getItem(`${SAVE}:code`) || '',
+  name: '',
+  store: '',
 };
 
 /** 画面に出している半月 */
@@ -40,8 +45,6 @@ let picked = {};
 let sentAt = null;
 /** 店舗の定休日（サーバーから取ります） */
 let closed = { dows: [], ex: {} };
-/** 名簿 */
-let roster = [];
 
 /* ============================================================
  *  サーバーとのやりとり
@@ -52,7 +55,7 @@ async function call(body) {
     const res = await fetch(APP.syncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ pin: me.pin, action: 'shift', store: me.store, ...body }),
+      body: JSON.stringify({ code: me.code, action: 'shift', ...body }),
     });
     return await res.json();
   } catch (e) {
@@ -94,7 +97,7 @@ function isClosedOn(dateStr) {
  *  画面
  * ============================================================ */
 function show(which) {
-  ['gate', 'who', 'form'].forEach((id) => el(id).classList.toggle('is-hidden', id !== which));
+  ['gate', 'form'].forEach((id) => el(id).classList.toggle('is-hidden', id !== which));
 }
 
 function setErr(id, msg) {
@@ -102,62 +105,52 @@ function setErr(id, msg) {
   el(id).classList.toggle('is-hidden', !msg);
 }
 
-/* -------- 1. 合言葉 -------- */
+/* -------- 1. 自分の番号 -------- */
 async function submitPin() {
-  const pin = el('gatePin').value.trim();
-  if (!pin) return setErr('gateErr', '合言葉を入れてください');
+  const code = el('gatePin').value.trim();
+  if (!code) return setErr('gateErr', '番号を入れてください');
 
   el('gateGo').disabled = true;
   setErr('gateErr', '');
-  me.pin = pin;
+  me.code = code;
   const res = await call({ mode: 'open' });
   el('gateGo').disabled = false;
 
   if (!res.ok) {
-    me.pin = '';
-    return setErr('gateErr', res.error || '合言葉が違うようです');
+    me.code = '';
+    return setErr('gateErr', res.error || 'この番号は使えません');
   }
-  localStorage.setItem(`${SAVE}:pin`, pin);
+  localStorage.setItem(`${SAVE}:code`, code);
   applyOpen(res);
-  if (me.name && roster.includes(me.name)) startForm();
-  else showWho();
+  startForm();
 }
 
+/** 番号から分かったこと（名前・店舗・定休日）を受け取る */
 function applyOpen(res) {
-  roster = Array.isArray(res.staff) ? res.staff : [];
+  me.name = res.name || '';
+  me.store = res.store || '';
   // 定休日はマネージで変えられます。変えていない店舗は null で返ってくるので、
-  // そのときは config.js に書いてある初期値（バグるなら火曜）を使います
+  // そのときは config.js に書いてある初期値（バグるなら火曜）を使います。
+  // ★毎回サーバーに聞きに行くので、マネージで直せばここもすぐ変わります
+  const store = getStore(me.store);
   closed = {
-    dows: Array.isArray(res.closedDows) ? res.closedDows : (getStore(me.store).closedDays || []),
+    dows: Array.isArray(res.closedDows) ? res.closedDows : ((store && store.closedDays) || []),
     ex: res.closedEx && typeof res.closedEx === 'object' ? res.closedEx : {},
   };
-  el('headTitle').textContent = `シフト提出｜${getStore(me.store).name}`;
+  el('headTitle').textContent = `シフト提出｜${store ? store.name : ''}`;
 }
 
-/* -------- 2. 名前 -------- */
-function showWho() {
-  show('who');
-  el('whoNames').innerHTML = '';
-  if (!roster.length) {
-    return setErr('whoErr', 'まだ名前が登録されていません。お店に伝えてください。');
-  }
-  setErr('whoErr', '');
-  roster.forEach((name) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'btn';
-    b.textContent = name;
-    b.addEventListener('click', () => {
-      me.name = name;
-      localStorage.setItem(`${SAVE}:name`, name);
-      localStorage.setItem(`${SAVE}:store`, me.store);
-      startForm();
-    });
-    el('whoNames').appendChild(b);
-  });
+/** 番号を入れ直す（端末を人に渡すときなど） */
+function signOut() {
+  localStorage.removeItem(`${SAVE}:code`);
+  me.code = '';
+  me.name = '';
+  el('gatePin').value = '';
+  el('headMe').classList.add('is-hidden');
+  show('gate');
 }
 
-/* -------- 3. 希望を入れる -------- */
+/* -------- 2. 希望を入れる -------- */
 function startForm() {
   el('headMe').textContent = me.name;
   el('headMe').classList.remove('is-hidden');
@@ -174,7 +167,7 @@ async function loadPeriod() {
   el('sendOk').classList.add('is-hidden');
   renderPeriod();
 
-  const res = await call({ mode: 'get', name: me.name, key: periodKey() });
+  const res = await call({ mode: 'get', key: periodKey() });
   if (!res.ok) return setErr('sendErr', res.error || '読み込めませんでした');
   if (res.wish) {
     picked = res.wish.days && typeof res.wish.days === 'object' ? res.wish.days : {};
@@ -196,6 +189,10 @@ function renderPeriod() {
   el('periodPrev').disabled = !isOpenPeriod(shiftStep(period.y, period.m, period.half, -1));
   el('periodNext').disabled = !isOpenPeriod(next);
 
+  // ★定休日になった日の希望は落とします。マネージで定休日を足したあとに
+  //   出し直されると、休みの日に入る希望が残ってしまうためです
+  Object.keys(picked).forEach((s) => { if (isClosedOn(s)) delete picked[s]; });
+
   const days = shiftDays(period.y, period.m, period.half).filter((s) => !isClosedOn(s));
   const on = days.filter((s) => (picked[s] || []).length).length;
   el('periodState').className = 'period__state' + (sentAt ? ' is-sent' : '');
@@ -203,8 +200,8 @@ function renderPeriod() {
     ? `出しずみ（${on}日）。直したら、もう一度出してください`
     : `${days.length}日のうち ${on}日 えらんでいます`;
 
-  el('slotHint').innerHTML = SHIFT_SLOTS
-    .map((s) => `<b>${s.name}</b>＝${s.hint}`).join('　／　')
+  el('slotHint').innerHTML = shiftWishSlots()
+    .map((s) => `<b>${s.name}</b>＝${s.hint}`).join('<br>')
     + '<br>入れる日の枠を押してください。押していない日は「入れない日」です。';
 
   renderDays();
@@ -245,19 +242,23 @@ function dayCard(dateStr) {
     return card;
   }
 
+  card.appendChild(head);
+
+  // 枠は4つ（立ち上げ・F・ランチ・ディナー）あるので、日付の下に1行使って並べます。
+  // 日付と同じ行に押し込むと、iPhoneではボタンが小さくなりすぎて押しまちがえます
   const slots = document.createElement('div');
   slots.className = 'day__slots';
-  SHIFT_SLOTS.forEach((slot) => {
+  shiftWishSlots().forEach((slot) => {
     const on = mine.some((e) => e.s === slot.id);
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `slot slot--${slot.id}` + (on ? ' is-on' : '');
     b.textContent = slot.name;
+    b.title = slot.hint;
     b.addEventListener('click', () => toggleSlot(dateStr, slot.id));
     slots.appendChild(b);
   });
-  head.appendChild(slots);
-  card.appendChild(head);
+  card.appendChild(slots);
 
   // えらんだ枠だけ、開始時刻を出します
   mine.forEach((entry) => {
@@ -288,10 +289,16 @@ function dayCard(dateStr) {
 }
 
 function toggleSlot(dateStr, slotId) {
-  const list = (picked[dateStr] || []).slice();
+  let list = (picked[dateStr] || []).slice();
   const i = list.findIndex((e) => e.s === slotId);
-  if (i >= 0) list.splice(i, 1);
-  else list.push({ s: slotId, t: shiftDefaultTime(slotId) });
+  if (i >= 0) {
+    list.splice(i, 1);
+  } else {
+    // F はランチとディナーの両方に入るという意味なので、一緒にはえらべません
+    const clash = shiftClashes(slotId);
+    list = list.filter((e) => !clash.includes(e.s));
+    list.push({ s: slotId, t: shiftDefaultTime(slotId) });
+  }
 
   if (list.length) picked[dateStr] = list;
   else delete picked[dateStr];
@@ -315,7 +322,6 @@ async function send() {
 
   const res = await call({
     mode: 'put',
-    name: me.name,
     key: periodKey(),
     days: picked,
     note: el('note').value.trim(),
@@ -341,22 +347,20 @@ async function boot() {
   el('periodPrev').addEventListener('click', () => { period = shiftStep(period.y, period.m, period.half, -1); loadPeriod(); });
   el('periodNext').addEventListener('click', () => { period = shiftStep(period.y, period.m, period.half, 1); loadPeriod(); });
   el('send').addEventListener('click', send);
-  // 名前を押すと、えらび直せます
-  el('headMe').addEventListener('click', showWho);
+  el('signOut').addEventListener('click', signOut);
 
-  if (!me.pin) return show('gate');
+  if (!me.code) return show('gate');
 
-  // 合言葉を覚えているときは、そのまま名簿を取りに行きます
+  // 番号を覚えているときは、そのまま自分のことを聞きに行きます
   const res = await call({ mode: 'open' });
   if (!res.ok) {
-    me.pin = '';
-    localStorage.removeItem(`${SAVE}:pin`);
+    me.code = '';
+    localStorage.removeItem(`${SAVE}:code`);
     show('gate');
-    return setErr('gateErr', res.error || 'もう一度、合言葉を入れてください');
+    return setErr('gateErr', res.error || 'もう一度、番号を入れてください');
   }
   applyOpen(res);
-  if (me.name && roster.includes(me.name)) startForm();
-  else showWho();
+  startForm();
 }
 
 boot();

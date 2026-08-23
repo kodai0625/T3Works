@@ -42,6 +42,7 @@ const el = {};
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
   'shiftStaffFields', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
+  'shiftCodeList',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1054,25 +1055,100 @@ function renderShiftStaff() {
     wrap.className = 'field';
     const label = document.createElement('span');
     label.className = 'field__label';
-    const names = map[id] || [];
-    label.textContent = `${s.name}（${names.length}人）`;
+    const people = map[id] || [];
+    label.textContent = `${s.name}（${people.length}人）`;
     const area = document.createElement('textarea');
     area.className = 'field__input field__input--area';
     area.rows = 10;
     area.dataset.store = id;
     area.placeholder = '1行に1人ずつ';
-    area.value = names.join('\n');
+    area.value = people.map((p) => p.n).join('\n');
     wrap.append(label, area);
     el.shiftStaffFields.appendChild(wrap);
   });
+
+  renderShiftCodes();
+}
+
+/**
+ * 配る番号の一覧
+ *
+ * 番号は1人に1つで、これが提出ページの入口になります。
+ * 本人に送るための文面を、そのままコピーできるようにしてあります。
+ */
+function renderShiftCodes() {
+  const map = ShiftStaff.all();
+  el.shiftCodeList.innerHTML = '';
+
+  SHIFT_STORES.forEach((id) => {
+    const people = map[id] || [];
+    if (!people.length) return;
+    const head = document.createElement('p');
+    head.className = 'field__label';
+    head.textContent = getStore(id).name;
+    el.shiftCodeList.appendChild(head);
+
+    const box = document.createElement('div');
+    box.className = 'shift-codes';
+    people.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'shift-code';
+
+      const name = document.createElement('span');
+      name.className = 'shift-code__name';
+      name.textContent = p.n;
+
+      const code = document.createElement('span');
+      code.className = 'shift-code__num';
+      code.textContent = p.c || '—';
+
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'btn btn--small';
+      copy.textContent = 'コピー';
+      copy.addEventListener('click', () => copyShiftCode(p, copy));
+
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn btn--small';
+      again.textContent = '作り直す';
+      again.addEventListener('click', () => {
+        if (!window.confirm(`${p.n}さんの番号を作り直します。\n前の番号では入れなくなります。`)) return;
+        ShiftStaff.reissue(id, p.n);
+        renderShiftStaff();
+      });
+
+      row.append(name, code, copy, again);
+      box.appendChild(row);
+    });
+    el.shiftCodeList.appendChild(box);
+  });
+
+  if (!el.shiftCodeList.children.length) {
+    el.shiftCodeList.innerHTML = '<p class="admin-note">名前を保存すると、ここに番号が出ます。</p>';
+  }
+}
+
+/** その人に送る文面をコピーする */
+function copyShiftCode(p, btn) {
+  // 提出ページのURL。マネージは1つ下の階層にあるので ../ で戻ります
+  const url = new URL('../' + SHIFT_SUBMIT_PATH, location.href).href;
+  const text = `${p.n}さん\nシフトの提出はこちらから\n${url}\nあなたの番号：${p.c}`;
+  navigator.clipboard.writeText(text).then(
+    () => {
+      btn.textContent = 'コピーした';
+      setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
+    },
+    () => { window.prompt('コピーしてください', text); }
+  );
 }
 
 function saveShiftStaff() {
-  const map = ShiftStaff.all();
+  let map = ShiftStaff.all();
   [...el.shiftStaffFields.querySelectorAll('textarea[data-store]')].forEach((a) => {
-    map[a.dataset.store] = a.value.split('\n');
+    // 名前だけを見て、すでにいる人の番号は saveFromText が引き継ぎます
+    map = ShiftStaff.saveFromText(a.dataset.store, a.value);
   });
-  ShiftStaff.save(map);
   renderShiftStaff();
   el.shiftStaffSaved.classList.remove('is-hidden');
   setTimeout(() => el.shiftStaffSaved.classList.add('is-hidden'), 2500);

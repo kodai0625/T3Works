@@ -20,6 +20,7 @@
   --ok:        #2f9e44;
   --ng:        #d64545;
   --open:      #b4631a;
+  --full:      #7a4b8f;
   --lunch:     #2d7a58;
   --dinner:    #4a5fa8;
   --header-bg: #1c1f26;
@@ -38,6 +39,7 @@
     --text-sub:  #a3aab5;
     --text-weak: #7b828d;
     --open:      #e0a05c;
+    --full:      #c197d6;
     --lunch:     #62c39a;
     --dinner:    #8fa3e0;
     --header-bg: #0f1114;
@@ -154,21 +156,26 @@ body {
 .day.is-on { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .day__head { display: flex; align-items: center; gap: 10px; }
 .day__date {
-  flex: 0 0 84px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .day.is-sun .day__date { color: var(--ng); }
 .day.is-sat .day__date { color: var(--dinner); }
 .day__closed { font-size: 12.5px; color: var(--text-sub); }
-.day__slots { display: flex; gap: 6px; flex: 1 1 auto; }
+/* 枠は4つあるので、日付の下に1行使って並べます。
+   日付と同じ行に押し込むと、iPhoneでは1つ50pxを切って押しまちがえます */
+.day__slots { display: flex; gap: 6px; margin-top: 9px; }
 
 .slot {
   flex: 1 1 0; border: 1px solid var(--line); border-radius: 9px;
   background: var(--surface-2); color: var(--text-weak);
   font: inherit; font-size: 13px; font-weight: 700;
-  padding: 10px 4px; cursor: pointer; min-height: 42px;
+  padding: 11px 2px; cursor: pointer; min-height: 44px;
 }
+/* F は1文字なので、ほかの枠より狭くてかまいません */
+.slot--full { flex: 0 0 46px; }
 .slot.is-on { color: #fff; }
 .slot--open.is-on   { background: var(--open);   border-color: var(--open); }
+.slot--full.is-on   { background: var(--full);   border-color: var(--full); }
 .slot--lunch.is-on  { background: var(--lunch);  border-color: var(--lunch); }
 .slot--dinner.is-on { background: var(--dinner); border-color: var(--dinner); }
 
@@ -181,6 +188,7 @@ body {
   font-size: 12px; font-weight: 700;
 }
 .times__label--open   { color: var(--open); }
+.times__label--full   { color: var(--full); }
 .times__label--lunch  { color: var(--lunch); }
 .times__label--dinner { color: var(--dinner); }
 .times__btns { display: flex; gap: 5px; flex: 1 1 auto; flex-wrap: wrap; }
@@ -195,3 +203,10 @@ body {
 /* -------- 送る -------- */
 .foot { margin-top: 16px; }
 .foot__note { margin: 9px 0 0; font-size: 12px; color: var(--text-sub); text-align: center; }
+/* 「番号を入れ直す」。ふだんは使わないので、目立たせません */
+.btn--plain {
+  display: block; margin: 14px auto 0;
+  border: 0; background: none; color: var(--text-weak);
+  font-size: 12.5px; font-weight: 400; text-decoration: underline;
+  padding: 6px 10px;
+}

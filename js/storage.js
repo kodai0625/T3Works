@@ -424,49 +424,111 @@ const CatchStaff = {
 const ShiftStaff = {
   _key: APP.storageKey + ':shiftStaff',
 
-  /** { 店舗id: [名前] } をまるごと返します */
+  /**
+   * { 店舗id: [{ n: 名前, c: 番号 }] } をまるごと返します
+   *
+   * 名前だけの配列で入っていた時期のものは、番号なしとして読みます
+   * （保存し直すと番号が振られます）。
+   */
   all() {
     try {
       const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
-      if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved;
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        const out = {};
+        Object.keys(saved).forEach((id) => {
+          out[id] = (saved[id] || []).map((v) => (
+            typeof v === 'string' ? { n: v, c: '' } : { n: String(v.n || ''), c: String(v.c || '') }
+          )).filter((v) => v.n);
+        });
+        return out;
+      }
     } catch (e) {
       /* 壊れていたら空に戻す */
     }
     return {};
   },
 
-  /** その店舗の人。店舗を指定しなければ、シフトを組む店舗ぜんぶをつないだ一覧 */
-  list(storeId) {
+  /** その店舗の人（名前と番号）。店舗を指定しなければ、シフトを組む店舗ぜんぶ */
+  people(storeId) {
     const map = this.all();
     if (storeId) return (map[storeId] || []).slice();
     const out = [];
-    SHIFT_STORES.forEach((id) => (map[id] || []).forEach((n) => {
-      if (!out.includes(n)) out.push(n);
-    }));
+    SHIFT_STORES.forEach((id) => (map[id] || []).forEach((p) => out.push({ ...p, store: id })));
     return out;
   },
 
-  /** 何人登録されているか */
-  count(storeId) { return this.list(storeId).length; },
+  /** 名前だけの一覧（並び順は登録した順） */
+  list(storeId) {
+    return this.people(storeId).map((p) => p.n);
+  },
 
+  /** 何人登録されているか */
+  count(storeId) { return this.people(storeId).length; },
+
+  /** いま使われている番号ぜんぶ（重ならない番号を作るために見ます） */
+  codes() {
+    return this.people().map((p) => p.c).filter(Boolean);
+  },
+
+  /**
+   * 保存する
+   *
+   * ★番号が入っていない人には、ここで新しい番号を振ります。
+   *   名前を書くだけで使えるようにするためです。
+   *   すでに番号がある人の番号は、そのまま変えません
+   *   （変えてしまうと、その人が入れなくなります）。
+   */
   save(map) {
     const clean = {};
+    const used = new Set();
+    // まず、いま決まっている番号を集める（重複を避けるため）
+    Object.keys(map || {}).forEach((id) => (map[id] || []).forEach((p) => {
+      const c = String((p && p.c) || '').trim();
+      if (c) used.add(c);
+    }));
+
     Object.keys(map || {}).forEach((id) => {
-      const names = [];
-      (map[id] || []).forEach((n) => {
-        const name = String(n).trim();
-        if (name && !names.includes(name)) names.push(name);
+      const list = [];
+      (map[id] || []).forEach((p) => {
+        const name = String((p && p.n) || '').trim();
+        if (!name || list.some((x) => x.n === name)) return;
+        let code = String((p && p.c) || '').trim();
+        if (!code) {
+          code = makeShiftCode(used);
+          used.add(code);
+        }
+        list.push({ n: name, c: code });
       });
-      if (names.length) clean[id] = names;
+      if (list.length) clean[id] = list;
     });
     localStorage.setItem(this._key, JSON.stringify(clean));
     return clean;
   },
 
-  /** 1店舗分を、改行区切りの文字列から保存 */
+  /**
+   * 1店舗分を、改行区切りの名前から保存
+   *
+   * すでにいる人の番号は引き継ぎ、新しく書かれた人には番号を振ります。
+   * 消された人は、番号ごといなくなります。
+   */
   saveFromText(storeId, text) {
     const map = this.all();
-    map[storeId] = String(text || '').split('\n');
+    const before = map[storeId] || [];
+    map[storeId] = String(text || '').split('\n').map((line) => {
+      const name = line.trim();
+      const old = before.find((p) => p.n === name);
+      return { n: name, c: old ? old.c : '' };
+    }).filter((p) => p.n);
+    return this.save(map);
+  },
+
+  /** その人の番号を作り直す（前の番号では入れなくなります） */
+  reissue(storeId, name) {
+    const map = this.all();
+    const list = map[storeId] || [];
+    const who = list.find((p) => p.n === name);
+    if (!who) return this.all();
+    who.c = makeShiftCode(this.codes());
     return this.save(map);
   },
 };

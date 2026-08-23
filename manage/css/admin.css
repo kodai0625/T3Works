@@ -240,3 +240,24 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 .admin-tool > summary::before { content: '▸ '; }
 .admin-tool[open] > summary::before { content: '▾ '; }
 .admin-tool > *:not(summary) { margin: 0 12px 12px; }
+
+/* -------- シフト：配る番号 --------
+   1人に1つの番号が、そのまま提出ページの入口になります。
+   本人に送る文面をコピーできるよう、名前・番号・ボタンを1行にしています */
+.shift-codes { display: grid; gap: 6px; margin: 0 0 14px; }
+.shift-code {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px;
+}
+.shift-code__name { flex: 1 1 auto; font-size: 14px; font-weight: 700; min-width: 0; }
+.shift-code__num {
+  font-size: 15px; font-weight: 700; letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 420px) {
+  /* 幅が足りないときは、名前と番号を上の行に、ボタンを下の行に折ります */
+  .shift-code { flex-wrap: wrap; }
+  .shift-code__name { flex: 1 1 100%; }
+  .shift-code__num { flex: 1 1 auto; }
+}

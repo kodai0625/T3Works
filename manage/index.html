@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=2b7004e0">
-<link rel="stylesheet" href="css/admin.css?v=234f2929">
-<meta name="app-version" content="80addb4d">
+<link rel="stylesheet" href="../css/style.css?v=1bdea0c1">
+<link rel="stylesheet" href="css/admin.css?v=e4460f39">
+<meta name="app-version" content="8484b600">
 </head>
 <body class="no-daytabs">
 
@@ -96,9 +96,11 @@
       <span class="admin-count" id="shiftStaffCount"></span>
     </div>
     <p class="admin-note">
-      1行に1人。<b>提出ページの名前えらび</b>に、この順番で並びます。<br>
+      1行に1人。保存すると、<b>1人ずつに番号</b>が作られます。
+      その番号を本人にLINEで送ってください。<br>
+      提出ページは<b>番号で誰なのかが決まる</b>ので、他の人の名前では出せません。
+      名前の一覧も出しません。<br>
       クローズの担当者（社員）とも、キャッチをする人とも<b>別のリスト</b>です。
-      同じ人が入っていてもかまいません。<br>
       名前を消しても、<b>組みおわったシフトはそのまま残ります</b>。
     </p>
     <div class="admin-fields" id="shiftStaffFields"></div>
@@ -106,6 +108,13 @@
       <button type="button" class="btn btn--primary" id="saveShiftStaff">名前を保存</button>
       <span class="admin-saved is-hidden" id="shiftStaffSaved">保存しました</span>
     </div>
+
+    <h3 class="admin-sub">配る番号</h3>
+    <p class="admin-note">
+      「コピー」を押すと、その人に送る文面がそのままコピーされます。<br>
+      番号が漏れて困るときは<b>「作り直す」</b>を押してください。前の番号では入れなくなります。
+    </p>
+    <div id="shiftCodeList"></div>
   </section>
 
   <!-- ===== 日報フォルダ（会議資料の自動取り込みに使います） ===== -->
@@ -391,14 +400,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=15b9d792"></script>
-<script src="../js/storage.js?v=d021588d"></script>
+<script src="../js/config.js?v=b6e773e1"></script>
+<script src="../js/storage.js?v=14e77bf4"></script>
 <script src="../js/sync.js?v=fcaa8418"></script>
 <script src="../js/update.js?v=bf53b433"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=793ee27e"></script>
+<script src="js/admin.js?v=c799205f"></script>
 </body>
 </html>

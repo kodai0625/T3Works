@@ -132,6 +132,8 @@ const el = {
   shiftPickModal: $('shiftPickModal'), shiftPickTitle: $('shiftPickTitle'),
   shiftPickWhen: $('shiftPickWhen'), shiftPickTimeField: $('shiftPickTimeField'),
   shiftPickTimes: $('shiftPickTimes'), shiftPickTimeLabel: $('shiftPickTimeLabel'),
+  shiftPickFullField: $('shiftPickFullField'),
+  shiftPickFullOn: $('shiftPickFullOn'), shiftPickFullOff: $('shiftPickFullOff'),
   shiftPickNameField: $('shiftPickNameField'),
   shiftPickNames: $('shiftPickNames'), shiftPickRemove: $('shiftPickRemove'),
   shiftWishModal: $('shiftWishModal'), shiftWishWhen: $('shiftWishWhen'),
@@ -4591,17 +4593,21 @@ function shiftWishes(rec) {
 }
 
 /**
- * その日・その枠に希望を出した人
+ * その日、組んだ表の「その枠」に入る希望
+ *
+ * ★F（通し）はランチの枠に入ります。ディナーには出しません
+ *   （今のスプレッドシートで、ランチのセルだけ塗りつぶしているのと同じ）。
  *
  * ★wishes は shiftWishes() の結果です。画面を描くときは15日×3枠＝45回
  *   呼ばれるので、そのつど作り直さずに1回作ったものを渡します
  *   （名簿の読み込みが毎回入ると、古い端末で目に見えて重くなります）。
  */
-function shiftWishFor(wishes, dateStr, slotId) {
+function shiftWishInto(wishes, dateStr, slotId) {
   const out = [];
   wishes.forEach((w) => {
     (w.days[dateStr] || []).forEach((e) => {
-      if (e && e.s === slotId) out.push({ name: w.name, t: e.t || '' });
+      if (!e || shiftSlotFor(e.s) !== slotId) return;
+      out.push({ name: w.name, t: e.t || '', s: e.s, full: e.s === SHIFT_FULL_ID });
     });
   });
   return out;
@@ -4672,12 +4678,15 @@ function shiftTake() {
     let touched = false;
 
     SHIFT_SLOTS.forEach((slot) => {
-      shiftWishFor(wishes, dateStr, slot.id).forEach((w) => {
-        const mark = `${dateStr}|${slot.id}|${w.name}`;
+      shiftWishInto(wishes, dateStr, slot.id).forEach((w) => {
+        // 印は「出してもらったときの枠」で付けます。ランチとFは別ものとして数えます
+        const mark = `${dateStr}|${w.s}|${w.name}`;
         if (taken.has(mark)) return;
         taken.add(mark);
         if (day[slot.id].some((e) => e.n === w.name)) return;
-        day[slot.id].push({ n: w.name, t: w.t || shiftDefaultTime(slot.id) });
+        const entry = { n: w.name, t: w.t || shiftDefaultTime(w.s) };
+        if (w.full) entry.f = true;
+        day[slot.id].push(entry);
         added += 1;
         touched = true;
       });
@@ -4783,14 +4792,15 @@ function shiftDayCard(rec, wishes, dateStr) {
     day[slot.id].forEach((entry, i) => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'shift-chip';
+      chip.className = 'shift-chip' + (entry.f ? ' is-full' : '');
       chip.textContent = shiftNameText(slot.id, entry);
+      if (entry.f) chip.title = 'F（ランチからディナーまで通し）';
       chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, i));
       box.appendChild(chip);
     });
 
     // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように
-    const rest = shiftWishFor(wishes, dateStr, slot.id)
+    const rest = shiftWishInto(wishes, dateStr, slot.id)
       .filter((w) => !day[slot.id].some((e) => e.n === w.name)).length;
 
     const add = document.createElement('button');
@@ -4823,7 +4833,7 @@ function shiftDayCard(rec, wishes, dateStr) {
 /* -------- 人をえらぶ・直す -------- */
 
 function openShiftPick(dateStr, slotId, index) {
-  shiftPickAt = { dateStr, slotId, index };
+  shiftPickAt = { dateStr, slotId, index, time: '', full: undefined };
   const slot = getShiftSlot(slotId);
   const [, m, d] = dateStr.split('-').map(Number);
   const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
@@ -4880,6 +4890,15 @@ function renderShiftPick() {
     });
   }
 
+  /* 通し（F）。ランチの枠のときだけ出します */
+  const canFull = slotId === 'lunch';
+  el.shiftPickFullField.classList.toggle('is-hidden', !canFull);
+  if (canFull) {
+    const on = entry ? !!entry.f : !!shiftPickAt.full;
+    el.shiftPickFullOff.classList.toggle('is-on', !on);
+    el.shiftPickFullOn.classList.toggle('is-on', on);
+  }
+
   /* 名前 */
   el.shiftPickNames.innerHTML = '';
   el.shiftPickNameField.classList.toggle('is-hidden', index !== null);
@@ -4887,7 +4906,7 @@ function renderShiftPick() {
 
   if (index === null) {
     const already = day[slotId].map((e) => e.n);
-    const wish = shiftWishFor(shiftWishes(rec), dateStr, slotId)
+    const wish = shiftWishInto(shiftWishes(rec), dateStr, slotId)
       .filter((w) => !already.includes(w.name));
     const others = ShiftStaff.list(state.storeId)
       .filter((n) => !already.includes(n) && !wish.some((w) => w.name === n));
@@ -4904,12 +4923,17 @@ function renderShiftPick() {
         const name = isWish ? item.name : item;
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'doer-btn' + (isWish ? ' is-wish' : '');
-        b.textContent = isWish && item.t ? `${name}（${shiftTimeText(item.t)}）` : name;
+        b.className = 'doer-btn' + (isWish ? ' is-wish' : '') + (isWish && item.full ? ' is-full' : '');
+        const when = isWish && item.t ? `（${shiftTimeText(item.t)}）` : '';
+        b.textContent = (isWish && item.full ? 'F ' : '') + name + when;
         b.addEventListener('click', () => {
           const now = shiftDayOf(shiftRec(), dateStr);
           const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(slotId);
-          now[slotId].push({ n: name, t });
+          // 通しかどうかは、押した切り替え → その人の希望、の順で決めます
+          const full = shiftPickAt.full !== undefined ? shiftPickAt.full : !!(isWish && item.full);
+          const add = { n: name, t };
+          if (slotId === 'lunch' && full) add.f = true;
+          now[slotId].push(add);
           now[slotId] = shiftSort(now[slotId]);
           saveShiftDay(dateStr, now);
           closeShiftPick();
@@ -4928,6 +4952,26 @@ function renderShiftPick() {
         + 'マネージの「シフトに入る人」で登録してください。</p>';
     }
   }
+}
+
+/** 「通し（F）」を切り替える */
+function setShiftFull(on) {
+  if (!shiftPickAt) return;
+  const { dateStr, slotId, index } = shiftPickAt;
+  if (index === null) {
+    // 「足す」ときは、まだ入れていないので覚えておくだけ
+    shiftPickAt.full = on;
+    renderShiftPick();
+    return;
+  }
+  const now = shiftDayOf(shiftRec(), dateStr);
+  const e = { ...now[slotId][index] };
+  if (on) e.f = true;
+  else delete e.f;
+  now[slotId][index] = e;
+  saveShiftDay(dateStr, now);
+  closeShiftPick();
+  render();
 }
 
 function removeShiftPick() {
@@ -4989,7 +5033,9 @@ function openShiftWishes() {
           const slot = getShiftSlot(e.s);
           if (!slot) return '';
           const t = String(e.t || '');
-          return slot.name[0] + (t && t !== slot.start ? shiftTimeText(t) : '');
+          // 立ち上げ→立、ランチ→ラ、ディナー→デ、F→F
+          const head = e.s === SHIFT_FULL_ID ? 'F' : slot.name[0];
+          return head + (t && t !== slot.start ? shiftTimeText(t) : '');
         });
         parts.push(`${mm}/${dd} ${marks.join('・')}`);
       });
@@ -5075,7 +5121,15 @@ function shiftSheetBlock(rec, days) {
   SHIFT_SLOTS.forEach((slot) => {
     addRow(slot.name, (td, s) => {
       const day = shiftDayOf(rec, s);
-      td.innerHTML = day[slot.id].map((e) => shiftNameText(slot.id, e)).join('<br>');
+      // ★F（通し）は名前を灰色で塗ります。今のスプレッドシートで
+      //   ランチのセルを塗りつぶしているのと同じ意味です
+      day[slot.id].forEach((e) => {
+        const one = document.createElement('span');
+        one.className = 'shift-sheet__name' + (e.f ? ' is-full' : '');
+        one.textContent = shiftNameText(slot.id, e);
+        if (e.f) one.title = 'F（ランチからディナーまで通し）';
+        td.appendChild(one);
+      });
     });
   });
 
@@ -5127,7 +5181,9 @@ function shiftAsText() {
       if (!list.length) return;
       const names = list.map((e) => {
         const t = shiftTimeText(e.t);
-        return t && String(e.t) !== slot.start ? `${e.n}(${t})` : e.n;
+        const when = t && String(e.t) !== slot.start ? `(${t})` : '';
+        // 文字では色が付けられないので、F と書いて分かるようにします
+        return (e.f ? 'F ' : '') + e.n + when;
       });
       lines.push(`  ${slot.name} ${names.join(' ')}`);
     });
@@ -5558,6 +5614,8 @@ function bindEvents() {
   el.shiftSheetBtn.addEventListener('click', openShiftSheet);
   el.shiftCopyBtn.addEventListener('click', copyShiftText);
   el.shiftPickRemove.addEventListener('click', removeShiftPick);
+  el.shiftPickFullOn.addEventListener('click', () => setShiftFull(true));
+  el.shiftPickFullOff.addEventListener('click', () => setShiftFull(false));
   el.shiftPrintBtn.addEventListener('click', () => window.print());
   document.querySelectorAll('[data-shift-pick-close]')
     .forEach((b) => b.addEventListener('click', closeShiftPick));
