@@ -128,11 +128,15 @@ const el = {
   shiftToday: $('shiftToday'), shiftNavMain: $('shiftNavMain'), shiftNavSub: $('shiftNavSub'),
   shiftWishCount: $('shiftWishCount'), shiftWishNote: $('shiftWishNote'),
   shiftWishBtn: $('shiftWishBtn'), shiftTakeBtn: $('shiftTakeBtn'),
-  shiftPhase: $('shiftPhase'), shiftOpenBtn: $('shiftOpenBtn'), shiftBuildBtn: $('shiftBuildBtn'),
-  shiftDays: $('shiftDays'), shiftSheetBtn: $('shiftSheetBtn'), shiftCopyBtn: $('shiftCopyBtn'),
+  shiftPhase: $('shiftPhase'), shiftOpenBtn: $('shiftOpenBtn'),
+  shiftBuildBtn: $('shiftBuildBtn2'),
+  shiftDays: $('shiftDays'), shiftSheetBtn: $('shiftSheetBtn'),
   shiftPickModal: $('shiftPickModal'), shiftPickTitle: $('shiftPickTitle'),
   shiftPickWhen: $('shiftPickWhen'), shiftPickTimeField: $('shiftPickTimeField'),
   shiftPickTimes: $('shiftPickTimes'), shiftPickTimeLabel: $('shiftPickTimeLabel'),
+  shiftPickLanes: $('shiftPickLanes'),
+  shiftPickFreeField: $('shiftPickFreeField'), shiftPickFree: $('shiftPickFree'),
+  shiftPickFreeGo: $('shiftPickFreeGo'),
   shiftPickFullField: $('shiftPickFullField'),
   shiftPickFullOn: $('shiftPickFullOn'), shiftPickFullOff: $('shiftPickFullOff'),
   shiftPickNameField: $('shiftPickNameField'),
@@ -141,6 +145,7 @@ const el = {
   shiftWishList: $('shiftWishList'),
   shiftSheetModal: $('shiftSheetModal'), shiftSheetTitle: $('shiftSheetTitle'),
   shiftSheet: $('shiftSheet'), shiftPrintBtn: $('shiftPrintBtn'),
+  shiftPdfBtn: $('shiftPdfBtn'), shiftJpegBtn: $('shiftJpegBtn'),
   doerModal: $('doerModal'), doerItem: $('doerItem'), doerWeek: $('doerWeek'),
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
   settingsBtn: $('settingsBtn'), modal: $('modal'),
@@ -4739,7 +4744,9 @@ function shiftTake() {
         if (taken.has(mark)) return;
         taken.add(mark);
         if (day[slot.id].some((e) => e.n === w.name)) return;
-        const entry = { n: w.name, t: w.t || shiftDefaultTime(w.s) };
+        // 取り込んだ人は、ひとまず左の持ち場（キッチン）に入れます。
+        // どちらに入るかは人と日で変わるので、機械では決められません
+        const entry = { n: w.name, t: w.t || shiftDefaultTime(w.s), p: SHIFT_LANES[0].id };
         if (w.full) entry.f = true;
         day[slot.id].push(entry);
         added += 1;
@@ -4799,10 +4806,21 @@ async function openShiftRecruit() {
 /** 確定する（提出を締め切る） */
 async function buildShiftDone() {
   const label = shiftRangeLabel(state.y, state.m, shiftHalf);
+  const rec = shiftRec();
+  const n = shiftDays(state.y, state.m, shiftHalf)
+    .filter((s) => !shiftClosedOn(s))
+    .reduce((sum, s) => {
+      const day = shiftDayOf(rec, s);
+      return sum + SHIFT_SLOTS.reduce((k, slot) => k + day[slot.id].length, 0);
+    }, 0);
+
   const ok = await askConfirm({
-    item: `${label} を確定します`,
-    message: 'これ以上は出せなくなります。\n組んだ内容はそのまま残り、あとから直せます。',
+    item: `${label} のシフトを確定します`,
+    message: `${n}人分が入っています。\n`
+      + '確定すると、みんなが自分のスマホでシフト表を見られるようになります。\n'
+      + '希望の受け付けは終わります（組んだ内容はあとから直せます）。',
     okLabel: '確定する',
+    danger: true,
   });
   if (!ok) return;
   shiftSetPhase(state.y, state.m, shiftHalf, SHIFT_BUILT);
@@ -4846,7 +4864,11 @@ function renderShift() {
   el.shiftPhase.className = 'shift-phase shift-phase--' + (phase || 'yet');
   el.shiftOpenBtn.classList.toggle('is-hidden', phase === SHIFT_OPEN);
   el.shiftOpenBtn.textContent = phase === SHIFT_BUILT ? '募集をやり直す' : 'シフト募集をはじめる';
-  el.shiftBuildBtn.classList.toggle('is-hidden', phase !== SHIFT_OPEN);
+  // 確定は、募集をはじめてからでないと押せません
+  el.shiftBuildBtn.disabled = phase !== SHIFT_OPEN;
+  el.shiftBuildBtn.textContent = phase === SHIFT_BUILT
+    ? 'このシフトは確定ずみです'
+    : 'シフトを確定する';
 
   el.shiftWishCount.textContent = names.length ? `提出 ${sent} / ${names.length}人` : '名簿が未登録';
   if (!names.length) {
@@ -4861,120 +4883,174 @@ function renderShift() {
   }
 
   el.shiftDays.innerHTML = '';
-  shiftDays(state.y, state.m, shiftHalf).forEach((dateStr) => {
-    el.shiftDays.appendChild(shiftDayCard(rec, wishes, dateStr));
-  });
+  const days = shiftDays(state.y, state.m, shiftHalf);
+  for (let i = 0; i < days.length; i += SHIFT_COLS) {
+    el.shiftDays.appendChild(shiftGridBlock(rec, wishes, days.slice(i, i + SHIFT_COLS)));
+  }
 }
 
-function shiftDayCard(rec, wishes, dateStr) {
-  const [, m, d] = dateStr.split('-').map(Number);
-  const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
-  const closed = shiftClosedOn(dateStr);
+/**
+ * 日を横に並べた表（今のスプレッドシートと同じ作り）
+ *
+ *  ・横に SHIFT_COLS 日ぶん
+ *  ・1日は持ち場（キッチン／ホール）で2列に分かれます
+ *  ・縦は 立ち上げ／ランチ／ディナー、いちばん下が連絡
+ *
+ *  縦に1日ずつ並べていたころより、前後の日と見くらべやすくなります。
+ *  幅が足りないときは、この表だけが横にスクロールします。
+ */
+function shiftGridBlock(rec, wishes, days) {
+  const wrap = document.createElement('div');
+  wrap.className = 'shift-grid-wrap';
+  const table = document.createElement('table');
+  table.className = 'shift-grid';
 
-  const card = document.createElement('div');
-  card.className = 'shift-day' + (closed ? ' is-closed' : '');
-  if (dow === 0) card.classList.add('is-sun');
-  if (dow === 6) card.classList.add('is-sat');
+  /* 1行目：日付（1日で持ち場の数だけ列を使います） */
+  const head = document.createElement('tr');
+  head.appendChild(document.createElement('th'));
+  days.forEach((s) => {
+    const [, m, d] = s.split('-').map(Number);
+    const dow = new Date(s.replace(/-/g, '/')).getDay();
+    const th = document.createElement('th');
+    th.colSpan = SHIFT_LANES.length;
+    th.className = 'shift-grid__date'
+      + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '');
+    th.textContent = `${m}/${d}（${DOW[dow]}）`;
+    head.appendChild(th);
+  });
+  table.appendChild(head);
 
-  const head = document.createElement('div');
-  head.className = 'shift-day__head';
-  const title = document.createElement('span');
-  title.className = 'shift-day__date';
-  title.textContent = `${m}/${d}（${DOW[dow]}）`;
-  head.appendChild(title);
+  /* 2行目：持ち場 */
+  const lanes = document.createElement('tr');
+  lanes.appendChild(document.createElement('th'));
+  days.forEach(() => SHIFT_LANES.forEach((l) => {
+    const th = document.createElement('th');
+    th.className = 'shift-grid__lane';
+    th.textContent = l.name;
+    lanes.appendChild(th);
+  }));
+  table.appendChild(lanes);
 
-  if (closed) {
-    const badge = document.createElement('span');
-    badge.className = 'shift-day__closed';
-    badge.textContent = '定休日';
-    head.appendChild(badge);
-    card.appendChild(head);
-    return card;
-  }
+  /* 枠ごとの行 */
+  SHIFT_SLOTS.forEach((slot, si) => {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.className = `shift-grid__slot shift-grid__slot--${slot.id}`;
+    th.textContent = slot.name;
+    tr.appendChild(th);
 
-  const day = shiftDayOf(rec, dateStr);
-  const total = SHIFT_SLOTS.reduce((n, s) => n + day[s.id].length, 0);
-  const count = document.createElement('span');
-  count.className = 'shift-day__count';
-  count.textContent = total ? `${total}人` : '';
-  head.appendChild(count);
-  card.appendChild(head);
-
-  SHIFT_SLOTS.forEach((slot) => {
-    const row = document.createElement('div');
-    row.className = 'shift-slot';
-
-    const label = document.createElement('span');
-    label.className = `shift-slot__label shift-slot__label--${slot.id}`;
-    label.textContent = slot.name;
-    row.appendChild(label);
-
-    const box = document.createElement('div');
-    box.className = 'shift-slot__names';
-
-    day[slot.id].forEach((entry, i) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'shift-chip' + (entry.f ? ' is-full' : '');
-      chip.textContent = shiftNameText(slot.id, entry);
-      if (entry.f) chip.title = 'F（ランチからディナーまで通し）';
-      chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, i));
-      box.appendChild(chip);
+    days.forEach((dateStr) => {
+      if (shiftClosedOn(dateStr)) {
+        // 定休日は、枠の行をまとめて1つのマスにします
+        if (si === 0) {
+          const td = document.createElement('td');
+          td.className = 'is-closed';
+          td.colSpan = SHIFT_LANES.length;
+          td.rowSpan = SHIFT_SLOTS.length;
+          td.textContent = '定休日';
+          tr.appendChild(td);
+        }
+        return;
+      }
+      const day = shiftDayOf(rec, dateStr);
+      SHIFT_LANES.forEach((lane, li) => {
+        tr.appendChild(shiftCell(rec, wishes, day, dateStr, slot, lane, li === 0));
+      });
     });
-
-    // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように
-    const rest = shiftWishInto(wishes, dateStr, slot.id)
-      .filter((w) => !day[slot.id].some((e) => e.n === w.name)).length;
-
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'shift-add' + (rest ? ' has-wish' : '');
-    add.textContent = rest ? `＋${rest}` : '＋';
-    add.title = rest ? `希望を出していて、まだ入っていない人が${rest}人います` : '人を足す';
-    add.addEventListener('click', () => openShiftPick(dateStr, slot.id, null));
-    box.appendChild(add);
-
-    row.appendChild(box);
-    card.appendChild(row);
+    table.appendChild(tr);
   });
 
-  // アルバイトからのその日の連絡。組むときに見えないと意味がないので、
-  // 枠のすぐ下に出します（こちらの書く連絡とは別ものです）
-  const said = wishes
-    .filter((w) => w.notes[dateStr])
-    .map((w) => `${w.name}「${w.notes[dateStr]}」`);
-  if (said.length) {
-    const box = document.createElement('p');
-    box.className = 'shift-said';
-    box.textContent = said.join('　');
-    card.appendChild(box);
-  }
+  /* いちばん下：連絡（こちらのメモと、アルバイトからの連絡） */
+  const memo = document.createElement('tr');
+  const memoTh = document.createElement('th');
+  memoTh.className = 'shift-grid__slot shift-grid__slot--memo';
+  memoTh.textContent = '連絡';
+  memo.appendChild(memoTh);
+  days.forEach((dateStr) => {
+    const td = document.createElement('td');
+    td.colSpan = SHIFT_LANES.length;
+    td.className = 'shift-grid__memo';
+    if (shiftClosedOn(dateStr)) {
+      td.classList.add('is-closed');
+      memo.appendChild(td);
+      return;
+    }
 
-  const memo = document.createElement('input');
-  memo.type = 'text';
-  memo.className = 'shift-memo';
-  memo.placeholder = '連絡（まさ休み・こうだいpopo など）';
-  memo.value = day.memo;
-  memo.addEventListener('change', () => {
-    const now = shiftDayOf(shiftRec(), dateStr);
-    now.memo = memo.value.trim();
-    saveShiftDay(dateStr, now);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'shift-memo';
+    input.placeholder = 'まさ休み など';
+    input.value = shiftDayOf(rec, dateStr).memo;
+    input.addEventListener('change', () => {
+      const now = shiftDayOf(shiftRec(), dateStr);
+      now.memo = input.value.trim();
+      saveShiftDay(dateStr, now);
+    });
+    td.appendChild(input);
+
+    // アルバイトからのその日の連絡。組むときに見えないと意味がないので、ここに出します
+    const said = wishes
+      .filter((w) => w.notes[dateStr])
+      .map((w) => `${w.name}「${w.notes[dateStr]}」`);
+    if (said.length) {
+      const box = document.createElement('p');
+      box.className = 'shift-said';
+      box.textContent = said.join('　');
+      td.appendChild(box);
+    }
+    memo.appendChild(td);
   });
-  card.appendChild(memo);
+  table.appendChild(memo);
 
-  return card;
+  wrap.appendChild(table);
+  return wrap;
+}
+
+/** 表の1マス（その日・その枠・その持ち場） */
+function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
+  const td = document.createElement('td');
+  td.className = 'shift-cell';
+
+  day[slot.id].forEach((e, i) => {
+    if (shiftLaneOf(e) !== lane.id) return;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'shift-chip' + (e.f ? ' is-full' : '');
+    chip.textContent = shiftNameText(slot.id, e);
+    if (e.f) chip.title = 'F（ランチからディナーまで通し）';
+    chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
+    td.appendChild(chip);
+  });
+
+  // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように、
+  // 左の持ち場にだけ出します（両方に出すと二重に数えたように見えます）
+  const rest = first
+    ? shiftWishInto(wishes, dateStr, slot.id)
+      .filter((w) => !day[slot.id].some((e) => e.n === w.name)).length
+    : 0;
+
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'shift-add' + (rest ? ' has-wish' : '');
+  add.textContent = rest ? `＋${rest}` : '＋';
+  add.title = rest ? `希望を出していて、まだ入っていない人が${rest}人います` : '人を足す';
+  add.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, null));
+  td.appendChild(add);
+
+  return td;
 }
 
 /* -------- 人をえらぶ・直す -------- */
 
-function openShiftPick(dateStr, slotId, index) {
-  shiftPickAt = { dateStr, slotId, index, time: '', full: undefined };
+function openShiftPick(dateStr, slotId, laneId, index) {
+  shiftPickAt = { dateStr, slotId, laneId, index, time: '', full: undefined };
   const slot = getShiftSlot(slotId);
+  const lane = SHIFT_LANES.find((l) => l.id === laneId) || SHIFT_LANES[0];
   const [, m, d] = dateStr.split('-').map(Number);
   const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
 
   el.shiftPickTitle.textContent = index === null ? '入る人をえらぶ' : '直す';
-  el.shiftPickWhen.textContent = `${m}/${d}（${DOW[dow]}） ${slot.name}`;
+  el.shiftPickWhen.textContent = `${m}/${d}（${DOW[dow]}） ${slot.name} ・ ${lane.name}`;
   renderShiftPick();
   el.shiftPickModal.classList.remove('is-hidden');
 }
@@ -5025,6 +5101,23 @@ function renderShiftPick() {
     });
   }
 
+  /* 持ち場（キッチン／ホール） */
+  el.shiftPickLanes.innerHTML = '';
+  const nowLane = entry ? shiftLaneOf(entry) : shiftPickAt.laneId;
+  SHIFT_LANES.forEach((lane) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seg__btn' + (lane.id === nowLane ? ' is-on' : '');
+    b.textContent = lane.name;
+    b.addEventListener('click', () => setShiftLane(lane.id));
+    el.shiftPickLanes.appendChild(b);
+  });
+
+  /* 時刻をじかに書く */
+  el.shiftPickFreeField.classList.toggle('is-hidden', !slot.times.length);
+  el.shiftPickFree.value = entry && entry.t !== '' && entry.t !== undefined
+    ? shiftTimeText(entry.t) : '';
+
   /* 通し（F）。ランチの枠のときだけ出します */
   const canFull = slotId === 'lunch';
   el.shiftPickFullField.classList.toggle('is-hidden', !canFull);
@@ -5066,7 +5159,7 @@ function renderShiftPick() {
           const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(slotId);
           // 通しかどうかは、押した切り替え → その人の希望、の順で決めます
           const full = shiftPickAt.full !== undefined ? shiftPickAt.full : !!(isWish && item.full);
-          const add = { n: name, t };
+          const add = { n: name, t, p: shiftPickAt.laneId };
           if (slotId === 'lunch' && full) add.f = true;
           now[slotId].push(add);
           now[slotId] = shiftSort(now[slotId]);
@@ -5087,6 +5180,50 @@ function renderShiftPick() {
         + 'マネージの「シフトに入る人」で登録してください。</p>';
     }
   }
+}
+
+/** 持ち場を変える */
+function setShiftLane(laneId) {
+  if (!shiftPickAt) return;
+  const { dateStr, slotId, index } = shiftPickAt;
+  if (index === null) {
+    shiftPickAt.laneId = laneId;
+    renderShiftPick();
+    return;
+  }
+  const now = shiftDayOf(shiftRec(), dateStr);
+  now[slotId][index] = { ...now[slotId][index], p: laneId };
+  saveShiftDay(dateStr, now);
+  closeShiftPick();
+  render();
+}
+
+/**
+ * 時刻をじかに書く
+ *
+ * ボタンに無い時刻（11:15 など）を入れるためのものです。
+ * ★パソコンでもiPadでもiPhoneでも同じように使えます。
+ */
+function applyShiftFreeTime() {
+  if (!shiftPickAt) return;
+  const t = shiftTimeFrom(el.shiftPickFree.value);
+  if (t === null) {
+    el.shiftPickFree.classList.add('is-ng');
+    return;
+  }
+  el.shiftPickFree.classList.remove('is-ng');
+  const { dateStr, slotId, index } = shiftPickAt;
+  if (index === null) {
+    shiftPickAt.time = t;
+    renderShiftPick();
+    return;
+  }
+  const now = shiftDayOf(shiftRec(), dateStr);
+  now[slotId][index] = { ...now[slotId][index], t };
+  now[slotId] = shiftSort(now[slotId]);
+  saveShiftDay(dateStr, now);
+  closeShiftPick();
+  render();
 }
 
 /** 「通し（F）」を切り替える */
@@ -5202,82 +5339,136 @@ function openShiftWishes() {
   el.shiftWishModal.classList.remove('is-hidden');
 }
 
-/* -------- 表で見る（印刷用）・文字でコピー -------- */
-
-/**
- * 今のシフト表と同じ形の表を作る
+/* -------- 表にする（印刷・PDF・JPEG） --------
  *
- * 8日ずつ2段に分けて、行は Open / Lunch / メモ / Dinner です。
- * 印刷したときに、これまで貼っていたものと同じ見ためになります。
+ *  画面と印刷で作りがずれないよう、いったん「表の中身」だけを作って、
+ *  それを HTML と 画像（canvas）の両方から使います。
+ *  1つのかたまりは8日ぶん。今のスプレッドシートと同じ区切りです。
  */
-function renderShiftSheet() {
+
+/** 印刷やPDFに出す、表の中身 */
+function shiftSheetModel() {
   const rec = shiftRec();
-  const days = shiftDays(state.y, state.m, shiftHalf);
   const store = getStore(state.storeId);
+  const days = shiftDays(state.y, state.m, shiftHalf);
+  const blocks = [];
 
-  el.shiftSheetTitle.textContent =
-    `${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト表`;
+  for (let from = 0; from < days.length; from += SHIFT_PRINT_COLS) {
+    const part = days.slice(from, from + SHIFT_PRINT_COLS);
+    const head = part.map((s) => {
+      const [, m, d] = s.split('-').map(Number);
+      const dow = new Date(s.replace(/-/g, '/')).getDay();
+      return { key: s, label: `${m}/${d}`, dow: DOW[dow], sun: dow === 0, sat: dow === 6, closed: shiftClosedOn(s) };
+    });
 
-  el.shiftSheet.innerHTML = '';
-  for (let from = 0; from < days.length; from += 8) {
-    el.shiftSheet.appendChild(shiftSheetBlock(rec, days.slice(from, from + 8)));
+    const rows = SHIFT_SLOTS.map((slot) => ({
+      label: slot.name,
+      cells: part.flatMap((s) => {
+        const day = shiftDayOf(rec, s);
+        return SHIFT_LANES.map((lane) => ({
+          closed: shiftClosedOn(s),
+          names: shiftClosedOn(s) ? [] : day[slot.id]
+            .filter((e) => shiftLaneOf(e) === lane.id)
+            .map((e) => ({ text: shiftNameText(slot.id, e), full: !!e.f })),
+        }));
+      }),
+    }));
+
+    const memo = part.map((s) => (shiftClosedOn(s) ? '' : shiftDayOf(rec, s).memo));
+    blocks.push({ head, rows, memo });
   }
+
+  return {
+    title: `${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト表`,
+    blocks,
+  };
 }
 
-function shiftSheetBlock(rec, days) {
+/* -------- 画面に出す表 -------- */
+function renderShiftSheet() {
+  const model = shiftSheetModel();
+  el.shiftSheetTitle.textContent = model.title;
+  el.shiftSheet.innerHTML = '';
+  model.blocks.forEach((b) => el.shiftSheet.appendChild(shiftSheetTable(b)));
+}
+
+function shiftSheetTable(block) {
   const table = document.createElement('table');
   table.className = 'shift-sheet';
 
   const head = document.createElement('tr');
   head.appendChild(document.createElement('th'));
-  days.forEach((s) => {
-    const [, m, d] = s.split('-').map(Number);
-    const dow = new Date(s.replace(/-/g, '/')).getDay();
+  block.head.forEach((d) => {
     const th = document.createElement('th');
-    th.className = dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : '';
-    th.innerHTML = `${m}/${d}<br><span class="shift-sheet__dow">（${DOW[dow]}）</span>`;
+    th.colSpan = SHIFT_LANES.length;
+    th.className = d.sun ? 'is-sun' : d.sat ? 'is-sat' : '';
+    th.innerHTML = `${d.label}<br><span class="shift-sheet__dow">（${d.dow}）</span>`;
     head.appendChild(th);
   });
   table.appendChild(head);
 
-  const addRow = (label, cellOf) => {
+  const lanes = document.createElement('tr');
+  lanes.appendChild(document.createElement('th'));
+  block.head.forEach(() => SHIFT_LANES.forEach((l) => {
+    const th = document.createElement('th');
+    th.className = 'shift-sheet__lane';
+    th.textContent = l.name;
+    lanes.appendChild(th);
+  }));
+  table.appendChild(lanes);
+
+  block.rows.forEach((row, ri) => {
     const tr = document.createElement('tr');
     const th = document.createElement('th');
     th.className = 'shift-sheet__label';
-    th.textContent = label;
+    th.textContent = row.label;
     tr.appendChild(th);
-    days.forEach((s) => {
-      const td = document.createElement('td');
-      if (shiftClosedOn(s)) {
-        td.className = 'is-closed';
-        td.textContent = label === SHIFT_SLOTS[0].name ? '定休日' : '';
-      } else {
-        cellOf(td, s);
-      }
-      tr.appendChild(td);
-    });
-    table.appendChild(tr);
-  };
 
-  SHIFT_SLOTS.forEach((slot) => {
-    addRow(slot.name, (td, s) => {
-      const day = shiftDayOf(rec, s);
-      // ★F（通し）は名前を灰色で塗ります。今のスプレッドシートで
-      //   ランチのセルを塗りつぶしているのと同じ意味です
-      day[slot.id].forEach((e) => {
-        const one = document.createElement('span');
-        one.className = 'shift-sheet__name' + (e.f ? ' is-full' : '');
-        one.textContent = shiftNameText(slot.id, e);
-        if (e.f) one.title = 'F（ランチからディナーまで通し）';
-        td.appendChild(one);
+    let i = 0;
+    block.head.forEach((d) => {
+      if (d.closed) {
+        i += SHIFT_LANES.length;
+        if (ri === 0) {
+          const td = document.createElement('td');
+          td.className = 'is-closed';
+          td.colSpan = SHIFT_LANES.length;
+          td.rowSpan = block.rows.length;
+          td.textContent = '定休日';
+          tr.appendChild(td);
+        }
+        return;
+      }
+      SHIFT_LANES.forEach(() => {
+        const cell = row.cells[i];
+        i += 1;
+        const td = document.createElement('td');
+        // ★F（通し）は名前を灰色で塗ります。今のスプレッドシートで
+        //   ランチのセルを塗りつぶしているのと同じ意味です
+        cell.names.forEach((n) => {
+          const one = document.createElement('span');
+          one.className = 'shift-sheet__name' + (n.full ? ' is-full' : '');
+          one.textContent = n.text;
+          td.appendChild(one);
+        });
+        tr.appendChild(td);
       });
     });
+    table.appendChild(tr);
   });
 
-  addRow('メモ', (td, s) => {
-    td.className = 'shift-sheet__memo';
-    td.textContent = shiftDayOf(rec, s).memo;
+  const memo = document.createElement('tr');
+  const memoTh = document.createElement('th');
+  memoTh.className = 'shift-sheet__label';
+  memoTh.textContent = '連絡';
+  memo.appendChild(memoTh);
+  block.head.forEach((d, i) => {
+    const td = document.createElement('td');
+    td.colSpan = SHIFT_LANES.length;
+    td.className = 'shift-sheet__memo' + (d.closed ? ' is-closed' : '');
+    td.textContent = block.memo[i] || '';
+    memo.appendChild(td);
   });
+  table.appendChild(memo);
 
   return table;
 }
@@ -5294,63 +5485,291 @@ function closeShiftSheet() {
   document.body.classList.remove('print-shift');
 }
 
-/** LINEに貼るための文字。時刻は 18:30 の読みやすい書き方にします */
-function shiftAsText() {
-  const rec = shiftRec();
-  const store = getStore(state.storeId);
-  const lines = [`${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト`, ''];
+/* -------- 画像にする --------
+ *
+ *  同じ中身を、A4の横向きに合わせた大きさで描きます。
+ *  画面のHTMLを写し取るのではなく、数字から描き直しています。
+ *  そのほうが、端末や字の設定で崩れません。
+ */
+const SHEET_PX = { w: 1754, h: 1240 };   // A4横 150dpi
 
-  shiftDays(state.y, state.m, shiftHalf).forEach((s) => {
-    const [, m, d] = s.split('-').map(Number);
-    const dow = new Date(s.replace(/-/g, '/')).getDay();
-    const head = `${m}/${d}（${DOW[dow]}）`;
-    if (shiftClosedOn(s)) {
-      lines.push(`${head} 定休日`, '');
-      return;
-    }
-    const day = shiftDayOf(rec, s);
-    // ★予定のない日も必ず出します。黙って飛ばすと、読む人には
-    //   「その日は誰もいない」のか「書き忘れ」のか分かりません
-    if (!SHIFT_SLOTS.some((slot) => day[slot.id].length) && !day.memo) {
-      lines.push(`${head} 未定`, '');
-      return;
-    }
+function drawShiftSheet(canvas) {
+  const model = shiftSheetModel();
+  const cx = canvas.getContext('2d');
+  const W = SHEET_PX.w;
+  const H = SHEET_PX.h;
+  canvas.width = W;
+  canvas.height = H;
 
-    lines.push(head);
-    SHIFT_SLOTS.forEach((slot) => {
-      const list = day[slot.id];
-      if (!list.length) return;
-      const names = list.map((e) => {
-        const t = shiftTimeText(e.t);
-        const when = t && String(e.t) !== slot.start ? `(${t})` : '';
-        // 文字では色が付けられないので、F と書いて分かるようにします
-        return (e.f ? 'F ' : '') + e.n + when;
-      });
-      lines.push(`  ${slot.name} ${names.join(' ')}`);
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, W, H);
+  cx.textBaseline = 'middle';
+  const font = (size, bold) => `${bold ? '700 ' : ''}${size}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+
+  const pad = 34;
+  // 列の幅は「いちばん多い日数」で決めます。後ろのかたまりが7日でも、
+  // 前と同じ幅にそろえたほうが、続きの表として読めるからです
+  const cols = SHIFT_PRINT_COLS * SHIFT_LANES.length;
+  const labelW = 96;
+  const gridW = W - pad * 2 - labelW;
+  const colW = gridW / cols;
+
+  // 見出し
+  cx.fillStyle = '#111418';
+  cx.font = font(30, true);
+  cx.fillText(model.title, pad, pad + 16);
+
+  let y = pad + 46;
+  const gapBlocks = 20;
+  const dateH = 40;
+  const laneH = 26;
+  const memoH = 34;
+  // 残りの高さを、枠の行に等しく配ります
+  const blocks = model.blocks.length || 1;
+  const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
+  const slotH = Math.max(44, (H - y - pad - fixed) / (blocks * SHIFT_SLOTS.length));
+
+  const line = (x1, y1, x2, y2, strong) => {
+    cx.strokeStyle = strong ? '#8a9099' : '#c8ccd2';
+    cx.lineWidth = strong ? 1.6 : 1;
+    cx.beginPath();
+    cx.moveTo(x1, y1);
+    cx.lineTo(x2, y2);
+    cx.stroke();
+  };
+  const center = (text, x, w, yy, size, bold, color) => {
+    cx.fillStyle = color || '#111418';
+    cx.font = font(size, bold);
+    cx.textAlign = 'center';
+    cx.fillText(text, x + w / 2, yy, w - 6);
+    cx.textAlign = 'left';
+  };
+
+  model.blocks.forEach((block, bi) => {
+    const top = y;
+    const x0 = pad + labelW;
+
+    // 日付
+    block.head.forEach((d, i) => {
+      const x = x0 + colW * SHIFT_LANES.length * i;
+      const w = colW * SHIFT_LANES.length;
+      cx.fillStyle = '#f2f4f6';
+      cx.fillRect(x, y, w, dateH);
+      const color = d.sun ? '#c0392b' : d.sat ? '#33509a' : '#111418';
+      center(`${d.label}（${d.dow}）`, x, w, y + dateH / 2, 21, true, color);
     });
-    if (day.memo) lines.push(`  ※${day.memo}`);
-    lines.push('');
+    cx.fillStyle = '#f2f4f6';
+    cx.fillRect(pad, y, labelW, dateH + laneH);
+    y += dateH;
+
+    // 持ち場
+    block.head.forEach((d, i) => {
+      SHIFT_LANES.forEach((lane, li) => {
+        const x = x0 + colW * (SHIFT_LANES.length * i + li);
+        cx.fillStyle = '#f8f9fa';
+        cx.fillRect(x, y, colW, laneH);
+        center(lane.name, x, colW, y + laneH / 2, 14, false, '#5b6169');
+      });
+    });
+    y += laneH;
+
+    // 枠ごとの行
+    block.rows.forEach((row) => {
+      cx.fillStyle = '#fafbfc';
+      cx.fillRect(pad, y, labelW, slotH);
+      cx.fillStyle = '#3d434b';
+      cx.font = font(16, true);
+      cx.fillText(row.label, pad + 10, y + slotH / 2);
+
+      let i = 0;
+      block.head.forEach((d, di) => {
+        if (d.closed) {
+          i += SHIFT_LANES.length;
+          return;
+        }
+        SHIFT_LANES.forEach((lane, li) => {
+          const cell = row.cells[i];
+          i += 1;
+          const x = x0 + colW * (SHIFT_LANES.length * di + li);
+          const lh = 25;
+          cell.names.forEach((n, ni) => {
+            const ty = y + 16 + ni * lh;
+            if (ty > y + slotH - 4) return;      // 入りきらない分は出しません
+            if (n.full) {
+              cx.fillStyle = '#dcdfe3';
+              cx.fillRect(x + 2, ty - 11, colW - 4, lh - 3);
+            }
+            cx.fillStyle = '#111418';
+            cx.font = font(17, false);
+            cx.fillText(n.text, x + 6, ty, colW - 12);
+          });
+        });
+      });
+      y += slotH;
+    });
+
+    // 定休日は、枠の行をまとめて塗ります
+    block.head.forEach((d, i) => {
+      if (!d.closed) return;
+      const x = x0 + colW * SHIFT_LANES.length * i;
+      const w = colW * SHIFT_LANES.length;
+      const cy = top + dateH + laneH;
+      const ch = slotH * block.rows.length;
+      cx.fillStyle = '#eceef1';
+      cx.fillRect(x, cy, w, ch);
+      center('定休日', x, w, cy + ch / 2, 17, false, '#6b7280');
+    });
+
+    // 連絡
+    cx.fillStyle = '#fafbfc';
+    cx.fillRect(pad, y, labelW, memoH);
+    cx.fillStyle = '#3d434b';
+    cx.font = font(14, true);
+    cx.fillText('連絡', pad + 10, y + memoH / 2);
+    block.head.forEach((d, i) => {
+      const x = x0 + colW * SHIFT_LANES.length * i;
+      const w = colW * SHIFT_LANES.length;
+      if (d.closed) {
+        cx.fillStyle = '#eceef1';
+        cx.fillRect(x, y, w, memoH);
+        return;
+      }
+      cx.fillStyle = '#3d434b';
+      cx.font = font(14, false);
+      cx.fillText(block.memo[i] || '', x + 6, y + memoH / 2, w - 12);
+    });
+    y += memoH;
+
+    // けい線。★その かたまり に入っている日数ぶんだけ引きます
+    //   （後半が7日のとき、8日目の空っぽの列を出さないため）
+    const used = block.head.length * SHIFT_LANES.length;
+    const right = x0 + colW * used;
+    const bottom = y;
+    for (let c = 0; c <= used; c += 1) {
+      const x = x0 + colW * c;
+      line(x, top, x, bottom, c % SHIFT_LANES.length === 0);
+    }
+    line(pad, top, pad, bottom, true);
+    let ry = top;
+    [dateH, laneH].forEach((h) => { line(pad, ry, right, ry, true); ry += h; });
+    line(pad, ry, right, ry, true);
+    block.rows.forEach(() => { ry += slotH; line(pad, ry, right, ry, false); });
+    ry += memoH;
+    line(pad, ry, right, ry, true);
+
+    y += gapBlocks;
   });
 
-  return lines.join('\n').trim() + '\n';
+  return canvas;
 }
 
-async function copyShiftText() {
-  const text = shiftAsText();
+/** 画像（JPEG）にして、送るか保存する */
+async function saveShiftImage() {
+  const canvas = document.createElement('canvas');
+  drawShiftSheet(canvas);
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+  if (!blob) return;
+  const name = shiftFileName('jpg');
+  await handOut(new File([blob], name, { type: 'image/jpeg' }), name);
+}
+
+/** PDFにして、送るか保存する */
+async function saveShiftPdf() {
+  const canvas = document.createElement('canvas');
+  drawShiftSheet(canvas);
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+  if (!blob) return;
+  const jpeg = new Uint8Array(await blob.arrayBuffer());
+  const pdf = makePdf(jpeg, canvas.width, canvas.height);
+  const name = shiftFileName('pdf');
+  await handOut(new File([pdf], name, { type: 'application/pdf' }), name);
+}
+
+function shiftFileName(ext) {
+  const store = getStore(state.storeId);
+  const [a, b] = shiftRangeLabel(state.y, state.m, shiftHalf).split('〜');
+  return `${store.name}シフト_${state.y}_${a.replace('/', '-')}-${b.replace('/', '-')}.${ext}`;
+}
+
+/**
+ * できたファイルを渡す
+ *
+ * iPhone では「共有」から、そのままLINEに送れます。
+ * 共有が使えない端末では、ふつうのダウンロードにします。
+ */
+async function handOut(file, name) {
   try {
-    await navigator.clipboard.writeText(text);
-    el.shiftWishNote.textContent = 'コピーしました。LINEに貼れます';
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: name });
+      return;
+    }
   } catch (e) {
-    // クリップボードが使えない端末では、選んでコピーしてもらいます
-    el.shiftSheetTitle.textContent = 'コピーして貼ってください';
-    el.shiftSheet.innerHTML = '';
-    const pre = document.createElement('pre');
-    pre.className = 'shift-text';
-    pre.textContent = text;
-    el.shiftSheet.appendChild(pre);
-    document.body.classList.add('print-shift');
-    el.shiftSheetModal.classList.remove('is-hidden');
+    // 共有をやめただけのこともあるので、ここでは何も言いません
+    if (e && e.name === 'AbortError') return;
   }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/**
+ * JPEG 1枚だけを入れた、1ページのPDFを作る
+ *
+ *  外の道具を使わずに書いています。PDFは「番号を振ったかたまり」を並べ、
+ *  最後にそれぞれが何バイト目から始まるかの表（xref）を付ける形なので、
+ *  作りながら位置を数えていけば、これだけで作れます。
+ *  用紙はA4の横（842×595ポイント）です。
+ */
+function makePdf(jpeg, w, h) {
+  const enc = new TextEncoder();
+  const parts = [];
+  const offsets = [];
+  let len = 0;
+  const put = (bytes) => { parts.push(bytes); len += bytes.length; };
+  const putText = (t) => put(enc.encode(t));
+  const mark = () => { offsets.push(len); };
+
+  const PW = 842, PH = 595;   // A4横（ポイント）
+  // 紙いっぱいに、縦横の比を保って入れます
+  const scale = Math.min(PW / w, PH / h);
+  const dw = w * scale;
+  const dh = h * scale;
+  const dx = (PW - dw) / 2;
+  const dy = (PH - dh) / 2;
+
+  putText('%PDF-1.4\n');
+
+  mark();
+  putText('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  mark();
+  putText('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+  mark();
+  putText(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}]`
+    + ` /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`);
+
+  mark();
+  putText(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h}`
+    + ` /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode`
+    + ` /Length ${jpeg.length} >>\nstream\n`);
+  put(jpeg);
+  putText('\nendstream\nendobj\n');
+
+  const content = `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${dx.toFixed(2)} ${dy.toFixed(2)} cm /Im0 Do Q\n`;
+  mark();
+  putText(`5 0 obj\n<< /Length ${enc.encode(content).length} >>\nstream\n${content}endstream\nendobj\n`);
+
+  const xref = len;
+  let table = 'xref\n0 6\n0000000000 65535 f \n';
+  offsets.forEach((o) => { table += String(o).padStart(10, '0') + ' 00000 n \n'; });
+  putText(table);
+  putText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+
+  return new Blob(parts, { type: 'application/pdf' });
 }
 
 function render() {
@@ -5755,8 +6174,12 @@ function bindEvents() {
   el.shiftOpenBtn.addEventListener('click', openShiftRecruit);
   el.shiftBuildBtn.addEventListener('click', buildShiftDone);
   el.shiftSheetBtn.addEventListener('click', openShiftSheet);
-  el.shiftCopyBtn.addEventListener('click', copyShiftText);
+  el.shiftPdfBtn.addEventListener('click', saveShiftPdf);
+  el.shiftJpegBtn.addEventListener('click', saveShiftImage);
   el.shiftPickRemove.addEventListener('click', removeShiftPick);
+  el.shiftPickFreeGo.addEventListener('click', applyShiftFreeTime);
+  el.shiftPickFree.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyShiftFreeTime(); });
+  bindHalfWidthInput(el.shiftPickFree, 'code');
   el.shiftPickFullOn.addEventListener('click', () => setShiftFull(true));
   el.shiftPickFullOff.addEventListener('click', () => setShiftFull(false));
   el.shiftPrintBtn.addEventListener('click', () => window.print());

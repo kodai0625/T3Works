@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=7b7618b3">
-<meta name="app-version" content="5965a461">
+<link rel="stylesheet" href="../css/style.css?v=0266cc21">
+<meta name="app-version" content="d4559d59">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -921,9 +921,6 @@
       <p class="shift-top__note" id="shiftWishNote"></p>
       <div class="shift-top__acts">
         <button type="button" class="btn btn--primary" id="shiftOpenBtn">シフト募集をはじめる</button>
-        <button type="button" class="btn" id="shiftBuildBtn">確定する</button>
-      </div>
-      <div class="shift-top__acts">
         <button type="button" class="btn" id="shiftWishBtn">提出を見る</button>
         <button type="button" class="btn" id="shiftTakeBtn">希望を取り込む</button>
       </div>
@@ -931,9 +928,14 @@
 
     <div class="shift-days" id="shiftDays"></div>
 
+    <!-- 確定 → 出す、の順に並べます。確定を押すまでは配らない決まりです -->
+    <div class="shift-foot shift-foot--build">
+      <button type="button" class="btn btn--primary" id="shiftBuildBtn2">シフトを確定する</button>
+    </div>
     <div class="shift-foot">
-      <button type="button" class="btn" id="shiftSheetBtn">表で見る（印刷）</button>
-      <button type="button" class="btn" id="shiftCopyBtn">文字でコピー</button>
+      <button type="button" class="btn" id="shiftSheetBtn">印刷</button>
+      <button type="button" class="btn" id="shiftPdfBtn">PDFで保存</button>
+      <button type="button" class="btn" id="shiftJpegBtn">JPEGで保存</button>
     </div>
   </section>
 
@@ -1023,9 +1025,25 @@
     <h2 class="modal__title" id="shiftPickTitle">入る人をえらぶ</h2>
     <p class="doer__item" id="shiftPickWhen"></p>
 
+    <div class="field">
+      <span class="field__label">持ち場</span>
+      <div class="seg" id="shiftPickLanes"></div>
+    </div>
+
     <div class="field is-hidden" id="shiftPickTimeField">
       <span class="field__label" id="shiftPickTimeLabel">開始時刻</span>
       <div class="seg seg--wrap" id="shiftPickTimes"></div>
+    </div>
+
+    <!-- ボタンに無い時刻を入れるところ。どの端末でも使えます -->
+    <div class="field is-hidden" id="shiftPickFreeField">
+      <span class="field__label">ボタンに無い時刻は、じかに書けます</span>
+      <div class="free-time">
+        <input type="text" class="field__input" id="shiftPickFree"
+               inputmode="numeric" autocomplete="off" autocapitalize="off"
+               autocorrect="off" spellcheck="false" placeholder="11:15">
+        <button type="button" class="btn" id="shiftPickFreeGo">入れる</button>
+      </div>
     </div>
 
     <!-- F（通し）。ランチの枠のときだけ出ます -->
@@ -1181,12 +1199,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=8df8ec79"></script>
+<script src="../js/config.js?v=42078e6f"></script>
 <script src="../js/storage.js?v=14e77bf4"></script>
 <script src="../js/sync.js?v=fcaa8418"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=89c658e4"></script>
+<script src="../js/app.js?v=28cf0a1b"></script>
 </body>
 </html>

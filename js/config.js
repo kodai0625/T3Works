@@ -1202,6 +1202,30 @@ function getShiftSlot(id) {
   return shiftWishSlots().find((s) => s.id === id) || null;
 }
 
+/**
+ * 1日を横に分ける枠（持ち場）
+ *
+ *  今のスプレッドシートで、1日が2列に分かれているところです。
+ *  左がキッチン、右がホール。記録には id（'k' / 'h'）で入ります。
+ *  ★増やしたいときはここに足せば、画面も印刷も列が増えます。
+ */
+const SHIFT_LANES = [
+  { id: 'k', name: 'キッチン' },
+  { id: 'h', name: 'ホール' },
+];
+
+/** 持ち場が入っていない古い記録は、キッチンとして扱います */
+function shiftLaneOf(entry) {
+  const v = entry && entry.p;
+  return SHIFT_LANES.some((l) => l.id === v) ? v : SHIFT_LANES[0].id;
+}
+
+/** 組む画面で、横に何日ぶん並べるか */
+const SHIFT_COLS = 2;
+
+/** 印刷の表で、1つのかたまりに何日ぶん入れるか（今のシフト表と同じ8日） */
+const SHIFT_PRINT_COLS = 8;
+
 /** その希望が、組んだ表のどの枠に入るか（F はランチへ） */
 function shiftSlotFor(wishSlotId) {
   return wishSlotId === SHIFT_FULL_ID ? 'lunch' : wishSlotId;
@@ -1226,30 +1250,89 @@ function shiftDefaultTime(slotId) {
   return slot.start && slot.times.includes(slot.start) ? slot.start : slot.times[0];
 }
 
-/** '17.5' → '17:30'（提出ページで使う、読みやすい書き方） */
+/**
+ * '17.5' → '17:30'（読みやすい書き方）
+ *
+ * 中では「時」を小数で持っています。11.5 なら11時半、11.25 なら11時15分。
+ */
 function shiftTimeText(t) {
-  const v = String(t || '');
-  if (!v) return '';
-  const [h, half] = v.split('.');
-  return `${Number(h)}:${half ? '30' : '00'}`;
+  const v = String(t === null || t === undefined ? '' : t);
+  if (v === '') return '';
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  const h = Math.floor(n);
+  const mi = Math.round((n - h) * 60);
+  return `${h}:${String(mi).padStart(2, '0')}`;
+}
+
+/**
+ * 書いてもらった時刻を、中で持つ形に直す
+ *
+ *   18:30 → '18.5' ／ 1830 → '18.5' ／ 18 → '18' ／ 18時30分 → '18.5'
+ *   １８：３０ のような全角も読みます。
+ *   読めなければ null を返します（そのときは直しません）。
+ *
+ * ★どの端末でも使えます。ボタンで足りない時刻は、ここから入れてください。
+ */
+function shiftTimeFrom(text) {
+  const raw = toHalfWidth(String(text || '')).replace(/\s/g, '');
+  if (!raw) return null;
+  // 「18時30分」「18時」も読めるようにします
+  const s2 = raw.replace(/時/g, ':').replace(/分/g, '');
+
+  let h = null;
+  let mi = 0;
+  let m = /^(\d{1,2}):(\d{1,2})$/.exec(s2);          // 18:30
+  if (m) { h = Number(m[1]); mi = Number(m[2]); }
+  if (h === null) {
+    m = /^(\d{1,2}):?$/.exec(s2);                    // 18 ／ 18:
+    if (m) { h = Number(m[1]); mi = 0; }
+  }
+  if (h === null) {
+    // 11.5 は「11時半」。今のシフト表で (11.5) と書いているのと同じ読み方です
+    m = /^(\d{1,2})\.(\d{1,2})$/.exec(raw);
+    if (m) { h = Number(m[1]); mi = Math.round(Number('0.' + m[2]) * 60); }
+  }
+  if (h === null) {
+    m = /^(\d{1,2})(\d{2})$/.exec(raw);              // 1830 の書き方
+    if (m) { h = Number(m[1]); mi = Number(m[2]); }
+  }
+  if (h === null || h < 0 || h > 29 || mi < 0 || mi > 59) return null;
+  return shiftTimeKey(h + mi / 60);
+}
+
+/**
+ * 中で持つ形にそろえる
+ *
+ * ★ちょうどの時刻は '18'、半なら '18.5' と、余計な 0 を付けません。
+ *   ボタン（'11' '11.5' …）と同じ書き方にそろえないと、
+ *   えらんだボタンに色が付かなくなります。
+ */
+function shiftTimeKey(hours) {
+  const mi = Math.round(hours * 60);
+  const v = mi / 60;
+  return Number.isInteger(v) ? String(v) : String(Math.round(v * 10000) / 10000);
 }
 
 /**
  * 表に書くときの時刻の印（今のシフト表と同じ書き方）
  *
- *   17    → ⑰       17.5  → (17.5)
- *   既定の時刻の人には、何も付けません（今のLunchの11時と同じ）
+ *   17    → ⑰       17.5  → (17.5)     11.25 → (11:15)
+ *   既定の時刻の人には、何も付けません（今のランチの11時と同じ）
  */
 function shiftTimeMark(slotId, t) {
   const slot = getShiftSlot(slotId);
-  const v = String(t || '');
-  if (!slot || !v || v === slot.start) return '';
-  const [h, half] = v.split('.');
-  const n = Number(h);
-  if (half) return `(${n}.5)`;
+  const v = String(t === null || t === undefined ? '' : t);
+  if (!slot || v === '' || v === slot.start) return '';
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  const h = Math.floor(n);
+  const mi = Math.round((n - h) * 60);
   // ①〜⑳ の丸数字。①が U+2460 なので、そこから数えます
-  if (n >= 1 && n <= 20) return String.fromCharCode(0x2460 + n - 1);
-  return `${n}時`;
+  if (mi === 0) return (h >= 1 && h <= 20) ? String.fromCharCode(0x2460 + h - 1) : `${h}時`;
+  if (mi === 30) return `(${h}.5)`;
+  // 半でも丁でもない時刻（11:15 など）は、そのまま書きます
+  return `(${h}:${String(mi).padStart(2, '0')})`;
 }
 
 /** 表に出す1人分（'⑱そう' のような形） */

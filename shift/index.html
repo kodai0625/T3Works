@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>シフト提出</title>
-<link rel="stylesheet" href="css/submit.css?v=3b324542">
-<meta name="app-version" content="5965a461">
+<link rel="stylesheet" href="css/submit.css?v=ea039bd0">
+<meta name="app-version" content="d4559d59">
 </head>
 <body>
 
@@ -61,6 +61,13 @@
       </p>
     </div>
 
+    <!-- 確定したシフト。お店が「シフトを確定する」を押すと出ます -->
+    <div class="card card--done is-hidden" id="builtBox">
+      <h2 class="card__title" id="builtTitle">シフトが決まりました</h2>
+      <p class="card__note">あなたの名前は<b>太字</b>で出ています。</p>
+      <div class="built" id="builtList"></div>
+    </div>
+
     <!-- 出したあとの控え -->
     <div class="card card--done is-hidden" id="doneBox">
       <h2 class="card__title" id="doneTitle">出しました</h2>
@@ -85,7 +92,7 @@
 
 </main>
 
-<script src="../js/config.js?v=8df8ec79"></script>
-<script src="js/submit.js?v=de0b45c1"></script>
+<script src="../js/config.js?v=42078e6f"></script>
+<script src="js/submit.js?v=fddce41f"></script>
 </body>
 </html>

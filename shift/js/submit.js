@@ -50,6 +50,8 @@ let notes = {};
 let sentAt = null;
 /** 店舗の定休日（サーバーから取ります） */
 let closed = { dows: [], ex: {} };
+/** 確定したシフト。確定するまでは null（途中は見せません） */
+let built = null;
 
 /* ============================================================
  *  サーバーとのやりとり
@@ -123,6 +125,8 @@ function applyOpen(res) {
     ex: res.closedEx && typeof res.closedEx === 'object' ? res.closedEx : {},
   };
 
+  built = res.built && typeof res.built === 'object' ? res.built : null;
+
   const wish = res.wish || null;
   picked = wish && wish.days && typeof wish.days === 'object' ? wish.days : {};
   notes = wish && wish.notes && typeof wish.notes === 'object' ? wish.notes : {};
@@ -146,9 +150,12 @@ function signOut() {
 /* -------- 2. 希望を入れる -------- */
 function renderPeriod() {
   const canSend = !!period && phase === 'open';
+  const hasBuilt = !!(built && Object.keys(built).length);
   el('entry').classList.toggle('is-hidden', !canSend);
-  el('closedBox').classList.toggle('is-hidden', canSend);
-  el('doneBox').classList.toggle('is-hidden', !sentAt);
+  el('closedBox').classList.toggle('is-hidden', canSend || hasBuilt);
+  el('builtBox').classList.toggle('is-hidden', !hasBuilt);
+  // 確定したシフトが出ているときは、出した控えは畳みます（同じ話が二度出るため）
+  el('doneBox').classList.toggle('is-hidden', !sentAt || hasBuilt);
 
   if (!period) {
     el('periodMain').textContent = '—';
@@ -169,11 +176,13 @@ function renderPeriod() {
   const on = days.filter((s) => (picked[s] || []).length).length;
 
   if (!canSend) {
-    el('periodState').textContent = sentAt ? '受け付けは終わりました' : '';
+    el('periodState').textContent = hasBuilt ? 'シフトが決まりました'
+      : sentAt ? '受け付けは終わりました' : '';
     el('closedNote').textContent = sentAt
       ? 'この期間の受け付けは終わりました。出した内容は下のとおりです。'
       : '次のシフトの募集がはじまると、ここに出ます。しばらくお待ちください。';
     renderDone();
+    renderBuilt();
     return;
   }
 
@@ -188,6 +197,83 @@ function renderPeriod() {
 
   renderDays();
   renderDone();
+  renderBuilt();
+}
+
+/* -------- 決まったシフトを見る --------
+ *
+ *  お店が「シフトを確定する」を押すまでは出ません。
+ *  組んでいる途中のものを見せると、変わるたびに混乱するためです。
+ */
+function renderBuilt() {
+  if (!built || !period) return;
+  el('builtTitle').textContent =
+    `${shiftRangeLabel(period.y, period.m, period.half)} のシフト`;
+  el('builtList').innerHTML = '';
+
+  shiftDays(period.y, period.m, period.half).forEach((dateStr) => {
+    const [, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
+    const day = built[dateStr];
+
+    const row = document.createElement('div');
+    row.className = 'built-day'
+      + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '');
+
+    const date = document.createElement('span');
+    date.className = 'built-day__date';
+    date.textContent = `${m}/${d}（${DOW[dow]}）`;
+    row.appendChild(date);
+
+    const body = document.createElement('div');
+    body.className = 'built-day__body';
+
+    if (isClosedOn(dateStr)) {
+      const p2 = document.createElement('p');
+      p2.className = 'built-none';
+      p2.textContent = '定休日';
+      body.appendChild(p2);
+    } else {
+      let any = false;
+      SHIFT_SLOTS.forEach((slot) => {
+        const list = (day && day[slot.id]) || [];
+        if (!list.length) return;
+        any = true;
+        const line = document.createElement('p');
+        line.className = 'built-line';
+        const tag = document.createElement('span');
+        tag.className = `built-line__slot built-line__slot--${slot.id}`;
+        tag.textContent = slot.name;
+        line.appendChild(tag);
+
+        list.forEach((e) => {
+          const one = document.createElement('span');
+          // 自分の名前は太く。自分の出番をひと目で見つけられるように
+          one.className = 'built-name'
+            + (e.n === me.name ? ' is-me' : '')
+            + (e.f ? ' is-full' : '');
+          one.textContent = shiftNameText(slot.id, e);
+          line.appendChild(one);
+        });
+        body.appendChild(line);
+      });
+      if (!any) {
+        const p2 = document.createElement('p');
+        p2.className = 'built-none';
+        p2.textContent = '—';
+        body.appendChild(p2);
+      }
+      if (day && day.memo) {
+        const memo = document.createElement('p');
+        memo.className = 'built-memo';
+        memo.textContent = day.memo;
+        body.appendChild(memo);
+      }
+    }
+
+    row.appendChild(body);
+    el('builtList').appendChild(row);
+  });
 }
 
 function renderDays() {
