@@ -33,11 +33,63 @@ const Updater = {
       const res = await fetch('version.json', { cache: 'no-store' });
       if (!res.ok) return;
       const json = await res.json();
-      if (json.v && json.v !== this.current()) this.show(json.v);
+      if (!json.v || json.v === this.current()) return;
+
+      // ★この印でもう一度読み直したのに、まだ古いまま。
+      //   端末に残っている控えか、古い世話係（sw.js）が
+      //   古いページを出し続けています。押しても直らないのはこれです。
+      //   その場合は、控えを捨てて世話係を外してから読み直します
+      const tried = new URLSearchParams(location.search).get('v');
+      if (tried && tried === json.v) {
+        await this.heal();
+        return;
+      }
+      this.show(json.v);
     } catch (e) {
       /* 通信できないときは何もしない。次の機会に確かめます */
     } finally {
       this._checking = false;
+    }
+  },
+
+  /**
+   * 「更新する」を押しても新しくならないときの立て直し
+   *
+   *  控えを全部捨て、世話係（sw.js）も外してから読み直します。
+   *  世話係は次に開いたときに登録し直されるので、外したままにはなりません。
+   *
+   *  ★1回だけにします。読み直しても直らない相手だったときに、
+   *    読み直しをくり返してしまうのを防ぐためです。
+   */
+  async heal() {
+    const mark = 't3d-healed';
+    try {
+      if (sessionStorage.getItem(mark)) return;   // この画面ではもう試しました
+      sessionStorage.setItem(mark, '1');
+    } catch (e) {
+      /* シークレットモードなどで使えないときは、そのまま進めます */
+    }
+    await this.dropCaches();
+    location.replace(this.reloadUrl('t', Date.now()));
+  },
+
+  /** 端末に残っている控えと、世話係を消す */
+  async dropCaches() {
+    try {
+      if ('caches' in window) {
+        const names = await caches.keys();
+        await Promise.all(names.map((n) => caches.delete(n)));
+      }
+    } catch (e) {
+      /* 消せなくても、読み直しは行います */
+    }
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+    } catch (e) {
+      /* 同上 */
     }
   },
 
@@ -78,14 +130,7 @@ const Updater = {
    * チェックの記録は別の場所にあるので消えません。
    */
   async force() {
-    try {
-      if ('caches' in window) {
-        const names = await caches.keys();
-        await Promise.all(names.map((n) => caches.delete(n)));
-      }
-    } catch (e) {
-      /* 控えを消せなくても、下の読み直しは行います */
-    }
+    await this.dropCaches();
     location.replace(this.reloadUrl('t', Date.now()));
   },
 

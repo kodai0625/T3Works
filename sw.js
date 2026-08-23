@@ -18,11 +18,11 @@
  *    印も変わります。つまり古い控えが混ざる心配がないので、
  *    控えがあればそれをそのまま使います（起動が速くなります）。
  *
- *  ★このファイルは 公開用を作る.py が 7b1de197 を版の印に
+ *  ★このファイルは 公開用を作る.py が 5965a461 を版の印に
  *    書き換えてから公開されます。
  * ============================================================ */
 
-const VERSION = '7b1de197';
+const VERSION = '5965a461';
 const CACHE = 't3works-' + VERSION;
 
 /* 新しいこのファイルが届いたら、前のものを待たずにすぐ交代します */
@@ -46,10 +46,22 @@ async function keep(req, res) {
   return res;
 }
 
-/** 通信を先に試し、だめなら控えを出す（ページ本体むけ） */
-async function networkFirst(req) {
+/**
+ * 通信を先に試し、だめなら控えを出す（ページ本体むけ）
+ *
+ * ★ページ本体は cache:'no-store' で取りに行きます。
+ *   そうしないと、GitHub Pages が付けている「10分は使い回してよい」
+ *   という指示のせいで、ブラウザが古い index.html を出してしまい、
+ *   「更新するを押しても新しくならない」ことが起きます。
+ *   css / js / img は ?v= が付いていて中身ごとに別ものなので、
+ *   こちらはこれまでどおり控えを使います。
+ */
+async function networkFirst(req, fresh) {
   try {
-    return await keep(req, await fetch(req));
+    const got = fresh
+      ? await fetch(req.url, { cache: 'no-store', credentials: 'same-origin' })
+      : await fetch(req);
+    return await keep(req, got);
   } catch (err) {
     const hit = await caches.match(req, { ignoreSearch: true });
     if (hit) return hit;
@@ -73,7 +85,7 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.endsWith('/version.json')) return;  // 版の確認は必ず本物を見る
 
   // ページ本体は毎回通信して確かめる。ここが今回の直したところです
-  if (req.mode === 'navigate') { e.respondWith(networkFirst(req)); return; }
+  if (req.mode === 'navigate') { e.respondWith(networkFirst(req, true)); return; }
 
   // 中身が変われば印（?v=）も変わるので、控えをそのまま使ってよい
   if (url.searchParams.has('v')) { e.respondWith(cacheFirst(req)); return; }
