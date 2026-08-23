@@ -1135,6 +1135,12 @@ function meetingMonthKey(y, m) {
  *          memo: 'まさ休み' }
  *        f: true が F（通し）です。ランチの枠にだけ入り、灰色で出ます
  *
+ *    phase         … その半月がどこまで進んだか
+ *        { v: 'open' | 'built', at: 日時, by: 名前 }
+ *        なし   … まだ募集していない（アルバイトには出ません）
+ *        open   … 募集中（アルバイトが出せます）
+ *        built  … 確定ずみ（もう出せません）
+ *
  * ---------------------------------------------------------- */
 const SHIFT_STORE = '_shift';
 
@@ -1182,9 +1188,11 @@ function shiftWishSlots() {
   const full = {
     id: SHIFT_FULL_ID,
     name: 'F',
-    hint: 'ランチからディナーまで通し',
+    hint: 'ランチからディナーまで通し（時間はお店が決めます）',
     start: lunch.start,
-    times: lunch.times,
+    // ★時刻はえらばせません。通しで入る人の開始時刻は、
+    //   その日の人の入りぐあいを見てこちらで決めるためです（組む画面で直せます）
+    times: [],
   };
   return [SHIFT_SLOTS[0], full, SHIFT_SLOTS[1], SHIFT_SLOTS[2]];
 }
@@ -1297,6 +1305,35 @@ function shiftWishKey(name) {
 /** 組んだ結果（1日分）の入れ先 */
 function shiftDayKey(dateStr) {
   return `d:${dateStr}`;
+}
+
+/**
+ * 募集の状態を入れるところ
+ *
+ *  シフトは「募集をはじめる → 出してもらう → 組む → 確定する」の順で進みます。
+ *  アルバイトの提出ページに出るのは、**募集中の半月ひとつだけ**です。
+ *  こちらが募集をはじめるまで、先の月は出ませんし、
+ *  確定したあとは、次の募集をはじめるまで新しい期間が出ません。
+ */
+const SHIFT_PHASE_KEY = 'phase';
+
+/** 募集中 */
+const SHIFT_OPEN = 'open';
+/** 確定ずみ */
+const SHIFT_BUILT = 'built';
+
+/** その半月がどこまで進んだか（'' = まだ募集していない） */
+function shiftPhaseOf(rec) {
+  const v = (rec.items || {})[SHIFT_PHASE_KEY];
+  const now = v && v.v;
+  return now === SHIFT_OPEN || now === SHIFT_BUILT ? now : '';
+}
+
+/** 画面に出す言い方 */
+function shiftPhaseText(phase) {
+  if (phase === SHIFT_OPEN) return '募集中';
+  if (phase === SHIFT_BUILT) return '確定ずみ';
+  return 'まだ募集していません';
 }
 
 /**

@@ -128,6 +128,7 @@ const el = {
   shiftToday: $('shiftToday'), shiftNavMain: $('shiftNavMain'), shiftNavSub: $('shiftNavSub'),
   shiftWishCount: $('shiftWishCount'), shiftWishNote: $('shiftWishNote'),
   shiftWishBtn: $('shiftWishBtn'), shiftTakeBtn: $('shiftTakeBtn'),
+  shiftPhase: $('shiftPhase'), shiftOpenBtn: $('shiftOpenBtn'), shiftBuildBtn: $('shiftBuildBtn'),
   shiftDays: $('shiftDays'), shiftSheetBtn: $('shiftSheetBtn'), shiftCopyBtn: $('shiftCopyBtn'),
   shiftPickModal: $('shiftPickModal'), shiftPickTitle: $('shiftPickTitle'),
   shiftPickWhen: $('shiftPickWhen'), shiftPickTimeField: $('shiftPickTimeField'),
@@ -206,8 +207,19 @@ function readHash() {
     return;
   }
   state.view = task.id;
-  // シフトは半月ずつの画面。URLの日付から、前半か後半かを決めます
-  if (task.id === 'shift') shiftHalf = shiftHalfOf(state.d);
+  // シフトは半月ずつの画面。URLに日付が書いてあればそこを、
+  // 書いていなければ「募集中の半月」を開きます
+  if (task.id === 'shift') {
+    if (third) {
+      shiftHalf = shiftHalfOf(state.d);
+    } else {
+      const p = shiftFirstPeriod(state.storeId);
+      state.y = p.y;
+      state.m = p.m;
+      state.d = p.half === 1 ? 1 : 16;
+      shiftHalf = p.half;
+    }
+  }
 }
 
 
@@ -4658,6 +4670,32 @@ function shiftGoToday() {
   shiftGo(t.getFullYear(), t.getMonth() + 1, shiftHalfOf(t.getDate()));
 }
 
+/**
+ * 画面を開いたときに出す半月
+ *
+ * ★「今日が入っている半月」ではありません。
+ *   出してもらうのは先の半月なので、今日の半月を開くと
+ *   「取り込んでも何も入らない」ことになります（実際そうなりました）。
+ *   募集中のものがあればそれを、無ければ次に募集する半月を出します。
+ */
+function shiftFirstPeriod(storeId) {
+  const t = businessDate();
+  const now = { y: t.getFullYear(), m: t.getMonth() + 1, half: shiftHalfOf(t.getDate()) };
+  // 今の半月から先へ4つ見て、募集中のものがあればそこを出す
+  for (let i = 0; i <= 4; i += 1) {
+    const p = shiftStep(now.y, now.m, now.half, i);
+    const rec = Store.getDay(SHIFT_STORE, shiftKey(storeId, p.y, p.m, p.half));
+    if (shiftPhaseOf(rec) === SHIFT_OPEN) return p;
+  }
+  // 募集中が無ければ、まだ確定していない一番手前の半月
+  for (let i = 0; i <= 4; i += 1) {
+    const p = shiftStep(now.y, now.m, now.half, i);
+    const rec = Store.getDay(SHIFT_STORE, shiftKey(storeId, p.y, p.m, p.half));
+    if (shiftPhaseOf(rec) !== SHIFT_BUILT) return p;
+  }
+  return shiftStep(now.y, now.m, now.half, 1);
+}
+
 /* -------- 取り込み -------- */
 
 /**
@@ -4716,6 +4754,64 @@ async function onShiftTake() {
     : '新しく入れるものはありませんでした';
 }
 
+/* -------- 募集をはじめる・確定する -------- */
+
+/**
+ * 募集をはじめる
+ *
+ * ★同じ店舗で募集中の半月は1つだけにします。
+ *   2つ開いていると、アルバイトの提出ページにどちらを出すか決められません。
+ */
+async function openShiftRecruit() {
+  const label = shiftRangeLabel(state.y, state.m, shiftHalf);
+  const other = shiftOtherOpen();
+  const ok = await askConfirm({
+    item: `${label} の募集をはじめます`,
+    message: other
+      ? `いま募集中の ${other.label} は締め切られます。\nみんなの提出ページには ${label} が出ます。`
+      : 'みんなの提出ページに、この期間が出るようになります。',
+    okLabel: 'はじめる',
+  });
+  if (!ok) return;
+
+  if (other) shiftSetPhase(other.y, other.m, other.half, SHIFT_BUILT);
+  shiftSetPhase(state.y, state.m, shiftHalf, SHIFT_OPEN);
+  render();
+}
+
+/** 確定する（提出を締め切る） */
+async function buildShiftDone() {
+  const label = shiftRangeLabel(state.y, state.m, shiftHalf);
+  const ok = await askConfirm({
+    item: `${label} を確定します`,
+    message: 'これ以上は出せなくなります。\n組んだ内容はそのまま残り、あとから直せます。',
+    okLabel: '確定する',
+  });
+  if (!ok) return;
+  shiftSetPhase(state.y, state.m, shiftHalf, SHIFT_BUILT);
+  render();
+}
+
+function shiftSetPhase(y, m, half, v) {
+  Store.setItem(SHIFT_STORE, shiftKey(state.storeId, y, m, half), SHIFT_PHASE_KEY, {
+    v, at: new Date().toISOString(),
+  });
+}
+
+/** いま募集中の、ほかの半月（前後4つぶんを見ます） */
+function shiftOtherOpen() {
+  const here = shiftKey(state.storeId, state.y, state.m, shiftHalf);
+  for (let i = -4; i <= 4; i += 1) {
+    const p = shiftStep(state.y, state.m, shiftHalf, i);
+    const key = shiftKey(state.storeId, p.y, p.m, p.half);
+    if (key === here) continue;
+    if (shiftPhaseOf(Store.getDay(SHIFT_STORE, key)) === SHIFT_OPEN) {
+      return { ...p, label: shiftRangeLabel(p.y, p.m, p.half) };
+    }
+  }
+  return null;
+}
+
 /* -------- 描画 -------- */
 
 function renderShift() {
@@ -4726,10 +4822,20 @@ function renderShift() {
   const names = ShiftStaff.list(state.storeId);
   const wishes = shiftWishes(rec);
   const sent = wishes.filter((w) => w.sentAt).length;
+  const phase = shiftPhaseOf(rec);
+
+  /* -------- 募集の状態 -------- */
+  el.shiftPhase.textContent = shiftPhaseText(phase);
+  el.shiftPhase.className = 'shift-phase shift-phase--' + (phase || 'yet');
+  el.shiftOpenBtn.classList.toggle('is-hidden', phase === SHIFT_OPEN);
+  el.shiftOpenBtn.textContent = phase === SHIFT_BUILT ? '募集をやり直す' : 'シフト募集をはじめる';
+  el.shiftBuildBtn.classList.toggle('is-hidden', phase !== SHIFT_OPEN);
 
   el.shiftWishCount.textContent = names.length ? `提出 ${sent} / ${names.length}人` : '名簿が未登録';
   if (!names.length) {
     el.shiftWishNote.textContent = 'マネージの「シフトに入る人」で登録してください';
+  } else if (!phase) {
+    el.shiftWishNote.textContent = '募集をはじめると、みんなの提出ページに出ます';
   } else if (!sent) {
     el.shiftWishNote.textContent = 'まだ誰も出していません';
   } else {
@@ -5611,6 +5717,8 @@ function bindEvents() {
   el.shiftToday.addEventListener('click', shiftGoToday);
   el.shiftWishBtn.addEventListener('click', openShiftWishes);
   el.shiftTakeBtn.addEventListener('click', onShiftTake);
+  el.shiftOpenBtn.addEventListener('click', openShiftRecruit);
+  el.shiftBuildBtn.addEventListener('click', buildShiftDone);
   el.shiftSheetBtn.addEventListener('click', openShiftSheet);
   el.shiftCopyBtn.addEventListener('click', copyShiftText);
   el.shiftPickRemove.addEventListener('click', removeShiftPick);

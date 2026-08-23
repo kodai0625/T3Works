@@ -8,11 +8,12 @@
  *    入口は「1人に1つの番号」です。現場用PINでも管理用PINでもありません。
  *    番号で誰なのかが決まるので、**ほかの人の名前では出せません**。
  *    名前の一覧も出しません（誰が働いているかを見せないため）。
- *    番号でできるのは
- *      ・自分の希望を出す
- *      ・自分がさっき出した内容を見直す
- *    の2つだけです。ほかの人の希望も、クローズや立替金の記録も読めません
- *    （Apps Script 側で action:'shift' 以外を受け付けていません）。
+ *    番号でできるのは、自分の希望を出すことと、出した内容を見ることだけです。
+ *
+ *  出す期間について
+ *    **どの半月を出すかは、こちらでは決めません。**
+ *    お店が「シフト募集をはじめる」を押した半月だけが、サーバーから返ってきます。
+ *    募集していない先の月は出ませんし、確定したあとは出せなくなります。
  *
  *  枠と時刻の決まりは、アプリ本体と同じ config.js から読んでいます。
  *  ★時刻を足したいときは js/config.js の SHIFT_SLOTS を直せば、
@@ -37,10 +38,14 @@ const me = {
   store: '',
 };
 
-/** 画面に出している半月 */
-let period = null;      // { y, m, half }
+/** サーバーが決めた、いま出す半月。null なら募集していません */
+let period = null;
+/** 'open'（募集中）／'built'（確定ずみ）／'' */
+let phase = '';
 /** いま入れている希望。{ 'YYYY-MM-DD': [{ s, t }] } */
 let picked = {};
+/** 日ごとの連絡。{ 'YYYY-MM-DD': '文' } */
+let notes = {};
 /** 出しずみかどうか */
 let sentAt = null;
 /** 店舗の定休日（サーバーから取ります） */
@@ -61,28 +66,6 @@ async function call(body) {
   } catch (e) {
     return { ok: false, error: '電波が届いていないようです。もう一度お試しください' };
   }
-}
-
-/* ============================================================
- *  半月の決め方
- *
- *  出してもらうのは「まだ始まっていない半月」です。
- *  8月21日に開いたら 9/1〜9/15 が最初に出ます。
- *  すでに始まっている半月は、出しても間に合わないので出しません。
- * ============================================================ */
-function firstOpenPeriod() {
-  const now = businessDate();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  return shiftStep(y, m, shiftHalfOf(now.getDate()), 1);
-}
-
-/** その半月が、まだ出せるものかどうか */
-function isOpenPeriod(p) {
-  const a = p.y * 24 + (p.m - 1) * 2 + (p.half - 1);
-  const f = firstOpenPeriod();
-  const b = f.y * 24 + (f.m - 1) * 2 + (f.half - 1);
-  return a >= b && a <= b + 1;    // 次の半月と、その次まで
 }
 
 function isClosedOn(dateStr) {
@@ -122,13 +105,15 @@ async function submitPin() {
   }
   localStorage.setItem(`${SAVE}:code`, code);
   applyOpen(res);
-  startForm();
 }
 
-/** 番号から分かったこと（名前・店舗・定休日）を受け取る */
+/** 番号から分かったこと（名前・店舗・期間・定休日・出しずみの内容）を受け取る */
 function applyOpen(res) {
   me.name = res.name || '';
   me.store = res.store || '';
+  period = res.period || null;
+  phase = res.phase || '';
+
   // 定休日はマネージで変えられます。変えていない店舗は null で返ってくるので、
   // そのときは config.js に書いてある初期値（バグるなら火曜）を使います。
   // ★毎回サーバーに聞きに行くので、マネージで直せばここもすぐ変わります
@@ -137,7 +122,16 @@ function applyOpen(res) {
     dows: Array.isArray(res.closedDows) ? res.closedDows : ((store && store.closedDays) || []),
     ex: res.closedEx && typeof res.closedEx === 'object' ? res.closedEx : {},
   };
+
+  const wish = res.wish || null;
+  picked = wish && wish.days && typeof wish.days === 'object' ? wish.days : {};
+  notes = wish && wish.notes && typeof wish.notes === 'object' ? wish.notes : {};
+  sentAt = wish ? (wish.sentAt || null) : null;
+
   el('headTitle').textContent = `シフト提出｜${store ? store.name : ''}`;
+  el('meName').textContent = me.name;
+  show('form');
+  renderPeriod();
 }
 
 /** 番号を入れ直す（端末を人に渡すときなど） */
@@ -146,48 +140,26 @@ function signOut() {
   me.code = '';
   me.name = '';
   el('gatePin').value = '';
-  el('headMe').classList.add('is-hidden');
   show('gate');
 }
 
 /* -------- 2. 希望を入れる -------- */
-function startForm() {
-  el('headMe').textContent = me.name;
-  el('headMe').classList.remove('is-hidden');
-  period = firstOpenPeriod();
-  show('form');
-  loadPeriod();
-}
-
-async function loadPeriod() {
-  picked = {};
-  sentAt = null;
-  el('note').value = '';
-  setErr('sendErr', '');
-  el('sendOk').classList.add('is-hidden');
-  renderPeriod();
-
-  const res = await call({ mode: 'get', key: periodKey() });
-  if (!res.ok) return setErr('sendErr', res.error || '読み込めませんでした');
-  if (res.wish) {
-    picked = res.wish.days && typeof res.wish.days === 'object' ? res.wish.days : {};
-    sentAt = res.wish.sentAt || null;
-    el('note').value = res.wish.note || '';
-  }
-  renderPeriod();
-}
-
-function periodKey() {
-  return shiftKey(me.store, period.y, period.m, period.half);
-}
-
 function renderPeriod() {
+  const canSend = !!period && phase === 'open';
+  el('entry').classList.toggle('is-hidden', !canSend);
+  el('closedBox').classList.toggle('is-hidden', canSend);
+  el('doneBox').classList.toggle('is-hidden', !sentAt);
+
+  if (!period) {
+    el('periodMain').textContent = '—';
+    el('periodSub').textContent = '';
+    el('periodState').textContent = '';
+    el('closedNote').textContent = '次のシフトの募集がはじまると、ここに出ます。しばらくお待ちください。';
+    return;
+  }
+
   el('periodMain').textContent = shiftRangeLabel(period.y, period.m, period.half);
   el('periodSub').textContent = `${period.y}年${period.m}月 ${period.half === 1 ? '前半' : '後半'}`;
-
-  const next = shiftStep(period.y, period.m, period.half, 1);
-  el('periodPrev').disabled = !isOpenPeriod(shiftStep(period.y, period.m, period.half, -1));
-  el('periodNext').disabled = !isOpenPeriod(next);
 
   // ★定休日になった日の希望は落とします。マネージで定休日を足したあとに
   //   出し直されると、休みの日に入る希望が残ってしまうためです
@@ -195,6 +167,16 @@ function renderPeriod() {
 
   const days = shiftDays(period.y, period.m, period.half).filter((s) => !isClosedOn(s));
   const on = days.filter((s) => (picked[s] || []).length).length;
+
+  if (!canSend) {
+    el('periodState').textContent = sentAt ? '受け付けは終わりました' : '';
+    el('closedNote').textContent = sentAt
+      ? 'この期間の受け付けは終わりました。出した内容は下のとおりです。'
+      : '次のシフトの募集がはじまると、ここに出ます。しばらくお待ちください。';
+    renderDone();
+    return;
+  }
+
   el('periodState').className = 'period__state' + (sentAt ? ' is-sent' : '');
   el('periodState').textContent = sentAt
     ? `出しずみ（${on}日）。直したら、もう一度出してください`
@@ -205,6 +187,7 @@ function renderPeriod() {
     + '<br>入れる日の枠を押してください。押していない日は「入れない日」です。';
 
   renderDays();
+  renderDone();
 }
 
 function renderDays() {
@@ -241,7 +224,6 @@ function dayCard(dateStr) {
     card.appendChild(head);
     return card;
   }
-
   card.appendChild(head);
 
   // 枠は4つ（立ち上げ・F・ランチ・ディナー）あるので、日付の下に1行使って並べます。
@@ -260,7 +242,7 @@ function dayCard(dateStr) {
   });
   card.appendChild(slots);
 
-  // えらんだ枠だけ、開始時刻を出します
+  // えらんだ枠だけ、開始時刻を出します（F は時刻をえらばせません）
   mine.forEach((entry) => {
     const slot = getShiftSlot(entry.s);
     if (!slot || !slot.times.length) return;
@@ -284,6 +266,20 @@ function dayCard(dateStr) {
     row.appendChild(btns);
     card.appendChild(row);
   });
+
+  // その日の連絡。枠の下に置いて、日ごとに書けるようにしています
+  const note = document.createElement('input');
+  note.type = 'text';
+  note.className = 'day__note';
+  note.maxLength = 120;
+  note.placeholder = '連絡（あれば）　例：少し遅れます';
+  note.value = notes[dateStr] || '';
+  note.addEventListener('input', () => {
+    const v = note.value.trim();
+    if (v) notes[dateStr] = v;
+    else delete notes[dateStr];
+  });
+  card.appendChild(note);
 
   return card;
 }
@@ -314,26 +310,68 @@ function setTime(dateStr, slotId, t) {
   renderPeriod();
 }
 
-/* -------- 送る -------- */
+/* -------- 出した内容の控え -------- */
+function renderDone() {
+  if (!sentAt || !period) return;
+  el('doneTitle').textContent = `${shiftRangeLabel(period.y, period.m, period.half)} を出しました`;
+  el('doneList').innerHTML = '';
+
+  const days = shiftDays(period.y, period.m, period.half)
+    .filter((s) => (picked[s] || []).length || notes[s]);
+
+  if (!days.length) {
+    const li = document.createElement('li');
+    li.className = 'done-none';
+    li.textContent = 'この期間は「入れる日なし」で出しました。';
+    el('doneList').appendChild(li);
+    return;
+  }
+
+  days.forEach((s) => {
+    const [, m, d] = s.split('-').map(Number);
+    const dow = new Date(s.replace(/-/g, '/')).getDay();
+    const li = document.createElement('li');
+    li.className = 'done-row';
+
+    const date = document.createElement('span');
+    date.className = 'done-row__date';
+    date.textContent = `${m}/${d}（${DOW[dow]}）`;
+    li.appendChild(date);
+
+    const body = document.createElement('span');
+    body.className = 'done-row__body';
+    const marks = (picked[s] || []).map((e) => {
+      const slot = getShiftSlot(e.s);
+      if (!slot) return '';
+      const t = String(e.t || '');
+      return slot.name + (t && slot.times.length ? ` ${shiftTimeText(t)}〜` : '');
+    }).filter(Boolean);
+    body.textContent = marks.join('・') || '（入れません）';
+    li.appendChild(body);
+
+    if (notes[s]) {
+      const note = document.createElement('span');
+      note.className = 'done-row__note';
+      note.textContent = notes[s];
+      li.appendChild(note);
+    }
+    el('doneList').appendChild(li);
+  });
+}
+
+/* -------- 出す -------- */
 async function send() {
   setErr('sendErr', '');
-  el('sendOk').classList.add('is-hidden');
   el('send').disabled = true;
 
-  const res = await call({
-    mode: 'put',
-    key: periodKey(),
-    days: picked,
-    note: el('note').value.trim(),
-  });
+  const res = await call({ mode: 'put', days: picked, notes });
   el('send').disabled = false;
 
   if (!res.ok) return setErr('sendErr', res.error || '出せませんでした');
   sentAt = res.sentAt || new Date().toISOString();
-  el('sendOk').textContent = '出しました。ありがとうございます。';
-  el('sendOk').classList.remove('is-hidden');
   renderPeriod();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // 出した内容の一覧まで画面を送って、届いたことが目で分かるようにします
+  el('doneBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /* ============================================================
@@ -342,10 +380,8 @@ async function send() {
 async function boot() {
   el('gateGo').addEventListener('click', submitPin);
   el('gatePin').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
-  // 日本語キーボードのままだと「Ｔ３」のように全角で入ってしまうので、半角に直します
+  // 日本語キーボードのままだと「８１５」のように全角で入ってしまうので、半角に直します
   bindHalfWidthInput(el('gatePin'), 'code');
-  el('periodPrev').addEventListener('click', () => { period = shiftStep(period.y, period.m, period.half, -1); loadPeriod(); });
-  el('periodNext').addEventListener('click', () => { period = shiftStep(period.y, period.m, period.half, 1); loadPeriod(); });
   el('send').addEventListener('click', send);
   el('signOut').addEventListener('click', signOut);
 
@@ -360,7 +396,6 @@ async function boot() {
     return setErr('gateErr', res.error || 'もう一度、番号を入れてください');
   }
   applyOpen(res);
-  startForm();
 }
 
 boot();

@@ -3187,3 +3187,25 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
     outline: 1px solid #b4b4b4;
   }
 }
+
+/* -------- シフト：募集の状態 --------
+   「まだ募集していない／募集中／確定ずみ」を、いちばん上に出します。
+   ここを見落とすと、募集していない期間で待ちつづけることになります */
+.shift-phase {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--text-sub);
+}
+.shift-phase--open {
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: color-mix(in srgb, var(--ok) 85%, var(--text));
+}
+.shift-phase--built {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: color-mix(in srgb, var(--accent) 90%, var(--text));
+}
+.shift-top__note { margin: 8px 0 10px; font-size: 12.5px; color: var(--text-sub); }
+.shift-top__acts + .shift-top__acts { margin-top: 7px; }
+.shift-top__acts .btn.is-hidden { display: none; }

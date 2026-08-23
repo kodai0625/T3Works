@@ -5,15 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>シフト提出</title>
-<link rel="stylesheet" href="css/submit.css?v=cd6b16c0">
-<meta name="app-version" content="b16f3409">
+<link rel="stylesheet" href="css/submit.css?v=3b324542">
+<meta name="app-version" content="5716aa47">
 </head>
 <body>
 
 <header class="head">
   <div class="head__inner">
     <span class="head__title" id="headTitle">シフト提出</span>
-    <button type="button" class="head__me is-hidden" id="headMe"></button>
   </div>
 </header>
 
@@ -40,43 +39,53 @@
   <!-- ===== 2. 希望を入れる ===== -->
   <section class="is-hidden" id="form">
 
+    <!-- 誰のページか。開いた人が自分のものだと分かるように、大きく出します -->
+    <div class="me" id="meCard">
+      <span class="me__name" id="meName"></span>
+      <span class="me__of">さんの シフト提出</span>
+    </div>
+
     <div class="card card--period">
       <div class="period">
-        <button type="button" class="period__btn" id="periodPrev" aria-label="前">‹</button>
-        <div class="period__label">
-          <span class="period__main" id="periodMain">9/1〜9/15</span>
-          <span class="period__sub" id="periodSub"></span>
-        </div>
-        <button type="button" class="period__btn" id="periodNext" aria-label="次">›</button>
+        <span class="period__main" id="periodMain"></span>
+        <span class="period__sub" id="periodSub"></span>
       </div>
       <p class="period__state" id="periodState"></p>
     </div>
 
-    <p class="hint" id="slotHint"></p>
-
-    <div class="days" id="days"></div>
-
-    <div class="card">
-      <label class="field">
-        <span class="field__label">連絡（あれば）</span>
-        <textarea class="input" id="note" rows="3"
-                  placeholder="テスト期間で夜だけです／○日は少し遅れます など"></textarea>
-      </label>
+    <!-- 募集していないときは、ここだけ出します -->
+    <div class="card is-hidden" id="closedBox">
+      <h2 class="card__title">いまは募集していません</h2>
+      <p class="card__note" id="closedNote">
+        次のシフトの募集がはじまると、ここに出ます。しばらくお待ちください。
+      </p>
     </div>
 
-    <p class="err is-hidden" id="sendErr"></p>
-    <p class="ok is-hidden" id="sendOk"></p>
-
-    <div class="foot">
-      <button type="button" class="btn btn--primary btn--wide" id="send">この内容で出す</button>
-      <p class="foot__note" id="footNote">締切までは、何度でも出し直せます。</p>
-      <button type="button" class="btn btn--plain" id="signOut">番号を入れ直す</button>
+    <!-- 出したあとの控え -->
+    <div class="card card--done is-hidden" id="doneBox">
+      <h2 class="card__title" id="doneTitle">出しました</h2>
+      <p class="card__note">この内容で受け取りました。直したいときは、下から出し直せます。</p>
+      <ul class="done-list" id="doneList"></ul>
     </div>
+
+    <div id="entry">
+      <p class="hint" id="slotHint"></p>
+      <div class="days" id="days"></div>
+
+      <p class="err is-hidden" id="sendErr"></p>
+
+      <div class="foot">
+        <button type="button" class="btn btn--primary btn--wide" id="send">提出する</button>
+        <p class="foot__note">締切までは、何度でも出し直せます。</p>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn--plain" id="signOut">番号を入れ直す</button>
   </section>
 
 </main>
 
-<script src="../js/config.js?v=b6e773e1"></script>
-<script src="js/submit.js?v=b7f6a39e"></script>
+<script src="../js/config.js?v=8df8ec79"></script>
+<script src="js/submit.js?v=de0b45c1"></script>
 </body>
 </html>
