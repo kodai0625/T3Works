@@ -12,10 +12,16 @@
  *   数字の並び
  *     0 税込売上   1 税抜売上   2 来店総人数   3 原価   4 人件費
  *     5 キャッチ金額   6 キャッチ人数   7 ガス   8 水道   9 電気
+ *     10 ガス使用量   11 水道使用量   12 電気使用量
  *   now … 2026年　last … その前の年の同じ月（入っていないものは null）
+ *
+ *   ★10〜12（使用量）は、あとから足したものです。下のデータの配列は
+ *     9番までしか入っていませんが、足りない分は null として読まれるので
+ *     そのままで問題ありません（アプリで入れた分だけ入ります）。
  */
 
-const MEETING_FIELDS = ['inc', 'ex', 'guests', 'cost', 'labor', 'katch', 'katchPeople', 'gas', 'water', 'power'];
+const MEETING_FIELDS = ['inc', 'ex', 'guests', 'cost', 'labor', 'katch', 'katchPeople',
+  'gas', 'water', 'power', 'gasUse', 'waterUse', 'powerUse'];
 
 /* 会議資料に出てくる店舗名 → アプリの店舗id */
 const MEETING_STORE_ID = {

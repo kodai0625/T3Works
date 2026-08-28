@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=f624889c">
-<meta name="app-version" content="eb568cca">
+<link rel="stylesheet" href="../css/style.css?v=9b1d8a0c">
+<meta name="app-version" content="2169ac4c">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -743,15 +743,25 @@
       <div class="table-scroll">
         <table class="exp-total ledger util-table">
           <thead>
-            <tr><th>店舗</th><th>ガス</th><th>水道</th><th>電気</th></tr>
+            <tr>
+              <th rowspan="2">店舗</th>
+              <th colspan="2">ガス</th><th colspan="2">水道</th><th colspan="2">電気</th>
+            </tr>
+            <tr>
+              <th class="util-sub">金額</th><th class="util-sub">使用量</th>
+              <th class="util-sub">金額</th><th class="util-sub">使用量</th>
+              <th class="util-sub">金額</th><th class="util-sub">使用量</th>
+            </tr>
           </thead>
           <tbody id="utilRows"></tbody>
         </table>
       </div>
 
       <p class="expense-note">
-        その月に払った金額を、そのまま入れてください。合計と、売上に対する率は
-        アプリが計算します。<b>日報から取り込んでも、ここで入れた金額は消えません。</b>
+        その月に払った<b>金額</b>と、検針票の<b>使用量</b>を入れてください。
+        使用量は分かる分だけで大丈夫です（入れなければ表には出ません）。<br>
+        合計と、売上に対する率はアプリが計算します。
+        <b>日報から取り込んでも、ここで入れた分は消えません。</b>
       </p>
 
       <div class="modal__actions">
@@ -1204,12 +1214,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=42078e6f"></script>
+<script src="../js/config.js?v=2e09cf16"></script>
 <script src="../js/storage.js?v=14e77bf4"></script>
 <script src="../js/sync.js?v=63c286e4"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
-<script src="../js/meeting-data.js?v=36389c67"></script>
-<script src="../js/app.js?v=2cad7eaf"></script>
+<script src="../js/meeting-data.js?v=78ed94da"></script>
+<script src="../js/app.js?v=3ab669db"></script>
 </body>
 </html>

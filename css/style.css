@@ -3290,3 +3290,13 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   background: color-mix(in srgb, #d98324 10%, transparent);
   color: color-mix(in srgb, #b4631a 85%, var(--text));
 }
+
+/* 光熱費を入れる画面。ガス・水道・電気それぞれに「金額」と「使用量」が並びます */
+.util-table th.util-sub {
+  font-size: 11px; font-weight: 400; color: var(--text-sub); padding: 3px 6px;
+}
+.util-input--use {
+  background: var(--surface-2);
+  color: var(--text-sub);
+}
+.util-input--use:focus { color: var(--text); }

@@ -1490,8 +1490,23 @@ const NIPPOU_CELLS = {
 };
 /** 日報から取り込む項目（光熱費とキャッチは入りません） */
 const NIPPOU_FIELDS = ['inc', 'ex', 'guests', 'cost', 'labor'];
-/** 手で入れる項目 */
-const MEETING_UTIL_FIELDS = ['gas', 'water', 'power'];
+/**
+ * 手で入れる光熱費
+ *
+ *   key  … 金額の入れ先
+ *   use  … 使用量の入れ先
+ *   unit … 使用量の単位。★検針票と違っていたら、ここだけ直してください
+ *          （入れる画面にも、会議の表にも同じものが出ます）
+ */
+const MEETING_UTIL_ROWS = [
+  { key: 'gas',   name: 'ガス', use: 'gasUse',   unit: '㎥' },
+  { key: 'water', name: '水道', use: 'waterUse', unit: '㎥' },
+  { key: 'power', name: '電気', use: 'powerUse', unit: 'kWh' },
+];
+
+/** 手で入れる項目（金額と使用量の両方） */
+const MEETING_UTIL_FIELDS = MEETING_UTIL_ROWS
+  .reduce((a, r) => a.concat([r.key, r.use]), []);
 
 function nippouCells(storeId) {
   return NIPPOU_CELLS[storeId] || NIPPOU_CELLS_DEFAULT;

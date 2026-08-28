@@ -2213,18 +2213,19 @@ const MEETING_MODES = {
     { label: 'キャッチ', mainKind: 'yen', subKind: 'num', subUnit: '人', diffSub: 'sub', big: true,
       main: (v) => v.katch, sub: (v) => v.katchPeople },
   ],
-  // 光熱費も、もとのシートと同じように金額と率の両方を出します
-  util: [
-    { label: 'ガス', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
-      main: (v) => v.gas, sub: (v) => (v.ex ? v.gas / v.ex : null) },
-    { label: '水道', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
-      main: (v) => v.water, sub: (v) => (v.ex ? v.water / v.ex : null) },
-    { label: '電気', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
-      main: (v) => v.power, sub: (v) => (v.ex ? v.power / v.ex : null) },
+  // 光熱費も、もとのシートと同じように金額と率の両方を出します。
+  // ★その下に使用量を1行ずつ足しています。金額だけだと、値上がりで増えたのか
+  //   使いすぎで増えたのかが分かりません。使用量が並んでいれば見分けられます
+  util: MEETING_UTIL_ROWS.reduce((rows, u) => rows.concat([
+    { label: u.name, mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
+      main: (v) => v[u.key], sub: (v) => (v.ex ? v[u.key] / v.ex : null) },
+    { label: `${u.name} 使用量`, mainKind: 'num', unit: u.unit, goodWhen: 'down',
+      main: (v) => v[u.use] },
+  ]), []).concat([
     { label: '光熱費 合計', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
       main: (v) => (v.gas + v.water + v.power) || null,
       sub: (v) => (v.ex ? (v.gas + v.water + v.power) / v.ex : null) },
-  ],
+  ]),
 };
 
 /** いまどの表を出しているか */
@@ -2766,18 +2767,22 @@ function fillUtilForm() {
     name.className = 'util-name';
     name.textContent = s.name;
     tr.appendChild(name);
-    MEETING_UTIL_FIELDS.forEach((f) => {
-      const td = document.createElement('td');
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.inputMode = 'numeric';
-      input.className = 'util-input';
-      input.dataset.store = s.id;
-      input.dataset.field = f;
-      input.value = vals[s.id][f] || '';
-      input.placeholder = '0';
-      td.appendChild(input);
-      tr.appendChild(td);
+
+    // ガス・水道・電気それぞれに「金額」と「使用量」の2つを並べます
+    MEETING_UTIL_ROWS.forEach((u) => {
+      [{ f: u.key, hint: '円' }, { f: u.use, hint: u.unit }].forEach((box) => {
+        const td = document.createElement('td');
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.inputMode = 'numeric';
+        input.className = 'util-input' + (box.f === u.use ? ' util-input--use' : '');
+        input.dataset.store = s.id;
+        input.dataset.field = box.f;
+        input.value = vals[s.id][box.f] || '';
+        input.placeholder = box.hint;
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
     });
     el.utilRows.appendChild(tr);
   });
