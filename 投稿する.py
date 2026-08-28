@@ -276,7 +276,9 @@ def main():
                    help="HH:MM（既定はいまの日本時間）。試すときに使う")
     引数 = p.parse_args()
 
-    日付 = 引数.date or datetime.date.today().isoformat()
+    # ★日付も日本時間で決める。GitHubの機械はUTCなので、そのままだと
+    #   日本の深夜（UTCの昼すぎ）に「きのうの日付」で数えてしまう
+    日付 = 引数.date or datetime.datetime.now(日本).date().isoformat()
     設定 = 読む(設定の場所)
     一覧 = 読む(一覧の場所, {"店舗": {}})
     履歴 = 読む(履歴の場所, {})
