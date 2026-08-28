@@ -46,7 +46,7 @@ const el = {
   missText: $('missText'), missError: $('missError'), missSave: $('missSave'),
   missDeleteRow: $('missDeleteRow'),
   submitCard: $('submitCard'), submitStatus: $('submitStatus'),
-  submitBtn: $('submitBtn'), unsubmitBtn: $('unsubmitBtn'),
+  submitBtn: $('submitBtn'), unsubmitBtn: $('unsubmitBtn'), syncWarn: $('syncWarn'),
   reportDate: $('reportDate'), reportSummary: $('reportSummary'), reportList: $('reportList'),
   syncChip: $('syncChip'), syncInfo: $('syncInfo'), syncField: $('syncField'),
   syncLegend: $('syncLegend'),
@@ -520,6 +520,8 @@ function renderSubmit(closed, showList, dateStr, rec, items, done) {
   // 定休日で項目を出していない日は提出そのものが不要
   el.submitCard.classList.toggle('is-hidden', !showList);
   if (!showList) return;
+
+  renderSyncWarn();
 
   const submitted = !!rec.submittedAt;
   const remain = items.length - done;
@@ -4009,6 +4011,29 @@ function renderWeekSubmit(dateStr) {
   }
 }
 
+/**
+ * 同期が止まっていたら、その場で知らせる
+ *
+ * ★クローズは、同じ日を何人かで見ます。同期が止まっている端末は
+ *   「誰かが提出したのに、こちらは未提出のまま」になります。
+ *   ヘッダーの小さなしるしだけでは気づけないので、ここにも出します。
+ */
+function renderSyncWarn() {
+  if (!el.syncWarn) return;
+  if (!Sync.enabled() || !Sync.pin()) {
+    el.syncWarn.classList.add('is-hidden');
+    return;
+  }
+  const old = Sync.lastSyncAt && (Date.now() - Sync.lastSyncAt.getTime() > 5 * 60 * 1000);
+  const never = !Sync.lastSyncAt;
+  const bad = !!Sync.lastError || old || never;
+  el.syncWarn.classList.toggle('is-hidden', !bad);
+  if (!bad) return;
+  el.syncWarn.textContent = (Sync.lastError || 'しばらく同期できていません')
+    + '　ほかの人が提出しても、この画面には出ていないかもしれません。'
+    + 'ヘッダーのしるしを押すと、いま同期します。';
+}
+
 /** 提出する人を選ぶまで、週間掃除の提出ボタンは押せません */
 function refreshPeriodSubmitBtn() {
   const picked = !!el.periodStaff.value;
@@ -5772,6 +5797,9 @@ function makePdf(jpeg, w, h) {
   return new Blob(parts, { type: 'application/pdf' });
 }
 
+/** さっき取りに行った「店舗/日付」。同じ日で何度も取りに行かないための目印 */
+let lastDayPulled = '';
+
 function render() {
   el.appTitle.textContent = APP_NAME;
   el.appCompany.textContent = APP.company;
@@ -5900,6 +5928,16 @@ function render() {
   // 精算履歴から離れたら、必ず「見るだけ」に戻します
   // （ブラウザの戻るで帰ってきたときも、開けっぱなしにしないため）
   if (!isSettle) settleUnlocked = false;
+
+  // ★クローズの日を開いたら、その場で最新を取りに行きます。
+  //   「アプリを開いたのに、さっき誰かが提出した分が出ない」を防ぎます
+  if (isDay) {
+    const here = `${state.storeId}/${ymd(state.y, state.m, state.d)}`;
+    if (here !== lastDayPulled) {
+      lastDayPulled = here;
+      Sync.scheduleFlush(200);
+    }
+  }
 
   if (isShift) renderShift();
   else if (isMeeting) renderMeeting();

@@ -16,6 +16,10 @@ const Sync = {
 
   timer: null,
   running: false,
+  /** いま動いている送受信が始まった時刻。固まったのを見つけるために持ちます */
+  runningSince: 0,
+  /** これだけ待って返事が来なければ、あきらめて next を始めます */
+  hangMs: 20000,
   lastError: '',
   lastSyncAt: null,
   // アプリを開いた最初の1回は、設定（項目・担当者・定休日）を丸ごと取り直す。
@@ -69,18 +73,34 @@ const Sync = {
 
   /* -------- 送受信 -------- */
   async flush() {
-    if (!this.enabled() || this.running) return;
+    if (!this.enabled()) return;
     if (!this.pin()) return; // PIN未入力のあいだは送らない
 
+    // ★前の送受信が終わっていないときは重ねません。
+    //   ただし、電波が切れた拍子に返事が返ってこないまま固まることがあります。
+    //   そのままにすると「running のまま」で二度と同期しなくなるので、
+    //   長く待たされているものは、あきらめて次を始めます
+    if (this.running) {
+      const stuck = this.runningSince && (Date.now() - this.runningSince > this.hangMs);
+      if (!stuck) return;
+      this.lastError = '前の同期が返ってこなかったので、やり直します';
+    }
+
     this.running = true;
+    this.runningSince = Date.now();
     this._notify();
 
     const sending = this.outbox();
     const ops = this._withSummaries(sending);
 
     try {
+      // 返事が返ってこないまま止まらないよう、時間を切ります。
+      // iPhone はアプリを裏に回した拍子に、通信が返ってこないことがあります
+      const stop = new AbortController();
+      const timer = setTimeout(() => stop.abort(), this.hangMs);
       const res = await fetch(APP.syncUrl, {
         method: 'POST',
+        signal: stop.signal,
         // text/plain にしないと CORS の事前確認が入り、Apps Script が応答できません
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
@@ -91,6 +111,7 @@ const Sync = {
           ops,
         }),
       });
+      clearTimeout(timer);
       const json = await res.json();
 
       if (!json.ok) {
@@ -117,6 +138,7 @@ const Sync = {
       this.lastError = 'オフライン、または通信できません';
     } finally {
       this.running = false;
+      this.runningSince = 0;
       this._notify();
       if (this.outbox().length) this.scheduleFlush(15000); // 残っていれば後で再送
     }
@@ -273,7 +295,9 @@ const Sync = {
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) this.scheduleFlush(500);
     });
-    setInterval(() => this.flush(), 60000); // 1分おきに他店舗の更新を取りに行く
+    // ★30秒おき。同じ日を何人かで見るので、ここが遅いと
+    //   「誰かが提出したのに、こちらの画面が変わらない」ことになります
+    setInterval(() => this.flush(), 30000);
     this.scheduleFlush(300);
   },
 };
