@@ -15,6 +15,9 @@ const Sync = {
   _pinKey: APP.storageKey + ':pin',
 
   timer: null,
+  _loopTimer: null,
+  /** いま「今日のクローズ」を見ているか。true のあいだは早く取りに行きます */
+  hot: false,
   running: false,
   /** いま動いている送受信が始まった時刻。固まったのを見つけるために持ちます */
   runningSince: 0,
@@ -54,15 +57,21 @@ const Sync = {
     localStorage.setItem(this._outboxKey, JSON.stringify(list));
   },
 
-  /** 変更を送信箱に入れる（送信は少し待ってからまとめて） */
-  enqueue(op) {
+  /**
+   * 変更を送信箱に入れる
+   *
+   * ふだんは少し待ってからまとめて送ります（チェックを連打しても
+   * 通信が1回で済むように）。ただし提出のように「すぐ他の人に
+   * 見えてほしい」ものは、待たずにその場で送ります。
+   */
+  enqueue(op, atOnce) {
     if (!this.enabled()) return;
     const list = this.outbox();
     op.at = new Date().toISOString();
     list.push(op);
     this._saveOutbox(list);
     this._notify();
-    this.scheduleFlush(1500);
+    this.scheduleFlush(atOnce ? 0 : 1500);
   },
 
   scheduleFlush(delay) {
@@ -293,12 +302,32 @@ const Sync = {
     this._started = true;
     window.addEventListener('online', () => this.scheduleFlush(500));
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) this.scheduleFlush(500);
+      if (!document.hidden) this.scheduleFlush(300);
+      this._loop();   // 表に戻ったら、間隔を取り直します
     });
-    // ★30秒おき。同じ日を何人かで見るので、ここが遅いと
-    //   「誰かが提出したのに、こちらの画面が変わらない」ことになります
-    setInterval(() => this.flush(), 30000);
+    this._loop();
     this.scheduleFlush(300);
+  },
+
+  /**
+   * 取りに行く間隔を、見ている画面に合わせて変える
+   *
+   *   今日のクローズを開いている … 10秒おき（誰かの提出がすぐ出ます）
+   *   ほかの画面              … 60秒おき
+   *   アプリが裏にいる         … 取りに行かない
+   *
+   * ★ずっと10秒おきにはしません。Apps Script には1日に動かせる
+   *   時間の上限があり、6店舗ぶんの端末が始終聞きに行くと、
+   *   夕方には上限に達して**誰も同期できなくなります**。
+   *   「今そこを見ている画面」だけ早くする、という配り方にしています。
+   */
+  _loop() {
+    clearTimeout(this._loopTimer);
+    const wait = document.hidden ? 30000 : (this.hot ? 10000 : 60000);
+    this._loopTimer = setTimeout(() => {
+      if (!document.hidden) this.flush();
+      this._loop();
+    }, wait);
   },
 };
 
@@ -353,17 +382,19 @@ function summaryFor(key) {
   const _submit = Store.submit.bind(Store);
   Store.submit = function (storeId, dateStr) {
     const rec = _submit(storeId, dateStr);
+    // ★提出は待たずにすぐ送ります。ここで1.5秒ためると、
+    //   押した直後にアプリを閉じられたときに届かないことがあります
     Sync.enqueue({
       t: 'submit', k: key(storeId, dateStr),
       v: { submittedAt: rec.submittedAt, submittedBy: rec.submittedBy }, by: rec.submittedBy,
-    });
+    }, true);
     return rec;
   };
 
   const _unsubmit = Store.unsubmit.bind(Store);
   Store.unsubmit = function (storeId, dateStr) {
     const rec = _unsubmit(storeId, dateStr);
-    Sync.enqueue({ t: 'unsubmit', k: key(storeId, dateStr) });
+    Sync.enqueue({ t: 'unsubmit', k: key(storeId, dateStr) }, true);
     return rec;
   };
 

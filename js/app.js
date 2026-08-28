@@ -5955,6 +5955,13 @@ function render() {
     }
   }
 
+  // ★今日のクローズを開いているあいだだけ、10秒おきに取りに行きます。
+  //   同じ日を何人かで見るのはこの画面だけなので、ここだけ早くします
+  //   （ずっと10秒おきにすると、Apps Script の1日の上限に当たります）
+  const wasHot = Sync.hot;
+  Sync.hot = isDay && ymd(state.y, state.m, state.d) === ymd(TODAY.y, TODAY.m, TODAY.d);
+  if (Sync.hot !== wasHot && typeof Sync._loop === 'function') Sync._loop();
+
   if (isShift) renderShift();
   else if (isMeeting) renderMeeting();
   else if (isSettle) renderSettle();
