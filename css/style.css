@@ -3282,3 +3282,11 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   color: color-mix(in srgb, var(--ng) 80%, var(--text));
 }
 .sync-warn.is-hidden { display: none; }
+
+/* まだ送れていない分があるとき。赤ではなく橙にして、
+   「壊れた」ではなく「これから送られる」と分かるようにします */
+.sync-warn.is-waiting {
+  border-color: color-mix(in srgb, #d98324 45%, var(--line));
+  background: color-mix(in srgb, #d98324 10%, transparent);
+  color: color-mix(in srgb, #b4631a 85%, var(--text));
+}

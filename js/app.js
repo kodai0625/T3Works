@@ -4024,10 +4024,26 @@ function renderSyncWarn() {
     el.syncWarn.classList.add('is-hidden');
     return;
   }
-  const old = Sync.lastSyncAt && (Date.now() - Sync.lastSyncAt.getTime() > 5 * 60 * 1000);
+
+  // ★まず「まだ送れていない分」を見ます。
+  //   チェックや提出はいったんこの端末に入り、あとからまとめて送られます。
+  //   ここが残ったままアプリを閉じると、みんなの画面には出ません。
+  //   実際に、64項目ぜんぶチェックしてあるのに提出だけ届いていない日がありました
+  const waiting = Sync.outbox().length;
+  const stale = Sync.lastSyncAt && (Date.now() - Sync.lastSyncAt.getTime() > 5 * 60 * 1000);
   const never = !Sync.lastSyncAt;
-  const bad = !!Sync.lastError || old || never;
-  el.syncWarn.classList.toggle('is-hidden', !bad);
+
+  if (waiting) {
+    el.syncWarn.classList.remove('is-hidden');
+    el.syncWarn.className = 'sync-warn is-waiting';
+    el.syncWarn.textContent = `まだ送れていない入力が ${waiting}件 あります。`
+      + '電波の届くところでアプリを開いたままにしてください。'
+      + '送れるまで、ほかの人の画面には出ません。';
+    return;
+  }
+
+  const bad = !!Sync.lastError || stale || never;
+  el.syncWarn.className = 'sync-warn' + (bad ? '' : ' is-hidden');
   if (!bad) return;
   el.syncWarn.textContent = (Sync.lastError || 'しばらく同期できていません')
     + '　ほかの人が提出しても、この画面には出ていないかもしれません。'
@@ -6445,7 +6461,7 @@ function init() {
 
   // 共有版のとき：PIN未入力なら先に聞く。入力済みならすぐ同期を始める
   if (Sync.enabled()) {
-    Sync.onChange = renderSyncStatus;
+    Sync.onChange = () => { renderSyncStatus(); renderSyncWarn(); };
     if (!Sync.pin()) openPinModal();
     else Sync.start();
     return;
