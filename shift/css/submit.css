@@ -66,10 +66,20 @@ body {
   display: flex; align-items: center; gap: 10px;
   max-width: 620px; margin: 0 auto; padding: 12px 16px;
 }
-.head__title { font-size: 15px; font-weight: 700; }
+.head__title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 700; }
+/* 出し方。押した人にだけ中身を出します */
+.head__help {
+  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.28); border-radius: 999px;
+  background: rgba(255,255,255,.08); color: var(--header-fg);
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 5px 12px; cursor: pointer;
+}
+.head__help:active { background: rgba(255,255,255,.18); }
+.head__help.is-hidden { display: none; }
 /* ホームに戻るボタン。見本（テスト用）で入ったときだけ出ます */
 .head__home {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
   border: 1px solid rgba(255,255,255,.28); border-radius: 999px;
   background: rgba(255,255,255,.08); color: var(--header-fg);
   font-size: 12.5px; font-weight: 700; text-decoration: none;
@@ -331,3 +341,125 @@ body {
 }
 .period__due.is-near { color: color-mix(in srgb, var(--ng) 85%, var(--text)); }
 .period__due.is-hidden { display: none; }
+
+/* ============================================================
+ *  出し方（「？出し方」を押したときだけ出ます）
+ *
+ *  ★ふだんは畳んであります。慣れた人には毎回はじゃまになるためです。
+ *  ★スマホでは下から出る形にしています。上から出すと、iPhoneの
+ *    時計の帯に頭が隠れます（本体アプリで実際に起きました）。
+ * ============================================================ */
+.help {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.help.is-hidden { display: none !important; }
+.help__back { position: absolute; inset: 0; background: rgba(12, 15, 20, .55); }
+.help__panel {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 560px;
+  /* 上は時計の帯のぶんだけ空けます */
+  max-height: calc(100% - env(safe-area-inset-top) - 18px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 34px rgba(12, 15, 20, .3);
+}
+/* 画面の広い端末では、真ん中に浮かせます */
+@media (min-width: 620px) {
+  .help { align-items: center; }
+  .help__panel {
+    max-height: calc(100% - 48px);
+    border-bottom: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(12, 15, 20, .3);
+  }
+}
+
+/* 見出しは動かしません。長い案内を読んでいる途中でも、閉じられるように */
+.help__head {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px 12px; border-bottom: 1px solid var(--line-2);
+  background: var(--surface);
+}
+.help__title { flex: 1 1 auto; margin: 0; font-size: 17px; }
+.help__x {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--text-sub);
+  font: inherit; font-size: 14px; line-height: 1; cursor: pointer;
+}
+.help__x:active { background: var(--line-2); }
+
+.help__body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+  display: grid; gap: 10px;
+}
+
+/* -------- 入り方ひとつぶん -------- */
+.way {
+  border: 1px solid var(--line); border-left-width: 4px;
+  border-radius: 11px; background: var(--surface-2);
+  padding: 12px 13px;
+}
+.way--open   { border-left-color: var(--open); }
+.way--full   { border-left-color: var(--full); }
+.way--lunch  { border-left-color: var(--lunch); }
+.way--dinner { border-left-color: var(--dinner); }
+.way--go     { border-left-color: var(--accent); }
+.way__title {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin: 0 0 10px; font-size: 14.5px;
+}
+.way__chip {
+  display: inline-block; border-radius: 7px; padding: 3px 9px;
+  font-size: 13px; font-weight: 700; color: #fff;
+}
+.way--open   .way__chip { background: var(--open); }
+.way--full   .way__chip { background: var(--full); }
+.way--lunch  .way__chip { background: var(--lunch); }
+.way--dinner .way__chip { background: var(--dinner); }
+
+/* 手順。①②の丸数字は、書かなくても番号が付くようにしています */
+.way__steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 8px; }
+.way__steps li {
+  counter-increment: step;
+  position: relative; padding-left: 31px; min-height: 22px;
+  font-size: 14px; line-height: 1.7;
+}
+.way__steps li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: .18em;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--line); color: var(--text-sub);
+  font-size: 12px; font-weight: 700; line-height: 22px; text-align: center;
+}
+.way--go .way__steps li::before { background: var(--accent); color: #fff; }
+
+/* 画面のボタンと同じ色で出して、どれを押すのかを目で結びつけます */
+.k {
+  display: inline-block; border-radius: 5px; padding: 1px 6px;
+  font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap;
+}
+.k--open   { background: var(--open); }
+.k--full   { background: var(--full); }
+.k--lunch  { background: var(--lunch); }
+.k--dinner { background: var(--dinner); }
+.k--go     { background: var(--accent); }
+/* 暗い画面では枠の色が明るくなるので、字のほうを暗くします */
+@media (prefers-color-scheme: dark) {
+  .way__chip, .k--open, .k--full, .k--lunch, .k--dinner { color: #14161a; }
+}
+
+.help__aside { margin: 0 2px; font-size: 12.5px; color: var(--text-sub); }
+.help__last {
+  margin: 2px 0 4px; padding: 11px 13px; border-radius: 11px;
+  background: color-mix(in srgb, var(--ok) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--line));
+  color: color-mix(in srgb, var(--ok) 85%, var(--text));
+  font-size: 13.5px; font-weight: 700; text-align: center;
+}
+
+/* 出しているあいだ、うしろの画面は動かしません */
+body.is-help { overflow: hidden; }

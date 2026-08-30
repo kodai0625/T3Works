@@ -19,14 +19,19 @@
 <link rel="apple-touch-icon" href="../img/shift-icon-180.png?v=68ba81bc">
 <link rel="icon" href="../img/shift-icon-64.png?v=0937bb3b">
 
-<link rel="stylesheet" href="css/submit.css?v=2085404a">
-<meta name="app-version" content="97f937dd">
+<link rel="stylesheet" href="css/submit.css?v=dd9a48b8">
+<meta name="app-version" content="ca7b99f4">
 </head>
 <body>
 
 <header class="head">
   <div class="head__inner">
     <span class="head__title" id="headTitle">シフト提出</span>
+    <!-- ★ふだんは中身を出しません。押した人にだけ出し方を見せます。
+         いつも出しておくと、慣れた人には毎回じゃまになるためです -->
+    <button type="button" class="head__help is-hidden" id="helpBtn">
+      <span aria-hidden="true">？</span><span>出し方</span>
+    </button>
     <!-- ★見本（テスト用）の番号で入ったときだけ出します。
          アルバイトには出しません（オーナーの画面へ行けてしまうため） -->
     <a class="head__home is-hidden" id="toOwnerBtn" href="../owner/"
@@ -127,9 +132,73 @@
 
 </main>
 
+<!-- ===== 出し方 =====
+     「？出し方」を押したときだけ出ます。ふだんは畳んであります。
+     ★中身はここに直に書いてあります。変えたいときは、この下の文だけ
+       書きかえてください（JavaScript は触らなくて大丈夫です）。 -->
+<div class="help is-hidden" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="help__back" id="helpBack"></div>
+  <div class="help__panel">
+
+    <div class="help__head">
+      <h2 class="help__title" id="helpTitle">シフトの出し方</h2>
+      <button type="button" class="help__x" id="helpClose" aria-label="閉じる">✕</button>
+    </div>
+
+    <div class="help__body">
+
+      <section class="way way--open">
+        <h3 class="way__title"><span class="way__chip">立ち上げ</span>から入る人</h3>
+        <ol class="way__steps">
+          <li><b class="k k--open">立ち上げ</b> を押す</li>
+          <li><b class="k k--lunch">ランチだけ</b> か <b class="k k--full">F（通し）</b> をえらぶ</li>
+        </ol>
+      </section>
+
+      <section class="way way--full">
+        <h3 class="way__title"><span class="way__chip">F</span>で入る人</h3>
+        <ol class="way__steps">
+          <li><b class="k k--full">F</b> を押すだけ</li>
+        </ol>
+      </section>
+
+      <section class="way way--lunch">
+        <h3 class="way__title"><span class="way__chip">ランチ</span>だけの人</h3>
+        <ol class="way__steps">
+          <li><b class="k k--lunch">ランチ</b> を押す</li>
+          <li>出てきた時間をえらぶ</li>
+        </ol>
+      </section>
+
+      <section class="way way--dinner">
+        <h3 class="way__title"><span class="way__chip">ディナー</span>だけの人</h3>
+        <ol class="way__steps">
+          <li><b class="k k--dinner">ディナー</b> を押す</li>
+          <li>出てきた時間をえらぶ</li>
+        </ol>
+      </section>
+
+      <p class="help__aside">入れない日は、何も押さなくて大丈夫です。</p>
+
+      <section class="way way--go">
+        <h3 class="way__title">ぜんぶ入れ終わったら</h3>
+        <ol class="way__steps">
+          <li>いちばん下の <b class="k k--go">提出する</b> を押す</li>
+          <li>上のほうに <b>「出しました」</b> が出て、えらんだ日が並んでいれば完了です</li>
+        </ol>
+      </section>
+
+      <p class="help__last">締切までは、何度でも出し直せます。</p>
+
+      <button type="button" class="btn btn--wide" id="helpClose2">とじる</button>
+    </div>
+
+  </div>
+</div>
+
 <script src="../js/config.js?v=7755846d"></script>
 <!-- シフト表を絵に描くところ。ワークスの「JPEGで保存」と同じものです -->
 <script src="../js/shift-sheet.js?v=a35e5f7b"></script>
-<script src="js/submit.js?v=11c0e1ac"></script>
+<script src="js/submit.js?v=158f37f8"></script>
 </body>
 </html>

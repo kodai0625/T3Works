@@ -148,6 +148,9 @@ function applyOpen(res) {
   // ★見本（テスト用）の番号で入ったときだけ、ホームに戻るボタンを出します。
   //   アルバイトの番号では出しません（オーナーの画面へ行けてしまうため）
   el('toOwnerBtn').classList.toggle('is-hidden', !isShiftTester(me.name));
+  // 出し方のボタンは、番号が通ってから出します
+  // （番号を入れる画面で出しても、まだ読むところがありません）
+  el('helpBtn').classList.remove('is-hidden');
   show('form');
   renderPeriod();
 }
@@ -639,6 +642,24 @@ function renderDone() {
   });
 }
 
+/* -------- 出し方 --------
+ *
+ *  ★ふだんは出しません。分からなくなった人が「？出し方」を押したときだけ
+ *    出します。いつも画面に置くと、慣れた人には毎回じゃまになるためです。
+ *  ★中身は index.html に直に書いてあります（#help の中）。
+ *    文を変えたいときは、そちらを書きかえてください。
+ */
+function openHelp() {
+  el('help').classList.remove('is-hidden');
+  document.body.classList.add('is-help');
+  el('helpClose').focus();
+}
+
+function closeHelp() {
+  el('help').classList.add('is-hidden');
+  document.body.classList.remove('is-help');
+}
+
 /* -------- 出す -------- */
 async function send() {
   setErr('sendErr', '');
@@ -665,6 +686,13 @@ async function boot() {
   el('send').addEventListener('click', send);
   el('signOut').addEventListener('click', signOut);
   el('builtSave').addEventListener('click', saveBuiltImage);
+  el('helpBtn').addEventListener('click', openHelp);
+  el('helpClose').addEventListener('click', closeHelp);
+  el('helpClose2').addEventListener('click', closeHelp);
+  el('helpBack').addEventListener('click', closeHelp);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !el('help').classList.contains('is-hidden')) closeHelp();
+  });
   el('bootRetry').addEventListener('click', () => {
     el('bootText').textContent = '読み込んでいます…';
     el('bootSpin').classList.remove('is-hidden');
