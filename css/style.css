@@ -3387,12 +3387,14 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   box-shadow: inset 0 0 0 1px #d98324;
 }
 
+/* パティのボタンは、メモの下に置いています。印刷には出ません */
+.patty-box { display: flex; gap: 4px; margin-top: 5px; }
 .shift-patty {
-  display: block; width: 100%; margin-top: 3px;
+  flex: 1 1 0;
   border: 1px dashed var(--line); border-radius: 7px;
   background: transparent; color: var(--text-weak);
   font: inherit; font-size: 10.5px; font-weight: 700;
-  padding: 4px 2px; cursor: pointer;
+  padding: 5px 2px; cursor: pointer;
 }
 .shift-patty.is-on {
   border-style: solid; border-color: #bf5480;

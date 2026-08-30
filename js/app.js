@@ -4678,13 +4678,8 @@ function saveShiftDay(dateStr, day) {
   });
 }
 
-/** その日のパティの枠を決める（同じ枠をもう一度押すと外れます） */
-function toggleShiftPatty(dateStr, slotId) {
-  const now = shiftDayOf(shiftRec(), dateStr);
-  now.patty = now.patty === slotId ? '' : slotId;
-  saveShiftDay(dateStr, now);
-  render();
-}
+/** パティのえらび先を開いている日（開いていなければ空） */
+let pattyOpen = '';
 
 /** 出してもらった希望をぜんぶ。名簿の順に並べます */
 function shiftWishes(rec) {
@@ -5113,6 +5108,8 @@ function shiftGridBlock(rec, wishes, days) {
       box.textContent = said.join('　');
       td.appendChild(box);
     }
+
+    td.appendChild(shiftPattyBox(shiftDayOf(rec, dateStr), dateStr));
     memo.appendChild(td);
   });
   table.appendChild(memo);
@@ -5154,21 +5151,51 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   add.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, null));
   td.appendChild(add);
 
-  // パティ。ランチかディナーの、左の持ち場にだけ出します
-  // （日とその枠に付くもので、人に付くものではないため）
-  if (first && SHIFT_PATTY_SLOTS.includes(slot.id)) {
-    const patty = document.createElement('button');
-    patty.type = 'button';
-    patty.className = 'shift-patty' + (day.patty === slot.id ? ' is-on' : '');
-    patty.textContent = 'パティ';
-    patty.title = day.patty === slot.id
-      ? 'この枠のパティを外す'
-      : `この日のパティを${slot.name}にする`;
-    patty.addEventListener('click', () => toggleShiftPatty(dateStr, slot.id));
-    td.appendChild(patty);
+  return td;
+}
+
+/**
+ * メモの下に置く、パティのボタン
+ *
+ * ★日とその枠に付くもので、人に付くものではないので、マスの中ではなく
+ *   その日の下にまとめて置いています。
+ * ★印刷・PDF・JPEG にはボタンは出ません（別に組み立てているため）。
+ *   桃色のふちだけが出ます。
+ */
+function shiftPattyBox(day, dateStr) {
+  const box = document.createElement('div');
+  box.className = 'patty-box';
+
+  const now = day.patty;
+  const open = pattyOpen === dateStr;
+
+  if (!open) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'shift-patty' + (now ? ' is-on' : '');
+    b.textContent = now ? `パティ：${getShiftSlot(now).name}` : 'パティ';
+    b.title = 'この日のパティの枠をえらぶ';
+    b.addEventListener('click', () => { pattyOpen = dateStr; render(); });
+    box.appendChild(b);
+    return box;
   }
 
-  return td;
+  // 押したあと：どの枠にするかをえらびます
+  SHIFT_PATTY_SLOTS.concat(['']).forEach((id) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'shift-patty' + (now === id ? ' is-on' : '');
+    b.textContent = id ? getShiftSlot(id).name : 'なし';
+    b.addEventListener('click', () => {
+      const fresh = shiftDayOf(shiftRec(), dateStr);
+      fresh.patty = id;
+      saveShiftDay(dateStr, fresh);
+      pattyOpen = '';
+      render();
+    });
+    box.appendChild(b);
+  });
+  return box;
 }
 
 /* -------- 人をえらぶ・直す -------- */

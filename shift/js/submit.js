@@ -314,10 +314,14 @@ function dayCard(dateStr) {
 
   // 枠は4つ（立ち上げ・F・ランチ・ディナー）あるので、日付の下に1行使って並べます。
   // 日付と同じ行に押し込むと、iPhoneではボタンが小さくなりすぎて押しまちがえます
+  // 光らせるのは1つだけ。立ち上げのときは、対で入るランチ／Fは光らせません
+  //   （「立ち上げのあとは？」のほうで見せます）
+  const main = mine.some((e) => e.s === 'open') ? 'open' : ((mine[0] || {}).s || '');
+
   const slots = document.createElement('div');
   slots.className = 'day__slots';
   shiftWishSlots().forEach((slot) => {
-    const on = mine.some((e) => e.s === slot.id);
+    const on = slot.id === main;
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `slot slot--${slot.id}` + (on ? ' is-on' : '');
@@ -331,7 +335,7 @@ function dayCard(dateStr) {
   // ★立ち上げを押した人には、そのあとを聞きます。
   //   立ち上げだけ出して帰る人はいないので、ランチだけか通しかを
   //   ここで決めてもらいます（あとから組むときの聞き直しが減ります）
-  if (mine.some((e) => e.s === 'open')) {
+  if (main === 'open') {
     const row = document.createElement('div');
     row.className = 'after';
     const label = document.createElement('span');
@@ -361,6 +365,9 @@ function dayCard(dateStr) {
   mine.forEach((entry) => {
     const slot = getShiftSlot(entry.s);
     if (!slot || !slot.times.length || slot.askTime === false) return;
+    // ★立ち上げから続けて入る人は、ランチの時刻を聞きません。
+    //   10時に来ているので、そのまま続くだけだからです
+    if (main === 'open') return;
     const row = document.createElement('div');
     row.className = 'times';
     const label = document.createElement('span');
@@ -399,37 +406,40 @@ function dayCard(dateStr) {
   return card;
 }
 
+/**
+ * その日の枠をえらぶ
+ *
+ * ★1日にえらべるのは1つだけです。押すと前のえらびは消えます。
+ *   立ち上げ・F・ランチ・ディナーは、どれも「その日の入り方」なので、
+ *   重ねてえらぶ意味がありません。
+ * ★立ち上げだけは、そのあとのランチ／Fと対で持ちます
+ *   （立ち上げただけで帰る人はいないため）。
+ */
 function toggleSlot(dateStr, slotId) {
-  let list = (picked[dateStr] || []).slice();
-  const i = list.findIndex((e) => e.s === slotId);
-  if (i >= 0) {
-    list.splice(i, 1);
-    // 立ち上げを消したら、「そのあと」の聞きかけも消えるので、
-    // ランチ／Fはそのまま残します（そこだけで入りたい人もいるため）
-  } else {
-    // F はランチとディナーの両方に入るという意味なので、一緒にはえらべません
-    const clash = shiftClashes(slotId);
-    list = list.filter((e) => !clash.includes(e.s));
-    list.push({ s: slotId, t: shiftDefaultTime(slotId) });
-    // 立ち上げを押したときは、いちばん多い「そのままランチ」を先に入れておきます。
-    // 通しの人は、下の「F（通し）」を押せば入れかわります
-    if (slotId === 'open' && !list.some((e) => e.s === 'lunch' || e.s === SHIFT_FULL_ID)) {
-      list.push({ s: 'lunch', t: shiftDefaultTime('lunch') });
-    }
+  const now = picked[dateStr] || [];
+  const main = now.some((e) => e.s === 'open') ? 'open' : ((now[0] || {}).s || '');
+
+  if (main === slotId) {          // 同じものをもう一度 → その日は入れない
+    delete picked[dateStr];
+    renderPeriod();
+    return;
   }
 
-  if (list.length) picked[dateStr] = list;
-  else delete picked[dateStr];
+  const list = [{ s: slotId, t: shiftDefaultTime(slotId) }];
+  // 立ち上げは、いちばん多い「そのままランチ」を先に入れておきます。
+  // 通しの人は、下の「F（通し）」を押せば入れかわります
+  if (slotId === 'open') list.push({ s: 'lunch', t: shiftDefaultTime('lunch') });
+
+  picked[dateStr] = list;
   renderPeriod();
 }
 
 /** 立ち上げのあと、ランチだけか通しかを決める */
 function setAfterOpen(dateStr, pickId) {
-  let list = (picked[dateStr] || []).slice();
-  // ランチ・ディナー・F をいったん外してから、えらんだほうを入れます
-  list = list.filter((e) => e.s !== 'lunch' && e.s !== 'dinner' && e.s !== SHIFT_FULL_ID);
-  list.push({ s: pickId, t: shiftDefaultTime(pickId) });
-  picked[dateStr] = list;
+  picked[dateStr] = [
+    { s: 'open', t: shiftDefaultTime('open') },
+    { s: pickId, t: shiftDefaultTime(pickId) },
+  ];
   renderPeriod();
 }
 
