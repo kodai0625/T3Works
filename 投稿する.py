@@ -38,6 +38,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -120,6 +121,21 @@ def 何日前(履歴, 鍵, 日付):
 曜日の字 = "月火水木金土日"
 
 
+def 定休日の曜日(文字列):
+    """「火曜日」「火曜日・水曜日」などから、休みの曜日の字だけを取り出す。
+
+    ★「火曜日」には「日」も入っているので、ただ字をさがすと
+      **日曜も定休日**になってしまう（2026年8月30日の日曜に、
+      「本日定休日です」が出てしまった）。「〇曜」の形で取り出す。
+    """
+    文 = str(文字列 or "")
+    見つけた = re.findall(r"([月火水木金土日])曜", 文)
+    if 見つけた:
+        return set(見つけた)
+    # 「火,水」のように「曜」を書かないときのため
+    return {字 for 字 in 文 if 字 in 曜日の字}
+
+
 def 休みの店(文字列):
     """きょう休みの店を読む。
 
@@ -153,7 +169,7 @@ def きょうの休み(店舗, 日付, 店舗情報, 知らせ):
         return 言われた
     定休日 = (店舗情報.get(店舗["id"], {}).get("定休日") or "")
     番号 = datetime.date.fromisoformat(日付).weekday()
-    return "定休日" if 曜日の字[番号] in 定休日 else ""
+    return "定休日" if 曜日の字[番号] in 定休日の曜日(定休日) else ""
 
 
 def 休みの画像(並び, 種類):
@@ -179,8 +195,7 @@ def その日に出せるか(もの, 日付, 定休日):
         return True
     番号 = datetime.date.fromisoformat(日付).weekday()   # 月=0 … 日=6
     字 = 曜日の字[番号]
-    休み = [c for c in 曜日の字 if c in (定休日 or "")]
-    if 字 in 休み:
+    if 字 in 定休日の曜日(定休日):
         return False
     if "平日" in 決まり:
         return 番号 <= 4
@@ -475,6 +490,11 @@ def main():
         if 休み種類:
             if 目標 <= 0:
                 print(f"  {いま} は、まだ投稿する時刻ではありません")
+                continue
+            if 節 != 0:
+                # 休みの日は朝の1枚だけ。夕方は何も出さない（本人の指示）
+                print(f"  きょうは休み（{休み種類}）なので、夕方は出しません")
+                もう出ている = True
                 continue
             if 済みファイル:
                 print(f"  きょうは「{休み種類}」の知らせを出しています")

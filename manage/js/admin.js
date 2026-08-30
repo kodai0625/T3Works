@@ -229,6 +229,10 @@ function buildItemRow(sec, item, index, count) {
   row.dataset.itemId = item.id;
   row.addEventListener('pointerdown', (e) => startLongPress(e, row));
 
+  // ★つまむ場所。ここからなら待たずにすぐ持ち上がります。
+  //   長押しでも並べ替えられますが、それだけだと誰にも気づかれませんでした
+  row.appendChild(dragHandle(row));
+
   row.appendChild(buildNameCell(sec, item));
 
   /* 特殊な条件が付いている項目は、それと分かるようにしておく */
@@ -326,6 +330,26 @@ function startNameEdit(cell) {
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
     if (e.key === 'Escape') { input.value = before; input.blur(); }
   });
+}
+
+/**
+ * つまんで並べ替えるための取っ手
+ *
+ * 行のどこでも長押しすれば並べ替えられますが、それでは
+ * 「動かせる」ことが誰にも伝わりませんでした。目に見える取っ手を置き、
+ * ここからは**待たずにすぐ**持ち上がるようにします。
+ */
+function dragHandle(row) {
+  const grip = document.createElement('span');
+  grip.className = 'item-row__grip';
+  grip.textContent = '⠿';
+  grip.title = 'つまんで上下に動かすと、順番が変わります';
+  grip.setAttribute('aria-label', '並べ替え');
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();          // 指で押したときに文字選択が始まらないように
+    startLongPress(e, row, true);
+  });
+  return grip;
 }
 
 /** 「28日だけ」「金土のみ」「休止中」など、その項目に付いている条件をすべて返す */
@@ -591,9 +615,9 @@ async function removeSection(sec) {
 const drag = { row: null, card: null, timer: null, y: 0, active: false, raf: 0 };
 let justDragged = false; // 並べ替え直後の click で編集に入らないようにする
 
-function startLongPress(e, row) {
+function startLongPress(e, row, atOnce) {
   // ボタンを押したとき、名前を編集中のときは並べ替えを始めない
-  if (e.target.closest('.icon-btn, .every-btn')) return;
+  if (!atOnce && e.target.closest('.icon-btn, .every-btn')) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
 
@@ -601,7 +625,10 @@ function startLongPress(e, row) {
   drag.row = row;
   drag.card = row.closest('.sec-card');
   drag.y = e.clientY;
-  drag.timer = setTimeout(() => beginDrag(e), 350);
+  // 取っ手からは待ちません。行のどこかを押したときだけ0.35秒待ちます
+  // （すぐ持ち上げると、画面をスクロールしたいときに邪魔になるためです）
+  if (atOnce) beginDrag(e);
+  else drag.timer = setTimeout(() => beginDrag(e), 350);
 
   document.addEventListener('pointermove', onPointerMove, { passive: false });
   document.addEventListener('pointerup', endDrag);
