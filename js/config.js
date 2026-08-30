@@ -1279,8 +1279,23 @@ function shiftLaneOf(entry) {
   return SHIFT_LANES.some((l) => l.id === v) ? v : SHIFT_LANES[0].id;
 }
 
-/** 組む画面で、横に何日ぶん並べるか */
-const SHIFT_COLS = 2;
+/**
+ * 組む画面で、横に何日ぶん並べるか
+ *
+ * ★端末の画面の幅で決めます。スマホは2日、iPadやパソコンの
+ *   横長の画面ではもっと並べて、縦のスクロールを減らします。
+ *   1日ぶん（キッチン＋ホール）に必要な幅と、左の枠名の列から出しています。
+ */
+const SHIFT_DAY_W = 240;     // 1日ぶんの、これくらいは欲しい幅（px）
+const SHIFT_LABEL_W = 58;    // 左の枠名の列
+const SHIFT_COLS_MAX = 8;    // 印刷の1段と同じ8日まで
+
+function shiftCols(width) {
+  const w = Number(width) || 0;
+  if (!w) return 2;
+  const n = Math.floor((w - SHIFT_LABEL_W) / SHIFT_DAY_W);
+  return Math.max(2, Math.min(SHIFT_COLS_MAX, n));
+}
 
 /**
  * 印刷の表を、何段に分けるか

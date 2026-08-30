@@ -237,6 +237,9 @@ body[data-mode="mine"] .header-actions { gap: 5px; }
 
 /* ===================== ページ ===================== */
 .page { max-width: 1100px; margin: 0 auto; padding: 14px 12px 0; }
+/* シフトを組む画面だけ、画面いっぱいまで使います。
+   広い端末ほど横に多くの日を並べて、縦のスクロールを減らすためです */
+body.is-shift-wide .page { max-width: 1900px; }
 
 /* ---- 店舗見出し ---- */
 .store-head {
@@ -3015,6 +3018,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
 .shift-grid {
+  /* 1日ぶんの幅は js（SHIFT_DAY_W）と合わせています。
+     日数を増やしても、1日の幅がつぶれないようにするためです */
   border-collapse: collapse; width: 100%; min-width: 330px;
   table-layout: fixed;
 }

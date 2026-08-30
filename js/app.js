@@ -5022,8 +5022,10 @@ function renderShift() {
 
   el.shiftDays.innerHTML = '';
   const days = shiftDays(state.y, state.m, shiftHalf);
-  for (let i = 0; i < days.length; i += SHIFT_COLS) {
-    el.shiftDays.appendChild(shiftGridBlock(rec, wishes, days.slice(i, i + SHIFT_COLS)));
+  // 横に並べる日数は、その端末の画面の幅で決めます
+  const cols = shiftCols(el.shiftDays.clientWidth || window.innerWidth);
+  for (let i = 0; i < days.length; i += cols) {
+    el.shiftDays.appendChild(shiftGridBlock(rec, wishes, days.slice(i, i + cols)));
   }
 }
 
@@ -6826,6 +6828,9 @@ function render() {
   el.viewSettle.classList.toggle('is-hidden', !isSettle);
   el.viewMeeting.classList.toggle('is-hidden', !isMeeting);
   el.viewShift.classList.toggle('is-hidden', !isShift);
+  // ★シフトの画面だけ、横幅の上限（1100px）を外します。
+  //   iPadやパソコンの広い画面で、横に並べる日数を増やすためです
+  document.body.classList.toggle('is-shift-wide', isShift);
 
   // 精算履歴から離れたら、必ず「見るだけ」に戻します
   // （ブラウザの戻るで帰ってきたときも、開けっぱなしにしないため）
@@ -7139,6 +7144,17 @@ function bindEvents() {
   bindHalfWidthInput(el.shiftPickShort, 'code');
   el.shiftPrintBtn.addEventListener('click', printShiftSheet);
   el.shiftPastBtn.addEventListener('click', openShiftPast);
+  // ★画面の幅が変わったら、並べる日数を決め直します。
+  //   iPadを横にしたときや、窓の大きさを変えたときのためです。
+  //   日数が変わったときだけ組み直します（毎回だと入力中に消えます）
+  let lastCols = 0;
+  window.addEventListener('resize', () => {
+    if (!el.viewShift || el.viewShift.classList.contains('is-hidden')) return;
+    const now = shiftCols(el.shiftDays.clientWidth || window.innerWidth);
+    if (now === lastCols) return;
+    lastCols = now;
+    render();
+  });
   document.querySelectorAll('[data-shift-past-close]')
     .forEach((b) => b.addEventListener('click', closeShiftPast));
   document.querySelectorAll('[data-shift-pick-close]')
