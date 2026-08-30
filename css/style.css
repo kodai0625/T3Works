@@ -3556,10 +3556,19 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   font-size: 10px; font-weight: 700; cursor: help;
   background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);
 }
-.wish-legend {
-  margin: 0 0 14px; font-size: 11.5px; color: var(--text-sub);
+/* ★印は1つにつき1行。印の幅をそろえて、説明の頭を縦にそろえます */
+.wish-legend { margin: 0 0 14px; font-size: 11.5px; color: var(--text-sub); }
+.wish-legend__slots {
   display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin: 0 0 8px;
 }
+.wish-legend__row {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 0 4px;
+}
+.wish-legend__row:last-child { margin-bottom: 0; }
+/* 印の入るところは同じ幅にします（説明の頭がそろいます） */
+.wish-legend__row > :first-child { flex: 0 0 auto; width: 42px; text-align: center; }
 .wish-legend .wish-chip { display: inline-block; margin: 0; }
 
 /* 時間をずらして入れるボタン（立ち上げの希望が多い日に使います） */
@@ -3586,7 +3595,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 .wish-chip--lunch.is-yet  { color: var(--shift-lunch); }
 .wish-chip--dinner.is-yet { color: var(--shift-dinner); }
 .wish-chip.is-extra { outline: 2px solid var(--text); outline-offset: -2px; }
-.wish-legend__gap { flex-basis: 100%; height: 0; }
+
 
 /* -------- シフト：早上がりと、パティ --------
      早上がり … F で入れているが、早めに上がる人。橙のふちで囲みます

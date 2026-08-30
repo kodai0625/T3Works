@@ -5734,16 +5734,21 @@ function openShiftWishes() {
   wrap.appendChild(table);
   el.shiftWishList.appendChild(wrap);
 
-  /* 見かた */
-  const legend = document.createElement('p');
+  /* 見かた。★1つの印につき1行にします。
+     つないで書くと、どの印がどの説明か分からなくなりました */
+  const legend = document.createElement('div');
   legend.className = 'wish-legend';
-  legend.innerHTML = shiftWishSlots()
-    .map((sl) => `<span class="wish-chip wish-chip--${sl.id}">${sl.name}</span>`).join('')
-    + '<span class="wish-legend__gap"></span>'
-    + '<span class="wish-chip wish-chip--lunch">濃い</span>シフトに入れた'
-    + '<span class="wish-chip wish-chip--lunch is-yet">薄い</span>出したが入れていない'
-    + '<span class="wish-chip wish-chip--lunch is-extra">印</span>希望なしで入れた'
-    + '<span class="wish-note">連</span>連絡あり（押すと中身が出ます）';
+  legend.innerHTML =
+    '<p class="wish-legend__slots">'
+    + shiftWishSlots()
+      .map((sl) => `<span class="wish-chip wish-chip--${sl.id}">${sl.name}</span>`).join('')
+    + '</p>'
+    + [
+      ['<span class="wish-chip wish-chip--lunch">濃い</span>', 'シフトに入れた'],
+      ['<span class="wish-chip wish-chip--lunch is-yet">薄い</span>', '出したが入れていない'],
+      ['<span class="wish-chip wish-chip--lunch is-extra">印</span>', '希望なしで入れた'],
+      ['<span class="wish-note">連</span>', '連絡あり（押すと中身が出ます）'],
+    ].map(([mark, text]) => `<p class="wish-legend__row">${mark}<span>${text}</span></p>`).join('');
   el.shiftWishList.appendChild(legend);
 
   el.shiftWishModal.classList.remove('is-hidden');
