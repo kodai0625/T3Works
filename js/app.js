@@ -5163,12 +5163,16 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   });
 
   // ★あと何人ほしいか。人数のぶんだけ、赤いあきを名前の下に出します
-  //   （元のシフト表で、足りないところのマスを赤く塗っているのと同じ意味です）
+  //   （元のシフト表で、足りないところのマスを赤く塗っているのと同じ意味です）。
+  //   押すとそのままここに人を入れられて、入れたぶんだけ赤が消えます
   const short = shiftShortOf(day, slot.id, lane.id);
   for (let k = 0; k < short; k += 1) {
-    const gap = document.createElement('span');
+    const gap = document.createElement('button');
+    gap.type = 'button';
     gap.className = 'shift-short';
-    gap.title = `あと${short}人ほしい`;
+    gap.textContent = '＋';
+    gap.title = `あと${short}人ほしい（押すと入れられます）`;
+    gap.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, null));
     td.appendChild(gap);
   }
 
@@ -5404,6 +5408,7 @@ function renderShiftPick() {
           if (slotId === 'lunch' && full) add.f = true;
           now[slotId].push(add);
           now[slotId] = shiftSort(now[slotId]);
+          shiftFillShort(now, slotId, shiftPickAt.laneId);
           saveShiftDay(dateStr, now);
           closeShiftPick();
           render();
@@ -5423,6 +5428,7 @@ function renderShiftPick() {
             if (now[to.slot].some((e) => e.n === name)) { closeShiftPick(); return; }
             now[to.slot].push({ n: name, t: to.time, p: shiftPickAt.laneId });
             now[to.slot] = shiftSort(now[to.slot]);
+            shiftFillShort(now, to.slot, shiftPickAt.laneId);
             saveShiftDay(dateStr, now);
             closeShiftPick();
             render();
@@ -5519,6 +5525,19 @@ function setShiftEarly(on) {
   saveShiftDay(dateStr, now);
   closeShiftPick();
   render();
+}
+
+/**
+ * そのマスに1人入ったので、足りない人数を1つ減らします
+ *
+ * ★赤いあきを押して人を入れたときに、その赤が消えるようにするためです。
+ *   外したときは戻しません（そのつもりで外すこともあるためです）。
+ */
+function shiftFillShort(day, slotId, laneId) {
+  const key = shiftShortKey(slotId, laneId);
+  const n = day.short[key] || 0;
+  if (n > 1) day.short[key] = n - 1;
+  else if (n === 1) delete day.short[key];
 }
 
 /** 「あと何人ほしいか」を書き入れる */

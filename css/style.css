@@ -3062,13 +3062,18 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 .shift-chip:active { background: var(--line-2); }
 
-/* 足りない1人ぶんのあき。名前の札と同じ大きさの、赤い空きマスです */
+/* 足りない1人ぶんのあき。名前の札と同じ大きさの、赤い空きマスです。
+   押すとそのままここに人を入れられます */
 .shift-short {
   display: block; width: 100%; margin-bottom: 3px; min-height: 30px;
   border: 1px solid color-mix(in srgb, var(--ng) 40%, var(--line));
   border-radius: 7px;
   background: color-mix(in srgb, var(--ng) 20%, transparent);
+  color: color-mix(in srgb, var(--ng) 70%, var(--text-weak));
+  font: inherit; font-size: 13px; font-weight: 700;
+  padding: 6px 3px; cursor: pointer;
 }
+.shift-short:active { background: color-mix(in srgb, var(--ng) 32%, transparent); }
 
 .shift-add {
   display: block; width: 100%;
