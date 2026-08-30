@@ -1563,6 +1563,38 @@ const SHIFT_OPEN = 'open';
 /** 確定ずみ */
 const SHIFT_BUILT = 'built';
 
+/**
+ * その募集の提出期限（'YYYY-MM-DD'。決めていなければ空）
+ */
+function shiftDueOf(rec) {
+  const v = (rec.items || {})[SHIFT_PHASE_KEY];
+  const d = v && v.due;
+  return /^\d{4}-\d{2}-\d{2}$/.test(d || '') ? d : '';
+}
+
+/**
+ * 提出期限の初期値
+ *
+ * その半月が始まる5日前にします。組む時間を数日残すためです。
+ * それがもう過ぎているときは、あしたにします。
+ */
+function shiftDueDefault(y, m, half) {
+  const first = shiftDays(y, m, half)[0];
+  const [fy, fm, fd] = first.split('-').map(Number);
+  const due = new Date(fy, fm - 1, fd - 5);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return dateToStr(due > tomorrow ? due : tomorrow);
+}
+
+/** 「8月27日（木）まで」のような書き方 */
+function shiftDueLabel(dateStr, dowNames) {
+  if (!dateStr) return '';
+  const [, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
+  return `${m}月${d}日（${dowNames[dow]}）まで`;
+}
+
 /** その半月がどこまで進んだか（'' = まだ募集していない） */
 function shiftPhaseOf(rec) {
   const v = (rec.items || {})[SHIFT_PHASE_KEY];

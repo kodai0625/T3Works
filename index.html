@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
 <link rel="stylesheet" href="css/style.css?v=bd98089c">
-<meta name="app-version" content="7de0f859">
+<meta name="app-version" content="959ebfa5">
 </head>
 <body>
 
@@ -935,7 +935,7 @@
       </div>
       <p class="shift-top__note" id="shiftWishNote"></p>
       <div class="shift-top__acts">
-        <button type="button" class="btn btn--primary" id="shiftOpenBtn">シフト募集をはじめる</button>
+        <button type="button" class="btn btn--primary" id="shiftOpenBtn">シフト募集を始める</button>
         <button type="button" class="btn" id="shiftWishBtn">提出を見る</button>
         <button type="button" class="btn" id="shiftTakeBtn">希望を取り込む</button>
       </div>
@@ -1090,6 +1090,27 @@
   </div>
 </div>
 
+<!-- ===== シフト：募集を始める ===== -->
+<div class="modal is-hidden" id="shiftOpenModal">
+  <div class="modal__backdrop" data-shift-open-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="shiftOpenTitle">
+    <h2 class="modal__title" id="shiftOpenTitle">シフト募集を始める</h2>
+    <p class="doer__item" id="shiftOpenWhen"></p>
+
+    <label class="field">
+      <span class="field__label">提出の期限（この日までに出してもらいます）</span>
+      <input type="date" class="field__input" id="shiftOpenDue">
+    </label>
+
+    <p class="modal__note" id="shiftOpenNote"></p>
+
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-shift-open-close>やめる</button>
+      <button type="button" class="btn btn--primary" id="shiftOpenGo">始める</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== シフト：出してもらった希望の一覧 ===== -->
 <div class="modal is-hidden" id="shiftWishModal">
   <div class="modal__backdrop" data-shift-wish-close></div>
@@ -1223,12 +1244,12 @@
   </div>
 </div>
 
-<script src="js/config.js?v=930c7c19"></script>
+<script src="js/config.js?v=7362e3e2"></script>
 <script src="js/storage.js?v=14e77bf4"></script>
 <script src="js/sync.js?v=63c286e4"></script>
 <script src="js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="js/meeting-data.js?v=78ed94da"></script>
-<script src="js/app.js?v=ce5009d9"></script>
+<script src="js/app.js?v=545ff59e"></script>
 </body>
 </html>

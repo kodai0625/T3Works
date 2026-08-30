@@ -313,3 +313,11 @@ body {
 
 /* つながらなかったときは、ぐるぐるを止めてやり直しボタンを出します */
 .boot__spin.is-hidden { display: none; }
+
+/* 提出の期限。締切が近い日は色を変えます */
+.period__due {
+  margin: 8px 0 0; font-size: 13px; font-weight: 700;
+  color: color-mix(in srgb, var(--accent) 85%, var(--text));
+}
+.period__due.is-near { color: color-mix(in srgb, var(--ng) 85%, var(--text)); }
+.period__due.is-hidden { display: none; }

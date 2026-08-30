@@ -42,6 +42,8 @@ const me = {
 let period = null;
 /** 'open'（募集中）／'built'（確定ずみ）／'' */
 let phase = '';
+/** 提出の期限（'YYYY-MM-DD'。決まっていなければ空） */
+let due = '';
 /** いま入れている希望。{ 'YYYY-MM-DD': [{ s, t }] } */
 let picked = {};
 /** 日ごとの連絡。{ 'YYYY-MM-DD': '文' } */
@@ -68,6 +70,14 @@ async function call(body) {
   } catch (e) {
     return { ok: false, error: '電波が届いていないようです。もう一度お試しください' };
   }
+}
+
+/** きょうから期限まで、あと何日か（すぎていたら負の数） */
+function daysLeft(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = businessDate();
+  const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  return Math.round((new Date(y, m - 1, d) - today) / 86400000);
 }
 
 function isClosedOn(dateStr) {
@@ -115,6 +125,7 @@ function applyOpen(res) {
   me.store = res.store || '';
   period = res.period || null;
   phase = res.phase || '';
+  due = res.due || '';
 
   // 定休日はマネージで変えられます。変えていない店舗は null で返ってくるので、
   // そのときは config.js に書いてある初期値（バグるなら火曜）を使います。
@@ -167,6 +178,16 @@ function renderPeriod() {
 
   el('periodMain').textContent = shiftRangeLabel(period.y, period.m, period.half);
   el('periodSub').textContent = `${period.y}年${period.m}月 ${period.half === 1 ? '前半' : '後半'}`;
+
+  // 提出の期限。募集しているあいだだけ出します
+  const showDue = canSend && due;
+  el('periodDue').classList.toggle('is-hidden', !showDue);
+  if (showDue) {
+    const left = daysLeft(due);
+    el('periodDue').textContent = `提出は ${shiftDueLabel(due, DOW)}`
+      + (left === 0 ? '（きょうまでです）' : left > 0 ? `（あと${left}日）` : '（期限をすぎています）');
+    el('periodDue').className = 'period__due' + (left <= 1 ? ' is-near' : '');
+  }
 
   // ★定休日になった日の希望は落とします。マネージで定休日を足したあとに
   //   出し直されると、休みの日に入る希望が残ってしまうためです
@@ -456,6 +477,9 @@ function setTime(dateStr, slotId, t) {
 function renderDone() {
   if (!sentAt || !period) return;
   el('doneTitle').textContent = `${shiftRangeLabel(period.y, period.m, period.half)} を出しました`;
+  if (due && phase === 'open') {
+    el('doneTitle').textContent += `（${shiftDueLabel(due, DOW)}直せます）`;
+  }
   el('doneList').innerHTML = '';
 
   const days = shiftDays(period.y, period.m, period.half)

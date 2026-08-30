@@ -129,6 +129,9 @@ const el = {
   shiftWishCount: $('shiftWishCount'), shiftWishNote: $('shiftWishNote'),
   shiftWishBtn: $('shiftWishBtn'), shiftTakeBtn: $('shiftTakeBtn'),
   shiftPhase: $('shiftPhase'), shiftOpenBtn: $('shiftOpenBtn'),
+  shiftOpenModal: $('shiftOpenModal'), shiftOpenWhen: $('shiftOpenWhen'),
+  shiftOpenDue: $('shiftOpenDue'), shiftOpenNote: $('shiftOpenNote'),
+  shiftOpenGo: $('shiftOpenGo'),
   shiftBuildBtn: $('shiftBuildBtn2'),
   shiftDays: $('shiftDays'), shiftSheetBtn: $('shiftSheetBtn'),
   shiftPickModal: $('shiftPickModal'), shiftPickTitle: $('shiftPickTitle'),
@@ -4886,20 +4889,27 @@ async function onShiftTake() {
  * ★同じ店舗で募集中の半月は1つだけにします。
  *   2つ開いていると、アルバイトの提出ページにどちらを出すか決められません。
  */
-async function openShiftRecruit() {
+/** 募集を始める画面を開く（期限をここで決めます） */
+function openShiftRecruit() {
   const label = shiftRangeLabel(state.y, state.m, shiftHalf);
   const other = shiftOtherOpen();
-  const ok = await askConfirm({
-    item: `${label} の募集をはじめます`,
-    message: other
-      ? `いま募集中の ${other.label} は締め切られます。\nみんなの提出ページには ${label} が出ます。`
-      : 'みんなの提出ページに、この期間が出るようになります。',
-    okLabel: 'はじめる',
-  });
-  if (!ok) return;
+  el.shiftOpenWhen.textContent = `${state.y}年 ${label} の募集`;
+  el.shiftOpenDue.value = shiftDueOf(shiftRec()) || shiftDueDefault(state.y, state.m, shiftHalf);
+  el.shiftOpenNote.textContent = other
+    ? `いま募集中の ${other.label} は締め切られます。始めると、みんなの提出ページには ${label} が出ます。`
+    : 'みんなの提出ページに、この期間と期限が出るようになります。';
+  el.shiftOpenModal.classList.remove('is-hidden');
+}
 
+/** 募集を始める */
+function startShiftRecruit() {
+  const due = el.shiftOpenDue.value;
+  if (!due) { el.shiftOpenNote.textContent = '提出の期限を選んでください。'; return; }
+
+  const other = shiftOtherOpen();
   if (other) shiftSetPhase(other.y, other.m, other.half, SHIFT_BUILT);
-  shiftSetPhase(state.y, state.m, shiftHalf, SHIFT_OPEN);
+  shiftSetPhase(state.y, state.m, shiftHalf, SHIFT_OPEN, due);
+  el.shiftOpenModal.classList.add('is-hidden');
   render();
 }
 
@@ -4927,9 +4937,15 @@ async function buildShiftDone() {
   render();
 }
 
-function shiftSetPhase(y, m, half, v) {
-  Store.setItem(SHIFT_STORE, shiftKey(state.storeId, y, m, half), SHIFT_PHASE_KEY, {
-    v, at: new Date().toISOString(),
+function shiftSetPhase(y, m, half, v, due) {
+  const key = shiftKey(state.storeId, y, m, half);
+  // 期限は、渡されなければ前のものをそのまま残します
+  // （確定するときに、募集のときに決めた期限を消さないため）
+  const keep = due === undefined
+    ? shiftDueOf(Store.getDay(SHIFT_STORE, key))
+    : (due || '');
+  Store.setItem(SHIFT_STORE, key, SHIFT_PHASE_KEY, {
+    v, at: new Date().toISOString(), due: keep,
   });
 }
 
@@ -4963,7 +4979,7 @@ function renderShift() {
   el.shiftPhase.textContent = shiftPhaseText(phase);
   el.shiftPhase.className = 'shift-phase shift-phase--' + (phase || 'yet');
   el.shiftOpenBtn.classList.toggle('is-hidden', phase === SHIFT_OPEN);
-  el.shiftOpenBtn.textContent = phase === SHIFT_BUILT ? '募集をやり直す' : 'シフト募集をはじめる';
+  el.shiftOpenBtn.textContent = phase === SHIFT_BUILT ? '募集をやり直す' : 'シフト募集を始める';
   // 確定は、募集をはじめてからでないと押せません
   el.shiftBuildBtn.disabled = phase !== SHIFT_OPEN;
   el.shiftBuildBtn.textContent = phase === SHIFT_BUILT
@@ -4980,6 +4996,11 @@ function renderShift() {
   } else {
     const yet = names.filter((n) => !wishes.some((w) => w.name === n && w.sentAt));
     el.shiftWishNote.textContent = yet.length ? `まだの人：${yet.join('・')}` : '全員そろいました';
+  }
+  // 募集中は、決めた期限も添えます
+  const due = shiftDueOf(rec);
+  if (phase === SHIFT_OPEN && due) {
+    el.shiftWishNote.textContent += `　／　提出 ${shiftDueLabel(due, DOW)}`;
   }
 
   el.shiftDays.innerHTML = '';
@@ -6534,6 +6555,9 @@ function bindEvents() {
   el.shiftWishBtn.addEventListener('click', openShiftWishes);
   el.shiftTakeBtn.addEventListener('click', onShiftTake);
   el.shiftOpenBtn.addEventListener('click', openShiftRecruit);
+  el.shiftOpenGo.addEventListener('click', startShiftRecruit);
+  document.querySelectorAll('[data-shift-open-close]')
+    .forEach((b) => b.addEventListener('click', () => el.shiftOpenModal.classList.add('is-hidden')));
   el.shiftBuildBtn.addEventListener('click', buildShiftDone);
   el.shiftSheetBtn.addEventListener('click', openShiftSheet);
   el.shiftPdfBtn.addEventListener('click', saveShiftPdf);
