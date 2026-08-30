@@ -5129,7 +5129,8 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     chip.type = 'button';
     chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
     chip.textContent = shiftNameText(slot.id, e);
-    if (e.f) chip.title = 'F（ランチからディナーまで通し）' + (e.early ? '・早上がり' : '');
+    const note = [e.f ? 'F（ランチからディナーまで通し）' : '', e.early ? '早上がり' : ''].filter(Boolean);
+    if (note.length) chip.title = note.join('・');
     chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
     td.appendChild(chip);
   });
@@ -5285,10 +5286,10 @@ function renderShiftPick() {
     el.shiftPickFullOn.classList.toggle('is-on', on);
   }
 
-  /* 早上がり。F で入れている人だけに出します */
-  const isFull = !!(entry && entry.f);
-  el.shiftPickEarlyField.classList.toggle('is-hidden', !isFull);
-  if (isFull) {
+  /* 早上がり。もう入っている人なら、どの枠でも出します
+     （立ち上げ・ランチ・ディナーでも早めに上がることがあるため） */
+  el.shiftPickEarlyField.classList.toggle('is-hidden', index === null);
+  if (entry) {
     el.shiftPickEarlyOff.classList.toggle('is-on', !entry.early);
     el.shiftPickEarlyOn.classList.toggle('is-on', !!entry.early);
   }
@@ -5418,7 +5419,7 @@ function applyShiftFreeTime() {
   if (to === 'open') to = slotId;
   // ★F（通し）の人を17時以降にずらしたら、それはもう通しではありません。
   //   通しの印（灰色の塗り）を外して、ディナーの枠へ移します
-  if (entry.f && to === 'dinner') { delete entry.f; delete entry.early; }
+  if (entry.f && to === 'dinner') delete entry.f;
   else if (entry.f) to = slotId;
   if (to && to !== slotId) {
     now[slotId].splice(index, 1);
@@ -5460,13 +5461,8 @@ function setShiftFull(on) {
   }
   const now = shiftDayOf(shiftRec(), dateStr);
   const e = { ...now[slotId][index] };
-  if (on) {
-    e.f = true;
-  } else {
-    // 通しでなくなれば「早上がり」も意味を失うので、一緒に外します
-    delete e.f;
-    delete e.early;
-  }
+  if (on) e.f = true;
+  else delete e.f;
   now[slotId][index] = e;
   saveShiftDay(dateStr, now);
   closeShiftPick();
