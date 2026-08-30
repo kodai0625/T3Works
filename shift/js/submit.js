@@ -257,7 +257,8 @@ function renderBuilt() {
     } else {
       let any = false;
       SHIFT_SLOTS.forEach((slot) => {
-        const list = (day && day[slot.id]) || [];
+        // 見本（テスト用）の人は、決まったシフトにも出しません
+        const list = ((day && day[slot.id]) || []).filter((e) => !isShiftTester(e.n));
         if (!list.length) return;
         any = true;
         const line = document.createElement('p');
@@ -322,7 +323,7 @@ function builtLayout(measure) {
       block.rows.push({ slot: '', kind: '', names: [{ t: '定休日', me: false }] });
     } else {
       SHIFT_SLOTS.forEach((slot) => {
-        const list = (day && day[slot.id]) || [];
+        const list = ((day && day[slot.id]) || []).filter((e) => !isShiftTester(e.n));
         if (!list.length) return;
         measure.font = builtFont(30, false);
         const people = list.map((e) => ({

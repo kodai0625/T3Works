@@ -3157,23 +3157,29 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 /* 日付と曜日は1行にまとめたので、別行のスタイルは使いません */
 /* ★名前と時刻だけ左よせ。名前の長さがそろっていないので、真ん中ぞろえだと
    1日ごとに出だしがずれて、表がガタガタに見えます。
-   日付・持ち場・定休日・メモは、今までどおり真ん中ぞろえです */
-.shift-sheet__name { display: block; white-space: nowrap; text-align: left; }
-/* 時刻の数字。画面では名前と同じ大きさで、紙のときだけ小さくします */
-.shift-sheet__at { font-style: normal; margin-right: .3em; }
+   日付・持ち場・定休日・メモは、今までどおり真ん中ぞろえです。
+   ★1人分は「時刻の段」と「名前の段」の2段です。1行に並べると
+     1マス17.9mmでは名前が6ptほどになって読めませんでした。 */
+.shift-sheet__name {
+  display: block; white-space: nowrap; text-align: left;
+  margin-bottom: .3em;
+}
+.shift-sheet__name:last-child { margin-bottom: 0; }
+.shift-sheet__at {
+  display: block; font-style: normal;
+  font-size: .62em; line-height: 1.15;
+  color: var(--text-sub);
+}
+.shift-sheet__who { display: block; font-weight: 600; line-height: 1.2; }
 
 /* -------- 紙に出すときの、1人分の組み方 --------
    ★「測り場」と「紙」で同じ指定にしてあります。
      どちらかだけ直すと、測った幅と実際の幅がずれて、
      名前がマスからはみ出します（前にそうなりました）。 */
-.shift-sheet-measure .shift-sheet__at,
-body.print-shift .shift-sheet__at {
-  font-size: .72em; margin-right: .22em;
-}
 /* 字の大きさで変わらない px の余白は、測るときの邪魔になるので外します */
 .shift-sheet-measure .shift-sheet__name { margin: 0; padding: 0; }
-.shift-sheet-measure .shift-sheet__name.is-full::after,
-body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
+.shift-sheet-measure .shift-sheet__name.is-full .shift-sheet__who::after,
+body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size: .8em; }
 
 /* 名前の幅を測るためだけの、見えない場所。
    100px で並べて、その幅から「何倍あるか」を出します */
@@ -3261,7 +3267,7 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
   body.print-shift .shift-sheet__lane { font-size: 5.5pt !important; padding: 0.2mm 0 !important; }
 
   /* 1行ぶんの高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
-  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 8pt; }
+  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 10pt; }
   body.print-shift .shift-sheet tr:nth-child(2) th { height: 4mm; }
   body.print-shift .shift-sheet tr:nth-child(3) td { height: 10mm; }
   body.print-shift .shift-sheet tr:nth-child(4) td,
@@ -3275,7 +3281,7 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
   /* ★メモの中身。画面用の 11px（＝8.25pt）のままだと、名前より大きく出て
      すぐ2行になり、表が下に伸びて2枚になります */
   body.print-shift .shift-sheet__memo { font-size: 6pt; line-height: 1.3; }
-  /* 名前の大きさは js が決めます（マスの幅に1行で収まる大きさ）。
+  /* 名前の大きさは js が決めます（マスの幅に収まる大きさ）。
      ★札はマスのふち（日付やキッチン／ホールの線）までいっぱいに広げます。
        前は字のまわりだけを囲んでいたので、早上がりの橙のふちが
        時刻の数字にかぶっていました。線は外へ、字は少し内がわへ */
@@ -3364,9 +3370,10 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
   margin: 0 -2px;
   padding: 0 2px;
 }
-.shift-sheet__name.is-full::after {
+/* ★F は名前の段のうしろに付けます（時刻の段のうしろだと離れて見えます） */
+.shift-sheet__name.is-full .shift-sheet__who::after {
   content: ' F';
-  font-size: 9.5px;
+  font-size: .8em;
   font-weight: 800;
   /* ★灰色の塗りの上に出るので、薄いと紙で読めません。濃い色にします */
   color: var(--text);

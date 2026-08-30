@@ -1388,6 +1388,23 @@ function shiftShortMap(v) {
   return out;
 }
 
+/**
+ * 見本・テスト用の人か
+ *
+ * ★提出ページがちゃんと動いているかを確かめるための番号です。
+ *   名前に「テスト」が入っている人は、Mine やワークスの
+ *   シフト作成にはいっさい出しません（名簿の数にも入れません）。
+ *   マネージの「シフトに入る人」には出るので、番号は配れます。
+ */
+function isShiftTester(name) {
+  return String(name || '').indexOf('テスト') >= 0;
+}
+
+/** シフトを組むときに出す人だけ（見本は外します） */
+function shiftBuildNames(storeId) {
+  return ShiftStaff.list(storeId).filter((n) => !isShiftTester(n));
+}
+
 /** そのマスで、あと何人ほしいか */
 function shiftShortOf(day, slotId, laneId) {
   return (day.short || {})[shiftShortKey(slotId, laneId)] || 0;
@@ -1514,10 +1531,12 @@ function shiftNameText(slotId, entry) {
 /**
  * 印刷の1マスで、時刻と名前を分けたもの
  *
- * ★1段8日だと1マスが17.8mmしかありません。時刻の数字を名前より
- *   小さく出すことで、そのぶん名前を大きくできます（SHIFT_TIME_SCALE）。
+ * ★1段8日だと1マスが17.8mmしかありません。時刻と名前を1行に並べると
+ *   名前が6ptほどまで小さくなって読めなかったので、**2段に分けます**。
+ *   時刻を名前の上に小さく置くと、名前は1マスの幅をまるごと使えるので
+ *   9pt以上にできます。どの時刻が誰のものかは、上下の並びで分かります。
  */
-const SHIFT_TIME_SCALE = 0.72;
+const SHIFT_TIME_SCALE = 0.62;
 
 /** F（通し）の人の名前のうしろに付く「 F」のぶんの幅 */
 const SHIFT_FULL_MARK_EM = 0.9;
@@ -1532,10 +1551,15 @@ function shiftNameParts(slotId, entry) {
   };
 }
 
-/** その1人分が、名前の大きさの何倍の幅になるか */
+/**
+ * その1人分が、名前の大きさの何倍の幅になるか
+ *
+ * ★時刻は名前の上の段に出すので、幅は「名前のほうが広ければ名前」で決まります。
+ */
 function shiftNameEm(parts) {
-  const t = parts.time ? shiftTextEm(parts.time) * SHIFT_TIME_SCALE + 0.22 : 0;
-  return t + shiftTextEm(parts.name) + (parts.full ? SHIFT_FULL_MARK_EM : 0);
+  const name = shiftTextEm(parts.name) + (parts.full ? SHIFT_FULL_MARK_EM : 0);
+  const time = parts.time ? shiftTextEm(parts.time) * SHIFT_TIME_SCALE : 0;
+  return Math.max(name, time);
 }
 
 /* -------- 祝日と、肉の日 -------- */

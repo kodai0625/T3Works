@@ -4654,11 +4654,14 @@ function shiftDayOf(rec, dateStr) {
   const v = (rec.items || {})[shiftDayKey(dateStr)] || {};
   // 時刻の入っていない人は、その枠のふだんの時刻として読みます
   // （時刻なしで入れていたころの分が残っていても、表が空白になりません）
-  const arr = (id, x) => shiftSort((Array.isArray(x) ? x : []).map((e) => (
-    e && (e.t === '' || e.t === undefined || e.t === null)
-      ? { ...e, t: shiftDefaultTime(id) }
-      : e
-  )));
+  // ★見本（テスト用）の人は、組んだ表にも出しません
+  const arr = (id, x) => shiftSort((Array.isArray(x) ? x : [])
+    .filter((e) => e && !isShiftTester(e.n))
+    .map((e) => (
+      e.t === '' || e.t === undefined || e.t === null
+        ? { ...e, t: shiftDefaultTime(id) }
+        : e
+    )));
   return {
     open: arr('open', v.open),
     lunch: arr('lunch', v.lunch),
@@ -4692,12 +4695,18 @@ function saveShiftDay(dateStr, day) {
 /** パティのえらび先を開いている日（開いていなければ空） */
 let pattyOpen = '';
 
-/** 出してもらった希望をぜんぶ。名簿の順に並べます */
+/**
+ * 出してもらった希望をぜんぶ。名簿の順に並べます
+ *
+ * ★見本（テスト用）の人は、ここで外します。ここを通ってから
+ *   「取り込む」「提出を見る」「入る人をえらぶ」に行くので、1か所で足ります。
+ */
 function shiftWishes(rec) {
-  const order = ShiftStaff.list(state.storeId);
+  const order = shiftBuildNames(state.storeId);
   const out = [];
   Object.keys(rec.items || {}).forEach((k) => {
     if (k.indexOf('w:') !== 0) return;
+    if (isShiftTester(k.slice(2))) return;
     const v = rec.items[k] || {};
     out.push({
       name: k.slice(2),
@@ -4744,7 +4753,7 @@ function shiftTakenSet(rec) {
 
 /** 枠の中の並び順。早い時刻から、同じ時刻なら名簿の順 */
 function shiftSort(list) {
-  const order = ShiftStaff.list(state.storeId);
+  const order = shiftBuildNames(state.storeId);
   return list.slice().sort((a, b) => {
     // 時刻が入っていない人（F など）は、その枠のいちばん下に置きます
     const ta = a.t === '' || a.t === undefined ? 99 : Number(a.t);
@@ -4978,7 +4987,7 @@ function renderShift() {
   el.shiftNavSub.textContent = `${state.y}年${state.m}月 ${shiftHalf === 1 ? '前半' : '後半'}`;
 
   const rec = shiftRec();
-  const names = ShiftStaff.list(state.storeId);
+  const names = shiftBuildNames(state.storeId);
   const wishes = shiftWishes(rec);
   const sent = wishes.filter((w) => w.sentAt).length;
   const phase = shiftPhaseOf(rec);
@@ -5391,7 +5400,7 @@ function renderShiftPick() {
     SHIFT_SLOTS.forEach((sl) => day[sl.id].forEach((e) => already.push(e.n)));
     const wish = shiftWishInto(shiftWishes(rec), dateStr, slotId)
       .filter((w) => !already.includes(w.name));
-    const others = ShiftStaff.list(state.storeId)
+    const others = shiftBuildNames(state.storeId)
       .filter((n) => !already.includes(n) && !wish.some((w) => w.name === n));
 
     const addGroup = (title, list, isWish) => {
@@ -5608,7 +5617,7 @@ function removeShiftPick() {
  */
 function openShiftWishes() {
   const rec = shiftRec();
-  const names = ShiftStaff.list(state.storeId);
+  const names = shiftBuildNames(state.storeId);
   const wishes = shiftWishes(rec);
   const days = shiftDays(state.y, state.m, shiftHalf);
   const open = days.filter((d) => !shiftClosedOn(d));
@@ -5856,7 +5865,10 @@ function shiftNameSpan(n) {
     t.textContent = n.parts.time;
     one.appendChild(t);
   }
-  one.appendChild(document.createTextNode(n.parts.name));
+  const who = document.createElement('b');
+  who.className = 'shift-sheet__who';
+  who.textContent = n.parts.name;
+  one.appendChild(who);
   return one;
 }
 
@@ -5911,7 +5923,9 @@ function shiftSheetNamePt(model, perDay) {
   if (em <= 0) return 8;
   // 1mm = 2.8346ポイント。大きくても8pt（それ以上は日付より目立ちます）。
   // 0.97 は念のための余裕です（けい線の太さや、端末ごとの丸めのぶん）
-  const pt = Math.min(8, (cellMm * 2.8346 / em) * 0.97);
+  // 2段に分けたので、名前は1マスの幅をまるごと使えます。
+  // 大きくても9.5pt（日付の見出しより目立たせないため）
+  const pt = Math.min(9.5, (cellMm * 2.8346 / em) * 0.97);
   return Math.max(5, Math.floor(pt * 10) / 10);
 }
 
@@ -6184,8 +6198,10 @@ function drawShiftSheet(canvas, scale) {
   const colW = gridW / cols;
   // 名前が1行に収まる大きさ。紙と同じ考え方です（shiftSheetNamePt）
   const nameEm = shiftCanvasEm(model, SHEET_FONT);
-  const nameSize = Math.max(9, Math.min(16, nameEm ? ((colW - 12) / nameEm) * 0.98 : 16));
-  const lh = Math.round(nameSize + 7);
+  const nameSize = Math.max(10, Math.min(21, nameEm ? ((colW - 12) / nameEm) * 0.98 : 21));
+  const timeSize = Math.max(8, nameSize * SHIFT_TIME_SCALE);
+  // 1人分の高さ＝時刻の段＋名前の段＋すきま
+  const lh = Math.round(timeSize * 1.25 + nameSize * 1.2 + 6);
 
   const center = (text, x, w, yy, size, bold, color) => {
     cx.fillStyle = color || '#111418';
@@ -6194,32 +6210,37 @@ function drawShiftSheet(canvas, scale) {
     cx.fillText(text, x + w / 2, yy, w - 6);
     cx.textAlign = 'left';
   };
-  // 1人分（時刻＋名前）。時刻だけ小さく描いて、2つで真ん中にそろえます
-  const drawName = (parts, x, w, yy, size) => {
-    const small = size * SHIFT_TIME_SCALE;
+  /**
+   * 1人分（時刻の段＋名前の段）
+   *
+   * ★1行に並べると名前が小さくなりすぎるので、時刻を上の段に小さく置きます。
+   *   そのぶん名前を大きくできて、どの時刻が誰のものかも上下で分かります。
+   * ★左よせ。名前の長さがそろっていないので、真ん中ぞろえだと
+   *   1日ごとに出だしがずれて、表がガタガタに見えます。
+   */
+  const drawName = (parts, x, w, top, size) => {
+    const small = Math.max(8, size * SHIFT_TIME_SCALE);
+    const tx = x + 7;
+    const room = w - 12;
     cx.textAlign = 'left';
-    cx.fillStyle = '#111418';
-    cx.font = font(small, false);
-    const tw = parts.time ? cx.measureText(parts.time).width + size * 0.22 : 0;
-    cx.font = font(size, false);
-    const nw = cx.measureText(parts.name).width;
-    // ★左よせ。名前の長さがそろっていないので、真ん中ぞろえだと
-    //   1日ごとに出だしがずれて、表がガタガタに見えます
-    const tx0 = x + 7;
-    let tx = tx0;
+    let ny = top;
     if (parts.time) {
+      cx.fillStyle = '#5b6169';
       cx.font = font(small, false);
-      cx.fillText(parts.time, tx, yy + (size - small) * 0.12);
-      tx += tw;
+      cx.fillText(parts.time, tx, top + small * 0.75, room);
+      ny = top + small * 1.25;
     }
+    cx.fillStyle = '#111418';
     cx.font = font(size, false);
-    cx.fillText(parts.name, tx, yy, x + w - 5 - tx);
+    const base = ny + size * 0.62;
+    cx.fillText(parts.name, tx, base, room);
     // F（通し）の印。塗りだけでなく字でも分かるようにします（紙の表と同じ）
     if (parts.full) {
+      const nw = cx.measureText(parts.name).width;
       // ★灰色の塗りの上に出るので、薄いと読めません。濃い色で書きます
       cx.fillStyle = '#111418';
-      cx.font = font(size * 0.85, true);
-      cx.fillText(' F', tx + nw, yy);
+      cx.font = font(size * 0.8, true);
+      cx.fillText(' F', tx + nw, base);
     }
   };
   // 縦書き。紙の枠名（立ち上げ・ランチ・ディナー）と同じ形にします
@@ -6345,28 +6366,28 @@ function drawShiftSheet(canvas, scale) {
             cx.strokeRect(x + 1.5, y + 1.5, w2 - 3, rowH - 3);
           }
           cell.names.forEach((n, ni) => {
-            const ty = y + lh / 2 + 4 + ni * lh;
-            if (ty > y + rowH - 4) return;      // 入りきらない分は出しません
+            const top = y + 3 + ni * lh;
+            if (top + lh > y + rowH) return;    // 入りきらない分は出しません
             // ★塗りもふちも、マスの幅いっぱいに引きます。字のまわりだけだと
             //   橙のふちが時刻の数字にかぶります（紙の表と同じ考え方です）
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
-              cx.fillRect(x + 1, ty - lh / 2, colW - 2, lh - 3);
+              cx.fillRect(x + 1, top, colW - 2, lh - 4);
             }
             // 早上がりは橙のふち。塗りの上から描くので、通しでも分かります
             if (n.early) {
               cx.strokeStyle = '#d98324';
               cx.lineWidth = 2;
-              cx.strokeRect(x + 2, ty - lh / 2 + 1, colW - 4, lh - 5);
+              cx.strokeRect(x + 2, top + 1, colW - 4, lh - 6);
             }
-            drawName(n.parts, x, colW, ty, nameSize);
+            drawName(n.parts, x, colW, top + 2, nameSize);
           });
           // 足りない人数のぶんだけ、名前の下に赤いあきを描きます
           for (let k = 0; k < cell.short; k += 1) {
-            const ty = y + lh / 2 + 4 + (cell.names.length + k) * lh;
-            if (ty > y + rowH - 4) break;
+            const top = y + 3 + (cell.names.length + k) * lh;
+            if (top + lh > y + rowH) break;
             cx.fillStyle = '#f2c4c4';
-            cx.fillRect(x + 1, ty - lh / 2, colW - 2, lh - 3);
+            cx.fillRect(x + 1, top, colW - 2, lh - 4);
           }
         });
       });
