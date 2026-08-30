@@ -43,11 +43,11 @@ function shiftNameEmAt(parts, family) {
   // F の印は太字で、名前の0.8倍の大きさで出します
   const full = parts.full ? shiftMeasureText(' F', family, R, true) * 0.8 : 0;
   const time = parts.time ? shiftMeasureText(parts.time, family, R, false) : 0;
-  // 時刻は名前の上の段なので、広いほうの段で決まります
+  // 時刻は名前の上の段なので、広い方の段で決まります
   return Math.max(name + full, time * SHIFT_TIME_SCALE) / R;
 }
 
-/** 絵（JPEG・PDF）で、いちばん幅のいる1人分 */
+/** 絵（JPEG・PDF）で、一番幅のいる1人分 */
 function shiftCanvasEm(model, family) {
   let em = 0;
   model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
@@ -75,7 +75,7 @@ function shiftNameSpan(n) {
 }
 
 /**
- * 紙で、いちばん幅のいる1人分（名前の大きさの何倍か）
+ * 紙で、一番幅のいる1人分（名前の大きさの何倍か）
  *
  * ★字の形から計算するのではなく、見えないところに本物と同じ形で並べて測ります。
  *   計算だと「F」の印やすき間の分が合わず、その人だけはみ出していました。
@@ -115,10 +115,10 @@ function shiftPrintEm(model) {
  *
  * ★A4横の紙の幅は297mm。左右の余白3mmずつと、枠名の列7mmを引いた残りを、
  *   日数×2（キッチンとホール）で割ったのが1マスの幅です。
- *   1段8日だと17.8mmしかないので、いちばん長い名前に合わせて小さくします。
+ *   1段8日だと17.8mmしかないので、一番長い名前に合わせて小さくします。
  */
 /**
- * その表で、いちばん人が入っているマスの人数（枠ごと）
+ * その表で、一番人が入っているマスの人数（枠ごと）
  *
  * ★足りない印の赤いあきも、1人分の場所を取るので数に入れます。
  */
@@ -150,7 +150,7 @@ function shiftPersonMm(pt) {
  * そのマスの名前の大きさ
  *
  * ★人がたくさん入っているマスだけ、そのマスの中で小さくします。
- *   前は「いちばん多いマス」に表全部を合わせていたので、
+ *   前は「一番多いマス」に表全部を合わせていたので、
  *   7人入る日が1つあるだけで、ほかの日まで小さくなっていました。
  */
 function shiftCellPt(pt, count, roomMm) {
@@ -179,7 +179,7 @@ function shiftSheetMetrics(model, perDay) {
 
   const need = shiftSlotNeed(model);
   const openNeed = Math.max(1, need[0] || 0);
-  // ランチとディナーは、多いほうに合わせてそろえます
+  // ランチとディナーは、多い方に合わせてそろえます
   const share = Math.max(3, need[1] || 0, need[2] || 0);
   // ★名前の大きさは「マスの幅」だけで決めます。高さでは減らしません。
   //   高さが足りないマスは、そのマスの中だけ小さくします（shiftCellPt）。
@@ -197,7 +197,7 @@ function shiftSheetMetrics(model, perDay) {
 
   return {
     pt,
-    // その半月でいちばん多いマスの人数（何人まで入るかの目安に使います）
+    // その半月で一番多いマスの人数（何人まで入るかの目安に使います）
     share,
     openMm: Math.round(openMm * 10) / 10,
     slotMm: Math.round(slotMm * 10) / 10,
@@ -209,7 +209,7 @@ function shiftSheetMetrics(model, perDay) {
  *
  *  同じ中身を、A4の横向きに合わせた大きさで描きます。
  *  画面のHTMLを写し取るのではなく、数字から描き直しています。
- *  そのほうが、端末や字の設定で崩れません。
+ *  その方が、端末や字の設定で崩れません。
  */
 const SHEET_PX = { w: 1754, h: 1240 };   // A4横 150dpi（組み立てるときの目盛り）
 /**
@@ -268,8 +268,8 @@ function drawShiftSheet(canvas, model, scale) {
 
   // ★紙のふちぎりぎりまで使います。印刷に出ない程度の余白だけ残します
   const pad = 14;
-  // 列の幅は「いちばん多い日数」で決めます。後ろの段が少なくても、
-  // 前と同じ幅にそろえたほうが、続きの表として読めるからです
+  // 列の幅は「一番多い日数」で決めます。後ろの段が少なくても、
+  // 前と同じ幅にそろえた方が、続きの表として読めるからです
   const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
   const cols = perDay * SHIFT_LANES.length;
   // 左の枠名は、紙と同じく縦書きにします。1文字分の幅で足りるので、
@@ -379,7 +379,7 @@ function drawShiftSheet(canvas, model, scale) {
   //   それより多く入っている日（足りない人数の赤いあきも数に入れます）は、
   //   その日に合わせて広げます（そうしないと下が切れます）
   const need = shiftSlotNeed(model);
-  // ★ランチとディナーは、多いほうに合わせて同じ高さにします
+  // ★ランチとディナーは、多い方に合わせて同じ高さにします
   //   （どちらにも同じ人数を入れられるように）
   const share = Math.max(3, need[1] || 0, need[2] || 0);
   const weight = SHIFT_SLOTS.map((slot, si) => (slot.id === 'open'

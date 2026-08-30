@@ -450,7 +450,7 @@ function dayCard(dateStr) {
   // 枠は4つ（立ち上げ・F・ランチ・ディナー）あるので、日付の下に1行使って並べます。
   // 日付と同じ行に押し込むと、iPhoneではボタンが小さくなりすぎて押しまちがえます
   // 光らせるのは1つだけ。立ち上げのときは、対で入るランチ／Fは光らせません
-  //   （「立ち上げのあとは？」のほうで見せます）
+  //   （「立ち上げのあとは？」の方で見せます）
   const main = mine.some((e) => e.s === 'open') ? 'open' : ((mine[0] || {}).s || '');
 
   const slots = document.createElement('div');
@@ -561,7 +561,7 @@ function toggleSlot(dateStr, slotId) {
   }
 
   const list = [{ s: slotId, t: shiftDefaultTime(slotId) }];
-  // 立ち上げは、いちばん多い「そのままランチ」を先に入れておきます。
+  // 立ち上げは、一番多い「そのままランチ」を先に入れておきます。
   // 通しの人は、下の「F（通し）」を押せば入れかわります
   if (slotId === 'open') list.push({ s: 'lunch', t: shiftDefaultTime('lunch') });
 

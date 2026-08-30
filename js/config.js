@@ -117,7 +117,7 @@ function bindHalfWidthInput(input, kind) {
   input.addEventListener('blur', fix);
 }
 
-/** 数字の欄むけ（いちばんよく使うので短く呼べるようにしています） */
+/** 数字の欄むけ（一番よく使うので短く呼べるようにしています） */
 function bindNumericInput(input) {
   bindHalfWidthInput(input, 'number');
 }
@@ -1205,7 +1205,7 @@ const SHIFT_SLOTS = [
  *
  * ★立ち上げに入れた人の時刻を手で書き換えたとき、これを見て
  *   自動で枠を移します。10:00の欄に「18:00」と書いてあるより、
- *   ディナーの欄に入っていたほうが読みまちがえません。
+ *   ディナーの欄に入っていた方が読みまちがえません。
  */
 function shiftSlotByTime(t) {
   const n = Number(t);
@@ -1223,7 +1223,7 @@ function shiftSlotByTime(t) {
  */
 const SHIFT_PATTY_SLOTS = ['lunch', 'dinner'];
 
-/** 立ち上げからあふれた人を回す先（ランチの、いちばん早い時刻） */
+/** 立ち上げからあふれた人を回す先（ランチの、一番早い時刻） */
 function shiftSpillTo() {
   const lunch = SHIFT_SLOTS.find((x) => x.id === 'lunch');
   return { slot: lunch.id, time: lunch.pick, label: `${shiftTimeText(lunch.pick)}から入れる` };
@@ -1379,7 +1379,7 @@ function shiftShortKey(slotId, laneId) {
   return `${slotId}|${laneId}`;
 }
 
-/** 1つのマスで足りないと書ける、いちばん多い人数 */
+/** 1つのマスで足りないと書ける、一番多い人数 */
 const SHIFT_SHORT_MAX = 9;
 
 /**
@@ -1574,7 +1574,7 @@ function shiftNameParts(slotId, entry) {
 /**
  * その1人分が、名前の大きさの何倍の幅になるか
  *
- * ★時刻は名前の上の段に出すので、幅は「名前のほうが広ければ名前」で決まります。
+ * ★時刻は名前の上の段に出すので、幅は「名前の方が広ければ名前」で決まります。
  */
 function shiftNameEm(parts) {
   const name = shiftTextEm(parts.name) + (parts.full ? SHIFT_FULL_MARK_EM : 0);
@@ -2031,7 +2031,7 @@ const TASKS = [
  * 管理者用（T3 Works Mine）で開いているか
  *
  * 現場アプリと Mine は同じ index.html から作られていて、
- * Mine のほうだけ body に data-mode="mine" が付きます
+ * Mine の方だけ body に data-mode="mine" が付きます
  * （公開用を作る.py の make_mine が付けています）。
  */
 function isMine() {
@@ -2229,7 +2229,7 @@ function weeklyGroupOf(item) {
  * 週間掃除の項目を見出しごとにまとめる
  *
  * 並びは WEEKLY_GROUPS の順。そこに無い見出しは後ろへ、
- * 見出しの決まっていないもの（その他）はいちばん最後に置きます。
+ * 見出しの決まっていないもの（その他）は一番最後に置きます。
  * 中身が0件の見出しは返しません。
  *
  *   戻り値 … [{ name: 'ホール', items: [...] }, ...]

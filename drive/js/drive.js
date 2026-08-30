@@ -133,7 +133,7 @@ function render() {
     : 'この月の記録はまだありません';
 
   /* ---- 上の表：名前・合計距離・合計金額 ---- */
-  // いちばん走っている人を基準に、名前の下の帯の長さを決めます
+  // 一番走っている人を基準に、名前の下の帯の長さを決めます
   const maxKm = Math.max(...people.map((p) => p.km), 0);
   el.driveTotals.innerHTML = '';
   people.forEach((p) => {
@@ -146,7 +146,7 @@ function render() {
     if (p.km > 0 && maxKm > 0) {
       const bar = document.createElement('span');
       bar.className = 'drive-table__bar';
-      // 8%〜72% の幅。いちばん短い人でも見えるように下限を付けています
+      // 8%〜72% の幅。一番短い人でも見えるように下限を付けています
       bar.style.width = `${8 + (p.km / maxKm) * 64}%`;
       name.appendChild(bar);
     }
@@ -536,7 +536,7 @@ function renderForm() {
   else el.drvHint.textContent = `${list.length}回分 ／ 合計 ${kmText(total)} として記録します`;
   el.drvHint.classList.toggle('is-on', list.length > 0);
 
-  // 間違いがいちばん起きるのは「まとめて回ったのに、1回ずつに分けて入れた」とき。
+  // 間違いが一番起きるのは「まとめて回ったのに、1回ずつに分けて入れた」とき。
   // 2回以上あって、どれにも経由地が無いときだけ声をかけます
   el.drvWarn.classList.toggle('is-hidden', !allRoundMulti(list));
 }

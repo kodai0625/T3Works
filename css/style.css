@@ -196,7 +196,7 @@ body.no-daytabs .update-bar {
 .mine-only { display: none; }
 body[data-mode="mine"] .mine-only { display: inline-flex; }
 /* 店舗選択に並ぶ大きなボタン（配達記録）の場合。
-   ・.stores-big-btn は下のほうで display:flex を指定しているので、
+   ・.stores-big-btn は下の方で display:flex を指定しているので、
      クラスを2つ重ねて（＝強くして）から隠さないと効きません
    ・出すときも inline-flex ではなく flex。横幅いっぱいに広げるためです */
 .stores-big-btn.mine-only { display: none; }
@@ -838,7 +838,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-size: 11px; font-weight: 600; color: var(--text-weak);
   font-variant-numeric: tabular-nums; margin-left: 5px;
 }
-/* 今週の列は、見出しからいちばん下まで枠で囲んで はっきり分けます
+/* 今週の列は、見出しから一番下まで枠で囲んで はっきり分けます
    （うすい色だけでは、左右どちらが今週か分かりにくかったため） */
 .week-table thead th.is-now {
   background: color-mix(in srgb, var(--store) 26%, var(--surface)); color: var(--text);
@@ -889,7 +889,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   border: 0; background: var(--surface);
   text-align: left; padding: 22px 9px 8px;
 }
-/* いちばん上の見出しだけは、表のすぐ下なので余白を詰めます */
+/* 一番上の見出しだけは、表のすぐ下なので余白を詰めます */
 .week-table tbody tr.week-group:first-child td { padding-top: 10px; }
 
 .week-group__label {
@@ -1084,7 +1084,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   padding: 7px 2px; border-top: 1px solid var(--line-2);
   font-size: 13px;
 }
-/* いちばん上の行は、見出しの線とくっついて2本線に見えるので引きません */
+/* 一番上の行は、見出しの線とくっついて2本線に見えるので引きません */
 .exp-row:first-child { border-top: 0; }
 .exp-row__date {
   flex: 0 0 auto; min-width: 34px;
@@ -1148,7 +1148,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   font-weight: 800; font-variant-numeric: tabular-nums;
 }
 
-/* いちばん下の合計。帳簿の〆と同じく、上に二重線を引きます */
+/* 一番下の合計。帳簿の〆と同じく、上に二重線を引きます */
 .catch-detail__foot {
   display: flex; align-items: center; gap: 8px;
   margin: 0; padding: 10px 2px 0;
@@ -1176,7 +1176,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
    タブレットのアルバイトが別物だと気づきにくいためです。 */
 .app-drive {
   --accent: #bf5480;
-  --drive-deep: #8d3a5e;   /* 見出しなど、濃いほうの色 */
+  --drive-deep: #8d3a5e;   /* 見出しなど、濃い方の色 */
   /* 白い文字を載せる面の色。ここだけは明暗どちらでも同じ濃さにします。
      ダークで明るいピンクにすると、白文字のコントラストが 1.9 まで落ちて読めません */
   --drive-solid: #bf5480;
@@ -1273,14 +1273,14 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   background: var(--drive-solid); color: #fff;
   font-size: 11.5px; font-weight: 800; letter-spacing: .04em;
 }
-/* 経由地のほうは、ふつうの往復と見分けが付くよう白抜きにします */
+/* 経由地の方は、ふつうの往復と見分けが付くよう白抜きにします */
 .drive-hero__badge--multi {
   background: var(--surface); color: var(--drive-solid);
   border: 1.5px solid var(--drive-solid);
   padding: 1.5px 8.5px;
 }
 
-/* ---- 記録するボタン（この画面でいちばん押されるもの） ---- */
+/* ---- 記録するボタン（この画面で一番押されるもの） ---- */
 .drive-add {
   display: flex; align-items: center; gap: 13px; width: 100%;
   margin: 0 0 20px; padding: 14px 16px;
@@ -1315,7 +1315,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 }
 
 /* 名前の下に、その人の距離を長さで表した細い帯を敷きます。
-   数字を読まなくても「誰がいちばん走っているか」が見て分かります */
+   数字を読まなくても「誰が一番走っているか」が見て分かります */
 .drive-table td { position: relative; }
 .drive-table__bar {
   position: absolute; left: 10px; bottom: 6px; height: 3px;
@@ -1326,7 +1326,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .exp-total tr.is-zero .exp-total__name,
 .exp-total tr.is-zero .exp-total__yen { color: var(--text-weak); font-weight: 600; }
 
-/* いちばん下の合計行。上の行と地続きに見えないよう、線を1本足します */
+/* 一番下の合計行。上の行と地続きに見えないよう、線を1本足します */
 .exp-total tr.drive-foot td {
   border-top: 2px solid color-mix(in srgb, var(--accent) 40%, var(--line));
   background: color-mix(in srgb, var(--accent) 9%, var(--surface));
@@ -1389,7 +1389,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
 .drive-callout__eg b { color: var(--text); }
 .drive-callout__ng { display: block; margin-top: 3px; color: var(--ng); }
 
-/* 「片道」を強調する。往復で入れてしまう間違いがいちばん起きやすいので、
+/* 「片道」を強調する。往復で入れてしまう間違いが一番起きやすいので、
    見出し・注意書き・各行の3か所で念を押しています */
 .drive-oneway {
   padding: 1px 7px; margin-right: 1px; border-radius: 6px;
@@ -1515,7 +1515,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
      ・数字を主役にする（金額は太く、¥ は控えめに）
      ・罫線を細くして、行そのものを読みやすくする
      ・見出しは小さく字間をあけて、表の中身とはっきり分ける
-     ・いちばん下に〆の合計行を置く
+     ・一番下に〆の合計行を置く
    ------------------------------------------------------ */
 
 /* -------- 色 --------
@@ -1636,7 +1636,7 @@ body.is-money .btn--primary.btn--danger {
    ★「thead」を書かないこと。書くと強さが上がって、
      下の .settle-table 側の左そろえ（出金口座の列）に勝ってしまいます */
 .ledger th:not(:first-child) { text-align: right; }
-/* 行の区切りは、いちばん細い線で */
+/* 行の区切りは、一番細い線で */
 .ledger tbody td { border-bottom: 1px solid var(--line-2); padding-top: 10px; padding-bottom: 10px; }
 .ledger tbody tr:last-child td { border-bottom: 1px solid var(--line); }
 .ledger .exp-total__name { font-size: 14px; font-weight: 700; }
@@ -1959,11 +1959,11 @@ body.is-money .btn--primary.btn--danger {
 body.is-wide .page { max-width: 1700px; }
 
 /* ---- 画面が広いときは、右側に議事録をはりつけます ----
-   会議では数字を見ながら書くので、いちばん下までスクロールしなくても
+   会議では数字を見ながら書くので、一番下までスクロールしなくても
    書けるようにするためです。狭い画面では表のすぐ下に来ます */
 .meeting-layout > * { min-width: 0; }
 /* 1500px … これより狭いと、右に議事録を置いた分だけ左が足りなくなり、
-   売上の表（いちばん広くて1142px要ります）が横スクロールになります。
+   売上の表（一番広くて1142px要ります）が横スクロールになります。
    iPad Pro の横（1366px）や13インチ（1470px）は1列のままにして、
    表を目いっぱい使えるようにしています */
 @media (min-width: 1500px) {
@@ -2175,7 +2175,7 @@ body.is-wide .page { max-width: 1700px; }
   display: block; margin-top: 1px;
   font-size: 11.5px; font-weight: 700; color: var(--text-weak);
 }
-/* 原価と人件費は、金額も率も会議でいちばん見る数字なので、両方大きく出します */
+/* 原価と人件費は、金額も率も会議で一番見る数字なので、両方大きく出します */
 .mt-cell--two .mt-main { font-size: 15px; font-weight: 800; }
 .mt-cell--two .mt-sub {
   margin-top: 3px; font-size: 15px; font-weight: 800;
@@ -2288,7 +2288,7 @@ body.is-wide .page { max-width: 1700px; }
 
 /* 6店舗＋合計で7つ。合計は2つ分の幅を取ります。
    ★auto-fill ではなく auto-fit にすること。auto-fill だと、
-     店舗の数より枠のほうが多いときに右側が空いたまま残ります */
+     店舗の数より枠の方が多いときに右側が空いたまま残ります */
 .meeting-goals {
   display: grid; gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -2300,7 +2300,7 @@ body.is-wide .page { max-width: 1700px; }
   border-top: 3px solid var(--goal-color, var(--money));
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
-/* 5店舗の合計は会議のいちばんの数字なので、1つだけ大きく置きます */
+/* 5店舗の合計は会議の一番の数字なので、1つだけ大きく置きます */
 .goal-card--big { grid-column: span 2; }
 .goal-ring { width: 100%; max-width: 116px; height: auto; display: block; margin: 0 auto 8px; }
 .goal-ring__bg {
@@ -2345,7 +2345,7 @@ body.is-wide .page { max-width: 1700px; }
   font-size: 15px; font-weight: 800;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-/* 残りは「あといくら足りないか」なので、いちばん目に入るようにします */
+/* 残りは「あといくら足りないか」なので、一番目に入るようにします */
 .goal-row--left dt { color: var(--goal-color, var(--money)); }
 .goal-row--left dd { font-size: 17px; color: var(--goal-color, var(--money)); }
 .goal-done { font-size: 13px; color: var(--ok); }
@@ -2399,7 +2399,7 @@ body.is-wide .page { max-width: 1700px; }
   border-color: var(--money);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--money) 22%, transparent);
 }
-/* いちばん下の、まだ何も書いていない枠 */
+/* 一番下の、まだ何も書いていない枠 */
 .meeting-note--new { background: var(--surface-2); border-style: dashed; }
 .meeting-note--new .meeting-note__no {
   background: transparent; color: var(--text-weak);
@@ -2846,7 +2846,7 @@ body.is-wide .page { max-width: 1700px; }
 .ex-date { flex: 1 1 150px; min-width: 140px; }
 .ex-kind { flex: 1 1 120px; }
 /* 「〜」は、項目の休止期間（ほんとうに期間で入れるところ）で使っています。
-   定休日のほうは1日ずつ登録する作りにしたので、そちらには出ません */
+   定休日の方は1日ずつ登録する作りにしたので、そちらには出ません */
 .ex-tilde { color: var(--text-sub); font-size: 13px; }
 .ex-hint { margin: 7px 0 0; font-size: 12px; color: var(--text-sub); min-height: 1em; }
 
@@ -3372,7 +3372,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   body.print-shift .shift-sheet td.is-closed { color: #6b7280; }
 
   /* ★パティの桃色と、早上がりの橙。
-     上の「th, td { border-color: #888 }」のほうが強くて、
+     上の「th, td { border-color: #888 }」の方が強くて、
      せっかくの色が灰色に上書きされていました（印刷が白黒に見えた原因）。
      ここで色だけ塗り直します（線の太さと、内側の縦線を消す指定はそのまま） */
   body.print-shift .shift-sheet td.is-patty {
@@ -3380,7 +3380,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   }
   body.print-shift .shift-sheet td.is-patty-first { border-left-color: #bf5480; }
   body.print-shift .shift-sheet td.is-patty-last { border-right-color: #bf5480; }
-  /* 早上がりの橙のふちは、札のいちばん外がわに引きます（マスの線に合います） */
+  /* 早上がりの橙のふちは、札の一番外がわに引きます（マスの線に合います） */
   body.print-shift .shift-sheet__name.is-early {
     outline: 1px solid #d98324; outline-offset: -1px; border-radius: 0;
   }
@@ -3437,7 +3437,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 
 
 /* -------- シフト：募集の状態 --------
-   「まだ募集していない／募集中／確定ずみ」を、いちばん上に出します。
+   「まだ募集していない／募集中／確定ずみ」を、一番上に出します。
    ここを見落とすと、募集していない期間で待ちつづけることになります */
 .shift-phase {
   display: inline-block; padding: 3px 10px; border-radius: 999px;

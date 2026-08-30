@@ -809,7 +809,7 @@ function expenseEntries(rec) {
  * ひと目で分かるようにするためです（配達記録の表と同じ考え方）。
  *
  * 担当者リストに無い名前（辞めた方など）は、記録があるときだけ
- * いちばん下に出ます。
+ * 一番下に出ます。
  */
 function expenseByPerson(rec) {
   const order = Staff.list();
@@ -851,7 +851,7 @@ function expenseByPerson(rec) {
  *  （店舗が違えば、同じ日・同じ人でも別の行になります）。
  *
  *  キャッチ以外は、まとめる意味がないので1件が1行のままです。
- *  並びは、そのかたまりの いちばん最初の1件があった場所です。
+ *  並びは、そのかたまりの 一番最初の1件があった場所です。
  * ---------------------------------------------------------- */
 
 /** まとめるときの目じるし（日付・立て替えた人・店舗） */
@@ -972,7 +972,7 @@ function renderExpense() {
     el.expenseTotals.appendChild(tr);
   });
 
-  /* ---- いちばん下の合計行（帳簿の〆） ---- */
+  /* ---- 一番下の合計行（帳簿の〆） ---- */
   el.expenseFoot.innerHTML = '';
   if (paying.length) {
     const tr = document.createElement('tr');
@@ -1031,7 +1031,7 @@ function renderExpense() {
       /* ここには何件分かを添えていません。
          「こじゃれキャッチ 69名」だけで幅がいっぱいで、
          足すと iPhone の幅で名前ごと折り返してしまうためです。
-         件数は「明細」を押すと、いちばん下の合計に出ます */
+         件数は「明細」を押すと、一番下の合計に出ます */
 
       if (g.isCatch) {
         // キャッチは渡した相手を一覧に出さないので、明細の画面で見て直します
@@ -1128,7 +1128,7 @@ let expEditing = null; // 直しているとき、その1件
 
 /**
  * 「渡した相手」の選び方。店舗ごとにまとめて出します。
- * いま選んでいる店舗の人がいちばん上、そのあとに他店舗の人が続きます
+ * いま選んでいる店舗の人が一番上、そのあとに他店舗の人が続きます
  * （他店舗の子に渡すこともあるので、消さずに残しています）。
  */
 function fillWhoOptions(who) {
@@ -1629,7 +1629,7 @@ function renderCatch() {
     el.catchTotals.appendChild(tr);
   });
 
-  /* ---- いちばん下の合計行 ---- */
+  /* ---- 一番下の合計行 ---- */
   el.catchFoot.innerHTML = '';
   if (people) {
     const tr = document.createElement('tr');
@@ -1793,7 +1793,7 @@ function renderCatchDetail() {
     el.catchDetailList.appendChild(li);
   });
 
-  /* いちばん下の合計。ボタンの場所は空のまま置いて、金額の位置をそろえます */
+  /* 一番下の合計。ボタンの場所は空のまま置いて、金額の位置をそろえます */
   el.catchDetailFoot.innerHTML =
     `<span class="catch-detail__who">合計　<span class="ledger-foot__note">${list.length}件</span></span>` +
     `<span class="catch-detail__people">${people}<span class="ledger-unit">名</span></span>` +
@@ -2052,7 +2052,7 @@ async function clearSettle() {
  *    ・議事録 … _meeting/YYYY-MM に1つずつ入れます。表に直接書けます。
  * ============================================================ */
 
-/** 入っている月のうち、いちばん新しい月。1つも無ければ null */
+/** 入っている月のうち、一番新しい月。1つも無ければ null */
 function latestMeetingMonth() {
   if (typeof MEETING_DATA === 'undefined') return null;
   const keys = Object.keys(MEETING_DATA).sort();
@@ -2148,7 +2148,7 @@ function meetingCatchOf(y, m) {
 }
 
 /**
- * 1月から m 月までのうち、数字が入っている月の数と、いちばん新しい月
+ * 1月から m 月までのうち、数字が入っている月の数と、一番新しい月
  *
  * 7月・8月のように まだ入力されていない月を開いたときに、
  * 累計の見出しや円グラフの目安が先に進んでしまわないようにするためです。
@@ -2183,7 +2183,7 @@ function meetingCumByStore(y, m) {
  *  1つの項目につき「今年・昨年・差」の3列。もとのシートと同じ並びです。
  *    main    … その升目の主の数字   mainKind: yen=金額 / num=人数 / pct=率
  *    sub     … 主の数字に添える数字（原価なら金額の下に率）
- *    goodWhen… 増えたほうが良いか（差の色分けに使います）
+ *    goodWhen… 増えた方が良いか（差の色分けに使います）
  *  1つの表に全部入れると横に長くなりすぎるので、3つに分けています。
  * ---------------------------------------------------------- */
 /**
@@ -2208,7 +2208,7 @@ const MEETING_MODES = {
       main: (v) => (v.guests ? Math.round(v.ex / v.guests) : null) },
   ],
   cost: [
-    // big … 金額と率のどちらも大きく出します（会議でいちばん見る2つ）
+    // big … 金額と率のどちらも大きく出します（会議で一番見る2つ）
     { label: '原価', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
       main: (v) => v.cost, sub: (v) => meetingCostRate(v) },
     { label: '人件費', mainKind: 'yen', subKind: 'pct', goodWhen: 'down', big: true,
@@ -2398,7 +2398,7 @@ function saveMeetingNote(box, opts = {}) {
     Store.setItem(MEETING_STORE, key, id, { done: true, text, seq: Number(box.dataset.seq) || 0 });
     box.dataset.was = text;
   } else {
-    // いちばん下の空いている枠。書くと議題が1つ増えます
+    // 一番下の空いている枠。書くと議題が1つ増えます
     const notes = meetingNotes(state.y, state.m);
     const seq = notes.length ? notes[notes.length - 1].seq + 1 : 0;
     const newId = 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -2618,7 +2618,7 @@ function renderMeetingCum() {
   });
 
   /* 6店舗の合計と、昨年もあった5店舗だけの合計。
-     6店舗のほうは昨年の数字が無いので、そこは「—」にします */
+     6店舗の方は昨年の数字が無いので、そこは「—」にします */
   const five = SALES_TARGET_FIVE_STORES;
   const all6 = shown.reduce((t, s) => t + cum[s.id].ex, 0);
   const now5 = shown.filter((s) => five.includes(s.id)).reduce((t, s) => t + cum[s.id].ex, 0);
@@ -2801,7 +2801,7 @@ function fillUtilForm() {
 
 function saveUtilForm() {
   const key = meetingMonthKey(state.y, state.m);
-  // 画面に出ていないほうの年も、いまの数字をそのまま書き写します
+  // 画面に出ていない方の年も、いまの数字をそのまま書き写します
   // （片方だけ保存して、もう片方が消えてしまわないように）
   const other = utilSide === 'now' ? 'last' : 'now';
   const otherVals = utilValues(other);
@@ -2901,7 +2901,7 @@ function goalCard({ name, color, now, goal, big }, pace) {
   return card;
 }
 
-/** 議題1つ分の枠を作ります（note が null なら、いちばん下の空いている枠） */
+/** 議題1つ分の枠を作ります（note が null なら、一番下の空いている枠） */
 function meetingNoteRow(note, i) {
   const item = document.createElement('div');
   item.className = 'meeting-note' + (note ? '' : ' meeting-note--new');
@@ -2940,7 +2940,7 @@ function renderMeetingNotes() {
   el.meetingNoteCount.textContent = notes.length ? `（${notes.length}件）` : '';
   el.meetingNotes.innerHTML = '';
   notes.forEach((note, i) => el.meetingNotes.appendChild(meetingNoteRow(note, i)));
-  el.meetingNotes.appendChild(meetingNoteRow(null, 0));   // いちばん下の、空いている枠
+  el.meetingNotes.appendChild(meetingNoteRow(null, 0));   // 一番下の、空いている枠
   [...el.meetingNotes.querySelectorAll('.meeting-note__text')].forEach(growNoteBox);
 }
 
@@ -4756,7 +4756,7 @@ function shiftTakenSet(rec) {
 function shiftSort(list) {
   const order = shiftBuildNames(state.storeId);
   return list.slice().sort((a, b) => {
-    // 時刻が入っていない人（F など）は、その枠のいちばん下に置きます
+    // 時刻が入っていない人（F など）は、その枠の一番下に置きます
     const ta = a.t === '' || a.t === undefined ? 99 : Number(a.t);
     const tb = b.t === '' || b.t === undefined ? 99 : Number(b.t);
     if (ta !== tb) return ta - tb;
@@ -5039,7 +5039,7 @@ function renderShift() {
  *
  *  ・横に SHIFT_COLS 日分
  *  ・1日は持ち場（キッチン／ホール）で2列に分かれます
- *  ・縦は 立ち上げ／ランチ／ディナー、いちばん下が連絡
+ *  ・縦は 立ち上げ／ランチ／ディナー、一番下が連絡
  *
  *  縦に1日ずつ並べていたころより、前後の日と見くらべやすくなります。
  *  幅が足りないときは、この表だけが横にスクロールします。
@@ -5115,7 +5115,7 @@ function shiftGridBlock(rec, wishes, days) {
     table.appendChild(tr);
   });
 
-  /* いちばん下：連絡（こちらのメモと、アルバイトからの連絡） */
+  /* 一番下：連絡（こちらのメモと、アルバイトからの連絡） */
   const memo = document.createElement('tr');
   const memoTh = document.createElement('th');
   memoTh.className = 'shift-grid__slot shift-grid__slot--memo';
@@ -5517,7 +5517,7 @@ function applyShiftFreeTime() {
 
   // ★入れた時刻に合う枠へ、自動で移します。
   //   立ち上げの欄に「18:00」と書いてあるより、ディナーの欄に
-  //   入っていたほうが、表を見たときに読みまちがえません。
+  //   入っていた方が、表を見たときに読みまちがえません。
   //   立ち上げへは戻しません（立ち上げに入れたいときは、立ち上げの ＋ から）。
   let to = shiftSlotByTime(t);
   if (to === 'open') to = slotId;
@@ -5819,7 +5819,7 @@ function renderShiftSheet() {
   const model = shiftSheetModel();
   el.shiftSheetTitle.textContent = model.title;
   el.shiftSheet.innerHTML = '';
-  // 列の幅は「いちばん多い日数」でそろえます。後ろの段が少ない半月でも、
+  // 列の幅は「一番多い日数」でそろえます。後ろの段が少ない半月でも、
   // 前の段と同じ幅にしておくと、続きの表として読めます
   const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
   const size = shiftSheetMetrics(model, perDay);
@@ -6753,7 +6753,7 @@ function bindEvents() {
     writeHash(); render();
   });
 
-  /* 会議資料。ひらいたときは、入っている月のうち いちばん新しい月を出します */
+  /* 会議資料。ひらいたときは、入っている月のうち 一番新しい月を出します */
   $('storesMeetingBtn').addEventListener('click', () => {
     const last = latestMeetingMonth();
     if (last) { state.y = last.y; state.m = last.m; }

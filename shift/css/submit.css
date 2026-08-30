@@ -447,7 +447,7 @@ body {
 .k--lunch  { background: var(--lunch); }
 .k--dinner { background: var(--dinner); }
 .k--go     { background: var(--accent); }
-/* 暗い画面では枠の色が明るくなるので、字のほうを暗くします */
+/* 暗い画面では枠の色が明るくなるので、字の方を暗くします */
 @media (prefers-color-scheme: dark) {
   .way__chip, .k--open, .k--full, .k--lunch, .k--dinner { color: #14161a; }
 }
