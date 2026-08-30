@@ -5854,26 +5854,70 @@ function drawShiftSheet(canvas) {
   return canvas;
 }
 
-/** 画像（JPEG）にして、送るか保存する */
-async function saveShiftImage() {
-  const canvas = document.createElement('canvas');
-  drawShiftSheet(canvas);
-  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
-  if (!blob) return;
-  const name = shiftFileName('jpg');
-  await handOut(new File([blob], name, { type: 'image/jpeg' }), name);
+/** 画像（JPEG）で保存する */
+function saveShiftImage() {
+  return saveShiftFile('jpg');
 }
 
-/** PDFにして、送るか保存する */
-async function saveShiftPdf() {
-  const canvas = document.createElement('canvas');
-  drawShiftSheet(canvas);
-  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+/** PDFで保存する */
+function saveShiftPdf() {
+  return saveShiftFile('pdf');
+}
+
+/**
+ * シフト表をファイルにして渡す
+ *
+ *  パソコン … 保存先をえらぶ画面が出ます。Finder のどこにでも置けます
+ *             （前に保存した場所を覚えているので、2回目からは1回押すだけです）
+ *  iPhone   … 共有の画面が出ます。そのままLINEに送るか、ファイルに保存できます
+ *  それ以外 … ふだんのダウンロードになります
+ *
+ *  ★保存先をえらぶ画面は、押したその場で開きます。
+ *    先に絵を作ってから開くと、ブラウザが「押した流れ」と見なさなくなり、
+ *    画面が出ないことがあるためです。
+ */
+async function saveShiftFile(kind) {
+  const isPdf = kind === 'pdf';
+  const name = shiftFileName(isPdf ? 'pdf' : 'jpg');
+  const type = isPdf ? 'application/pdf' : 'image/jpeg';
+
+  const make = async () => {
+    const canvas = document.createElement('canvas');
+    drawShiftSheet(canvas);
+    const jpeg = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+    if (!jpeg) return null;
+    if (!isPdf) return jpeg;
+    return makePdf(new Uint8Array(await jpeg.arrayBuffer()), canvas.width, canvas.height);
+  };
+
+  if (window.showSaveFilePicker) {
+    let handle;
+    try {
+      handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        // id を付けておくと、前に保存した場所から開いてくれます
+        id: 't3works-shift',
+        startIn: 'documents',
+        types: [{
+          description: isPdf ? 'PDF' : 'JPEG画像',
+          accept: isPdf ? { 'application/pdf': ['.pdf'] } : { 'image/jpeg': ['.jpg', '.jpeg'] },
+        }],
+      });
+    } catch (e) {
+      return;   // 「キャンセル」を押しただけなので、何も言いません
+    }
+    const blob = await make();
+    if (!blob) return;
+    const w = await handle.createWritable();
+    await w.write(blob);
+    await w.close();
+    el.shiftWishNote.textContent = `${name} を保存しました`;
+    return;
+  }
+
+  const blob = await make();
   if (!blob) return;
-  const jpeg = new Uint8Array(await blob.arrayBuffer());
-  const pdf = makePdf(jpeg, canvas.width, canvas.height);
-  const name = shiftFileName('pdf');
-  await handOut(new File([pdf], name, { type: 'application/pdf' }), name);
+  await handOut(new File([blob], name, { type }), name);
 }
 
 function shiftFileName(ext) {
@@ -5883,10 +5927,10 @@ function shiftFileName(ext) {
 }
 
 /**
- * できたファイルを渡す
+ * できたファイルを渡す（保存先をえらぶ画面が使えない端末むけ）
  *
  * iPhone では「共有」から、そのままLINEに送れます。
- * 共有が使えない端末では、ふつうのダウンロードにします。
+ * 共有が使えない端末では、ふだんのダウンロードにします。
  */
 async function handOut(file, name) {
   try {
