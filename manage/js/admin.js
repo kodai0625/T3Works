@@ -327,7 +327,8 @@ function startNameEdit(cell) {
 
   input.addEventListener('blur', () => finish(true));
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    // ★変換を決めるエンターでは終わらせません（言葉が途中で切れるため）
+    if (e.key === 'Enter' && !imeEnter(e)) { e.preventDefault(); input.blur(); }
     if (e.key === 'Escape') { input.value = before; input.blur(); }
   });
 }
@@ -1721,6 +1722,62 @@ async function submitPin() {
 }
 
 /* ============================================================
+ *  あとから決まった項目を、全店舗に足す
+ *
+ *  項目は「マネージで直したもの」が優先されるので、config.js に
+ *  書き足しても出てきません。ここで、保存されている中身に足します。
+ *
+ *  ★同期で最新を受け取ってから動かします。受け取る前に保存すると、
+ *    ほかの端末で直した内容を、この端末の古い中身で上書きしてしまいます。
+ *  ★同じ id があれば何もしません。消した項目は retiredAt が付いたまま
+ *    残るので、「消したのに復活する」ことはありません。
+ *  ★入れ先が見つからない店舗（おいでんテラスには日報入力がありません）は
+ *    飛ばします。勝手に別の場所へ入れません。
+ * ============================================================ */
+const LATER_ITEMS = [
+  { id: 'tc01', label: '全員タイムカード切ってるかチェック', after: '日報入力' },
+];
+
+function addLaterItems() {
+  // 同期で設定を受け取る前は、まだ動かしません
+  if (Sync.enabled() && !localStorage.getItem(Checklists._key)) return;
+
+  const done = [];
+  LATER_ITEMS.forEach((add) => {
+    STORES.forEach((store) => {
+      const secs = Checklists.sections(store.id);
+
+      // 入れ先（「日報入力」）と、その店舗の項目idの付け方を探します
+      let sec = null;
+      let at = -1;
+      secs.forEach((sc) => {
+        (sc.items || []).forEach((it, i) => {
+          if (sec) return;
+          if (it.label === add.after && !it.retiredAt) { sec = sc; at = i; }
+        });
+      });
+      if (!sec) return;                       // 入れ先がない店舗は飛ばします
+
+      const prefix = String(sec.items[at].id).split('-')[0];
+      const newId = `${prefix}-${add.id}`;
+      const exists = secs.some((sc) => (sc.items || []).some((it) => it.id === newId));
+      if (exists) return;                     // すでにある／前に消した
+
+      const next = JSON.parse(JSON.stringify(secs));
+      const target = next.find((sc) => sc.id === sec.id);
+      target.items.splice(at + 1, 0, { id: newId, label: add.label });
+      Checklists.save(store.id, next);
+      done.push(`${store.name}（${newId}）`);
+    });
+  });
+
+  if (done.length) {
+    console.log('項目を足しました: ' + done.join('、'));
+    renderAll();
+  }
+}
+
+/* ============================================================
  *  バックアップ
  * ============================================================ */
 function exportJson() {
@@ -1785,7 +1842,7 @@ function bindEvents() {
 
   el.syncChip.addEventListener('click', () => Sync.flush());
   el.pinOk.addEventListener('click', submitPin);
-  el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) submitPin(); });
   bindHalfWidthInput(el.pinInput, 'code');
   el.pinReveal.addEventListener('click', () => {
     const shown = el.pinInput.type === 'text';
@@ -1801,12 +1858,14 @@ function init() {
   bindEvents();
   renderAll();
   Updater.start();
+  if (!Sync.enabled()) addLaterItems();
 
   if (!Sync.enabled()) {
     // 共有先が未設定のときは、この端末の中だけで編集できます
     return;
   }
-  Sync.onChange = renderSyncStatus;
+  // 同期で最新を受け取ったら、あとから決まった項目を足します
+  Sync.onChange = () => { renderSyncStatus(); addLaterItems(); };
   if (!Sync.pin()) openPinModal();
   else Sync.start();
 }

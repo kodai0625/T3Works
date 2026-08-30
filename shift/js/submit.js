@@ -465,7 +465,7 @@ async function send() {
  * ============================================================ */
 async function boot() {
   el('gateGo').addEventListener('click', submitPin);
-  el('gatePin').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  el('gatePin').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) submitPin(); });
   // 日本語キーボードのままだと「８１５」のように全角で入ってしまうので、半角に直します
   bindHalfWidthInput(el('gatePin'), 'code');
   el('send').addEventListener('click', send);

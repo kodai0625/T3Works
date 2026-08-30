@@ -261,3 +261,19 @@ body.is-dragging { cursor: grabbing; user-select: none; }
   .shift-code__name { flex: 1 1 100%; }
   .shift-code__num { flex: 1 1 auto; }
 }
+
+/* -------- つまんで並べ替える取っ手 --------
+   長押しでも動かせますが、それだけでは「動かせる」と伝わりませんでした。
+   目に見える取っ手を置き、ここからは待たずに持ち上がるようにしています */
+.item-row__grip {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; align-self: stretch;
+  margin-right: 2px;
+  color: var(--text-weak); font-size: 15px; line-height: 1;
+  cursor: grab;
+  touch-action: none;              /* 指で動かしたときに画面がスクロールしないように */
+  user-select: none; -webkit-user-select: none;
+}
+.item-row__grip:active { cursor: grabbing; color: var(--text-sub); }
+.item-row.is-drag .item-row__grip { color: var(--accent); }

@@ -6244,7 +6244,7 @@ function bindEvents() {
   el.shiftJpegBtn.addEventListener('click', saveShiftImage);
   el.shiftPickRemove.addEventListener('click', removeShiftPick);
   el.shiftPickFreeGo.addEventListener('click', applyShiftFreeTime);
-  el.shiftPickFree.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyShiftFreeTime(); });
+  el.shiftPickFree.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) applyShiftFreeTime(); });
   bindHalfWidthInput(el.shiftPickFree, 'code');
   el.shiftPickFullOn.addEventListener('click', () => setShiftFull(true));
   el.shiftPickFullOff.addEventListener('click', () => setShiftFull(false));
@@ -6424,7 +6424,7 @@ function bindEvents() {
   $('syncNow').addEventListener('click', () => Sync.flush());
   $('pinChange').addEventListener('click', () => { closeModal(); openPinModal(); });
   $('pinOk').addEventListener('click', submitPin);
-  el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+  el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) submitPin(); });
   bindHalfWidthInput(el.pinInput, 'code');
   // 貼り付けた内容が正しいか目で確かめられるようにする
   $('pinReveal').addEventListener('click', () => {
