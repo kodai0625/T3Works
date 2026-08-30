@@ -19,14 +19,20 @@
 <link rel="apple-touch-icon" href="../img/shift-icon-180.png?v=68ba81bc">
 <link rel="icon" href="../img/shift-icon-64.png?v=0937bb3b">
 
-<link rel="stylesheet" href="css/submit.css?v=1db47e58">
-<meta name="app-version" content="e48f510c">
+<link rel="stylesheet" href="css/submit.css?v=2085404a">
+<meta name="app-version" content="b5fef34f">
 </head>
 <body>
 
 <header class="head">
   <div class="head__inner">
     <span class="head__title" id="headTitle">シフト提出</span>
+    <!-- ★見本（テスト用）の番号で入ったときだけ出します。
+         アルバイトには出しません（オーナーの画面へ行けてしまうため） -->
+    <a class="head__home is-hidden" id="toOwnerBtn" href="../owner/"
+       title="ホーム（アプリを選ぶ画面）に戻る">
+      <span aria-hidden="true">🏠</span><span>ホーム</span>
+    </a>
   </div>
 </header>
 
@@ -124,6 +130,6 @@
 <script src="../js/config.js?v=7755846d"></script>
 <!-- シフト表を絵に描くところ。ワークスの「JPEGで保存」と同じものです -->
 <script src="../js/shift-sheet.js?v=a35e5f7b"></script>
-<script src="js/submit.js?v=6364ecdd"></script>
+<script src="js/submit.js?v=11c0e1ac"></script>
 </body>
 </html>

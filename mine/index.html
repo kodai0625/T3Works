@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=120ce436">
-<meta name="app-version" content="e48f510c">
+<link rel="stylesheet" href="../css/style.css?v=6ef2d494">
+<meta name="app-version" content="b5fef34f">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -1130,7 +1130,13 @@
 <div class="modal is-hidden" id="shiftWishModal">
   <div class="modal__backdrop" data-shift-wish-close></div>
   <div class="modal__panel modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="shiftWishTitle">
-    <h2 class="modal__title" id="shiftWishTitle">出してもらった希望</h2>
+    <!-- ★閉じるは上にも置きます。希望の表は横にも縦にも長いので、
+         下まで送らないと閉じられないと戻りにくいためです -->
+    <div class="modal__topbar">
+      <h2 class="modal__title" id="shiftWishTitle">出してもらった希望</h2>
+      <button type="button" class="modal__x" data-shift-wish-close
+              title="閉じてシフト作成にもどる" aria-label="閉じる">✕</button>
+    </div>
     <p class="doer__item" id="shiftWishWhen"></p>
     <div id="shiftWishList"></div>
     <div class="modal__actions">
@@ -1144,7 +1150,11 @@
 <div class="modal is-hidden" id="shiftSheetModal">
   <div class="modal__backdrop" data-shift-sheet-close></div>
   <div class="modal__panel modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="shiftSheetTitle">
-    <h2 class="modal__title" id="shiftSheetTitle">シフト表</h2>
+    <div class="modal__topbar">
+      <h2 class="modal__title" id="shiftSheetTitle">シフト表</h2>
+      <button type="button" class="modal__x" data-shift-sheet-close
+              title="閉じてシフト作成にもどる" aria-label="閉じる">✕</button>
+    </div>
     <div class="shift-sheet-wrap" id="shiftSheet"></div>
     <!-- iPhone・iPad のときだけ出します（js が出し入れします） -->
     <p class="modal__note is-hidden" id="shiftPrintNote">

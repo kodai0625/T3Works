@@ -145,6 +145,9 @@ function applyOpen(res) {
 
   el('headTitle').textContent = `シフト提出｜${store ? store.name : ''}`;
   el('meName').textContent = me.name;
+  // ★見本（テスト用）の番号で入ったときだけ、ホームに戻るボタンを出します。
+  //   アルバイトの番号では出しません（オーナーの画面へ行けてしまうため）
+  el('toOwnerBtn').classList.toggle('is-hidden', !isShiftTester(me.name));
   show('form');
   renderPeriod();
 }
