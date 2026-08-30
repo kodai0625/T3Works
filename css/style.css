@@ -3303,3 +3303,68 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   color: var(--text-sub);
 }
 .util-input--use:focus { color: var(--text); }
+
+/* -------- シフト：提出の一覧（名前×日付） --------
+   スマレジの提出一覧と同じ形。誰がどの日に出しているかを見くらべます。
+   日数が多いので、この表だけ横にスクロールします */
+.wish-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line); border-radius: 9px; margin-bottom: 10px;
+}
+.wish-table { border-collapse: collapse; width: max-content; min-width: 100%; }
+.wish-table th, .wish-table td {
+  border: 1px solid var(--line-2); padding: 3px;
+  text-align: center; vertical-align: top;
+}
+.wish-table__name {
+  position: sticky; left: 0; z-index: 1;
+  min-width: 72px; background: var(--surface-2);
+  font-size: 12.5px; font-weight: 700; line-height: 1.35;
+}
+.wish-table__count { font-size: 10.5px; font-weight: 400; color: var(--text-sub); }
+.wish-table tr.is-yet .wish-table__name { color: var(--text-weak); }
+.wish-table__day {
+  min-width: 46px; background: var(--surface-2);
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.wish-table__dow { font-size: 10px; font-weight: 400; color: var(--text-sub); }
+.wish-table__day.is-sun, .wish-table__day.is-sun .wish-table__dow { color: var(--ng); }
+.wish-table__day.is-sat, .wish-table__day.is-sat .wish-table__dow { color: var(--shift-dinner); }
+.wish-table .is-closed { background: var(--line-2); }
+
+.wish-chip {
+  display: block; margin: 1px 0; padding: 2px 3px; border-radius: 4px;
+  font-size: 10.5px; font-weight: 700; color: #fff;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.wish-chip--open   { background: var(--shift-open); }
+.wish-chip--full   { background: #7a4b8f; }
+.wish-chip--lunch  { background: var(--shift-lunch); }
+.wish-chip--dinner { background: var(--shift-dinner); }
+.wish-note {
+  display: inline-block; margin: 1px 0 0; padding: 1px 4px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; cursor: help;
+  background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);
+}
+.wish-legend {
+  margin: 0 0 14px; font-size: 11.5px; color: var(--text-sub);
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+}
+.wish-legend .wish-chip { display: inline-block; margin: 0; }
+
+/* 立ち上げがいっぱいのときの知らせと、時間をずらして入れるボタン */
+.shift-pick__full {
+  margin: 0 0 10px; padding: 8px 10px; border-radius: 8px;
+  font-size: 12.5px; line-height: 1.6;
+  border: 1px solid color-mix(in srgb, #d98324 45%, var(--line));
+  background: color-mix(in srgb, #d98324 10%, transparent);
+  color: color-mix(in srgb, #b4631a 85%, var(--text));
+}
+.shift-spill {
+  grid-column: 1 / -1;
+  border: 1px solid color-mix(in srgb, var(--shift-lunch) 50%, var(--line));
+  background: color-mix(in srgb, var(--shift-lunch) 10%, transparent);
+  color: color-mix(in srgb, var(--shift-lunch) 85%, var(--text));
+  border-radius: 9px; font: inherit; font-size: 13px; font-weight: 700;
+  padding: 9px 6px; cursor: pointer;
+}

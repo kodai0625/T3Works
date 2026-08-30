@@ -1179,10 +1179,31 @@ const SHIFT_STORES = ['baguru'];
  *    （提出ページの説明文にだけ出ます）。
  */
 const SHIFT_SLOTS = [
-  { id: 'open',   name: '立ち上げ', hint: '開店の準備から',        start: '9',  times: [] },
-  { id: 'lunch',  name: 'ランチ',   hint: 'お昼の営業',            start: '11', times: ['11', '11.5', '12'] },
-  { id: 'dinner', name: 'ディナー', hint: '夜の営業（ラストまで）', start: '',   times: ['17', '17.5', '18', '18.5', '19'] },
+  {
+    id: 'open', name: '立ち上げ', hint: '開店の準備から',
+    // 9:00〜10:30 を15分ごと。ふだんは10:00です
+    times: ['9', '9.25', '9.5', '9.75', '10', '10.25', '10.5'], pick: '10',
+  },
+  { id: 'lunch',  name: 'ランチ',   hint: 'お昼の営業',
+    times: ['11', '11.5', '12'], pick: '11' },
+  { id: 'dinner', name: 'ディナー', hint: '夜の営業（ラストまで）',
+    times: ['17', '17.5', '18', '18.5', '19'], pick: '17' },
 ];
+
+/**
+ * 立ち上げに入れられる人数
+ *
+ * ★ここを超えて入れることはできません。希望が3人あっても、
+ *   入れられるのは2人までです。あふれた人は
+ *   「11時から入れる」か「その日は入れない」かのどちらかになります。
+ */
+const SHIFT_OPEN_MAX = 2;
+
+/** 立ち上げからあふれた人を回す先（ランチの、いちばん早い時刻） */
+function shiftSpillTo() {
+  const lunch = SHIFT_SLOTS.find((x) => x.id === 'lunch');
+  return { slot: lunch.id, time: lunch.pick, label: `${shiftTimeText(lunch.pick)}から入れる` };
+}
 
 /**
  * F（通し）
@@ -1203,7 +1224,6 @@ function shiftWishSlots() {
     id: SHIFT_FULL_ID,
     name: 'F',
     hint: 'ランチからディナーまで通し（時間はお店が決めます）',
-    start: lunch.start,
     // ★時刻はえらばせません。通しで入る人の開始時刻は、
     //   その日の人の入りぐあいを見てこちらで決めるためです（組む画面で直せます）
     times: [],
@@ -1261,7 +1281,7 @@ function shiftClashes(slotId) {
 function shiftDefaultTime(slotId) {
   const slot = getShiftSlot(slotId);
   if (!slot || !slot.times.length) return '';
-  return slot.start && slot.times.includes(slot.start) ? slot.start : slot.times[0];
+  return slot.pick && slot.times.includes(slot.pick) ? slot.pick : slot.times[0];
 }
 
 /**
@@ -1338,9 +1358,11 @@ function shiftTimeKey(hours) {
  *   全部「時:分」にそろえました。
  */
 function shiftTimeMark(slotId, t) {
-  const slot = getShiftSlot(slotId);
   const v = String(t === null || t === undefined ? '' : t);
-  if (!slot || v === '' || v === slot.start) return '';
+  // ★入っている時刻は、必ず全部書きます。
+  //   前は「ふだんの時刻の人は書かない」ことにしていましたが、
+  //   11時の人だけ時刻が出ないのは、かえって分かりにくいためです
+  if (!getShiftSlot(slotId) || v === '') return '';
   return shiftTimeText(v);
 }
 
@@ -1352,6 +1374,14 @@ function shiftNameText(slotId, entry) {
 }
 
 /* -------- 祝日と、肉の日 -------- */
+
+/** '9/21(月)祝' のような書き方（祝はかっこの外に出します） */
+function shiftDayLabel(dateStr, dowNames) {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  const dow = new Date(String(dateStr).replace(/-/g, '/')).getDay();
+  return `${m}/${d}（${dowNames[dow]}）` + (isHoliday(y, m, d) ? '祝' : '');
+}
+
 
 /**
  * 日本の祝日かどうか

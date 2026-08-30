@@ -4798,6 +4798,10 @@ function shiftTake() {
         // 印は「出してもらったときの枠」で付けます。ランチとFは別ものとして数えます
         const mark = `${dateStr}|${w.s}|${w.name}`;
         if (taken.has(mark)) return;
+        // ★立ち上げは2人まで。あふれた人は入れずに置いておきます。
+        //   「11:00から入れる」か「その日は入れない」かは、見て決めることなので
+        //   機械では決めません（＋の数字に残るので、押せば選べます）
+        if (slot.id === 'open' && day.open.length >= SHIFT_OPEN_MAX) return;
         taken.add(mark);
         if (day[slot.id].some((e) => e.n === w.name)) return;
         // 取り込んだ人は、ひとまず左の持ち場（キッチン）に入れます。
@@ -4974,7 +4978,7 @@ function shiftGridBlock(rec, wishes, days) {
     const holi = isHoliday(yy, m, d);
     th.className = 'shift-grid__date'
       + (dow === 0 || holi ? ' is-sun' : dow === 6 ? ' is-sat' : '');
-    th.textContent = `${m}/${d}（${DOW[dow]}${holi ? '・祝' : ''}）`;
+    th.textContent = shiftDayLabel(s, DOW);
     head.appendChild(th);
   });
   table.appendChild(head);
@@ -5082,10 +5086,12 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   });
 
   // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように、
-  // 左の持ち場にだけ出します（両方に出すと二重に数えたように見えます）
+  // 左の持ち場にだけ出します（両方に出すと二重に数えたように見えます）。
+  // ★数えるのは「その日のどこにも入っていない人」です。立ち上げから
+  //   ランチへ回した人まで数えると、いつまでも減らないためです
+  const inDay = (n) => SHIFT_SLOTS.some((sl) => day[sl.id].some((e) => e.n === n));
   const rest = first
-    ? shiftWishInto(wishes, dateStr, slot.id)
-      .filter((w) => !day[slot.id].some((e) => e.n === w.name)).length
+    ? shiftWishInto(wishes, dateStr, slot.id).filter((w) => !inDay(w.name)).length
     : 0;
 
   const add = document.createElement('button');
@@ -5192,7 +5198,9 @@ function renderShiftPick() {
   el.shiftPickRemove.classList.toggle('is-hidden', index === null);
 
   if (index === null) {
-    const already = day[slotId].map((e) => e.n);
+    // その日のどこかに入っている人は、もう出しません（二重に入れないため）
+    const already = [];
+    SHIFT_SLOTS.forEach((sl) => day[sl.id].forEach((e) => already.push(e.n)));
     const wish = shiftWishInto(shiftWishes(rec), dateStr, slotId)
       .filter((w) => !already.includes(w.name));
     const others = ShiftStaff.list(state.storeId)
@@ -5213,7 +5221,10 @@ function renderShiftPick() {
         b.className = 'doer-btn' + (isWish ? ' is-wish' : '') + (isWish && item.full ? ' is-full' : '');
         const when = isWish && item.t ? `（${shiftTimeText(item.t)}）` : '';
         b.textContent = (isWish && item.full ? 'F ' : '') + name + when;
+        // ★立ち上げは2人まで。3人目からは、その場では入れられません
+        if (slotId === 'open' && day.open.length >= SHIFT_OPEN_MAX) b.disabled = true;
         b.addEventListener('click', () => {
+          if (b.disabled) return;
           const now = shiftDayOf(shiftRec(), dateStr);
           const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(slotId);
           // 通しかどうかは、押した切り替え → その人の希望、の順で決めます
@@ -5227,12 +5238,42 @@ function renderShiftPick() {
           render();
         });
         grid.appendChild(b);
+
+        // 立ち上げに希望を出した人には、時間をずらして入れる道も出します。
+        // 立ち上げは2人までなので、あふれた人はこちらへ回します
+        if (slotId === 'open' && isWish) {
+          const to = shiftSpillTo();
+          const spill = document.createElement('button');
+          spill.type = 'button';
+          spill.className = 'shift-spill';
+          spill.textContent = `${name}を ${to.label}`;
+          spill.addEventListener('click', () => {
+            const now = shiftDayOf(shiftRec(), dateStr);
+            if (now[to.slot].some((e) => e.n === name)) { closeShiftPick(); return; }
+            now[to.slot].push({ n: name, t: to.time, p: shiftPickAt.laneId });
+            now[to.slot] = shiftSort(now[to.slot]);
+            saveShiftDay(dateStr, now);
+            closeShiftPick();
+            render();
+          });
+          grid.appendChild(spill);
+        }
       });
       el.shiftPickNames.appendChild(grid);
     };
 
+    // ★立ち上げは2人まで。いっぱいなら、名前を並べるかわりに逃がし先を出します
+    const full2 = slotId === 'open' && day.open.length >= SHIFT_OPEN_MAX;
+    if (full2) {
+      const note = document.createElement('p');
+      note.className = 'shift-pick__full';
+      note.textContent = `立ち上げに入れるのは${SHIFT_OPEN_MAX}人までです。`
+        + 'ほかの人は、下から時間をずらして入れるか、その日は入れないでください。';
+      el.shiftPickNames.appendChild(note);
+    }
+
     addGroup('希望を出している人', wish, true);
-    addGroup('そのほかの人', others, false);
+    if (!full2) addGroup('そのほかの人', others, false);
 
     if (!wish.length && !others.length) {
       el.shiftPickNames.innerHTML = '<p class="modal__note">入れられる人がいません。'
@@ -5317,83 +5358,104 @@ function removeShiftPick() {
 
 /* -------- 提出の一覧 -------- */
 
+/**
+ * 出してもらった希望を、名前×日付の表で見る
+ *
+ *  スマレジの提出一覧と同じ形です。誰がどの日に出しているかを
+ *  ひと目で見くらべられるようにしています（縦に並べると、
+ *  「この日は誰が出しているか」を数えるのに何度も往復することになります）。
+ */
 function openShiftWishes() {
   const rec = shiftRec();
   const names = ShiftStaff.list(state.storeId);
   const wishes = shiftWishes(rec);
-  const days = shiftDays(state.y, state.m, shiftHalf).filter((s) => !shiftClosedOn(s));
+  const days = shiftDays(state.y, state.m, shiftHalf);
+  const open = days.filter((d) => !shiftClosedOn(d));
 
-  el.shiftWishWhen.textContent = `${shiftRangeLabel(state.y, state.m, shiftHalf)}（${days.length}日）`;
+  const sent = wishes.filter((w) => w.sentAt).length;
+  el.shiftWishWhen.textContent =
+    `${shiftRangeLabel(state.y, state.m, shiftHalf)}　提出 ${sent} / ${names.length}人`;
+
   el.shiftWishList.innerHTML = '';
+  if (!names.length) {
+    el.shiftWishList.innerHTML = '<p class="modal__note">'
+      + 'マネージの「シフトに入る人」で名前を登録してください。</p>';
+    return;
+  }
 
+  const table = document.createElement('table');
+  table.className = 'wish-table';
+
+  /* 見出し（日付） */
+  const head = document.createElement('tr');
+  const corner = document.createElement('th');
+  corner.className = 'wish-table__name';
+  corner.textContent = '名前';
+  head.appendChild(corner);
+  days.forEach((d) => {
+    const [, m, dd] = d.split('-').map(Number);
+    const [yy] = d.split('-').map(Number);
+    const dow = new Date(d.replace(/-/g, '/')).getDay();
+    const holi = isHoliday(yy, m, dd);
+    const th = document.createElement('th');
+    th.className = 'wish-table__day'
+      + (dow === 0 || holi ? ' is-sun' : dow === 6 ? ' is-sat' : '')
+      + (shiftClosedOn(d) ? ' is-closed' : '');
+    th.innerHTML = `${dd}<br><span class="wish-table__dow">${DOW[dow]}${holi ? '祝' : ''}</span>`;
+    head.appendChild(th);
+  });
+  table.appendChild(head);
+
+  /* 1人ずつ */
   names.forEach((name) => {
     const w = wishes.find((x) => x.name === name);
-    const li = document.createElement('li');
-    li.className = 'shift-wish' + (w && w.sentAt ? '' : ' is-yet');
+    const tr = document.createElement('tr');
+    if (!w || !w.sentAt) tr.className = 'is-yet';
 
-    const head = document.createElement('div');
-    head.className = 'shift-wish__head';
-    const who = document.createElement('span');
-    who.className = 'shift-wish__name';
-    who.textContent = name;
-    head.appendChild(who);
+    const th = document.createElement('th');
+    th.className = 'wish-table__name';
+    const n = open.reduce((sum, d) => sum + (((w && w.days[d]) || []).length ? 1 : 0), 0);
+    th.innerHTML = `${name}<br><span class="wish-table__count">`
+      + (w && w.sentAt ? `${n}日` : 'まだ') + '</span>';
+    tr.appendChild(th);
 
-    const when = document.createElement('span');
-    when.className = 'shift-wish__when';
-    if (w && w.sentAt) {
-      const n = days.reduce((sum, s) => sum + ((w.days[s] || []).length ? 1 : 0), 0);
-      when.textContent = `${n}日 ・ ${shortDate(w.sentAt)}`;
-    } else {
-      when.textContent = 'まだ';
-    }
-    head.appendChild(when);
-    li.appendChild(head);
-
-    if (w && w.sentAt) {
-      const body = document.createElement('p');
-      body.className = 'shift-wish__days';
-      const parts = [];
-      days.forEach((s) => {
-        const list = w.days[s] || [];
-        if (!list.length) return;
-        const [, mm, dd] = s.split('-').map(Number);
-        // 枠の頭文字（O/L/D）に、既定でない開始時刻だけを添えます。
-        // 「O9・L11:30・D18」のように時刻の書き方がばらつくと読みにくいので、
-        // 表と同じ考え方（既定の時刻は書かない）にそろえてあります
-        const marks = list.map((e) => {
-          const slot = getShiftSlot(e.s);
-          if (!slot) return '';
-          const t = String(e.t || '');
-          // 立ち上げ→立、ランチ→ラ、ディナー→デ、F→F
-          const head = e.s === SHIFT_FULL_ID ? 'F' : slot.name[0];
-          return head + (t && t !== slot.start ? shiftTimeText(t) : '');
-        });
-        parts.push(`${mm}/${dd} ${marks.join('・')}`);
+    days.forEach((d) => {
+      const td = document.createElement('td');
+      if (shiftClosedOn(d)) { td.className = 'is-closed'; tr.appendChild(td); return; }
+      const list = (w && w.days[d]) || [];
+      list.forEach((e) => {
+        const slot = getShiftSlot(e.s);
+        if (!slot) return;
+        const chip = document.createElement('span');
+        chip.className = `wish-chip wish-chip--${e.s}`;
+        chip.textContent = e.t ? shiftTimeText(e.t) : slot.name;
+        chip.title = `${slot.name}${e.t ? ' ' + shiftTimeText(e.t) : ''}`;
+        td.appendChild(chip);
       });
-      body.textContent = parts.length ? parts.join('　') : '入れる日なし';
-      li.appendChild(body);
-
-      // 日ごとの連絡（と、日ごとにする前に書いてもらった分）
-      const said = days.filter((s) => w.notes[s]).map((s) => {
-        const [, mm, dd] = s.split('-').map(Number);
-        return `${mm}/${dd} ${w.notes[s]}`;
-      });
-      if (w.note) said.push(w.note);
-      if (said.length) {
-        const note = document.createElement('p');
-        note.className = 'shift-wish__note';
-        note.textContent = said.join('　／　');
-        li.appendChild(note);
+      if (w && w.notes[d]) {
+        const note = document.createElement('span');
+        note.className = 'wish-note';
+        note.textContent = '連';
+        note.title = w.notes[d];
+        td.appendChild(note);
       }
-    }
-
-    el.shiftWishList.appendChild(li);
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
   });
 
-  if (!names.length) {
-    el.shiftWishList.innerHTML = '<li class="modal__note">'
-      + 'マネージの「シフトに入る人」で名前を登録してください。</li>';
-  }
+  const wrap = document.createElement('div');
+  wrap.className = 'wish-wrap';
+  wrap.appendChild(table);
+  el.shiftWishList.appendChild(wrap);
+
+  /* 色の見かた */
+  const legend = document.createElement('p');
+  legend.className = 'wish-legend';
+  legend.innerHTML = shiftWishSlots()
+    .map((sl) => `<span class="wish-chip wish-chip--${sl.id}">${sl.name}</span>`).join('')
+    + '<span class="wish-note">連</span>連絡あり（押すと中身が出ます）';
+  el.shiftWishList.appendChild(legend);
 
   el.shiftWishModal.classList.remove('is-hidden');
 }
@@ -5421,7 +5483,8 @@ function shiftSheetModel() {
       const holi = isHoliday(yy, m, d);
       return {
         key: s, label: `${m}/${d}`,
-        dow: DOW[dow] + (holi ? '・祝' : ''),
+        // 祝はかっこの外に出します（9/21（月）祝）
+        dow: `（${DOW[dow]}）` + (holi ? '祝' : ''),
         sun: dow === 0 || holi, sat: dow === 6,
         closed: shiftClosedOn(s),
       };
@@ -5468,7 +5531,7 @@ function shiftSheetTable(block) {
     const th = document.createElement('th');
     th.colSpan = SHIFT_LANES.length;
     th.className = d.sun ? 'is-sun' : d.sat ? 'is-sat' : '';
-    th.innerHTML = `${d.label}<br><span class="shift-sheet__dow">（${d.dow}）</span>`;
+    th.innerHTML = `${d.label}<br><span class="shift-sheet__dow">${d.dow}</span>`;
     head.appendChild(th);
   });
   table.appendChild(head);
@@ -5621,7 +5684,7 @@ function drawShiftSheet(canvas) {
       cx.fillStyle = '#f2f4f6';
       cx.fillRect(x, y, w, dateH);
       const color = d.sun ? '#c0392b' : d.sat ? '#33509a' : '#111418';
-      center(`${d.label}（${d.dow}）`, x, w, y + dateH / 2, 21, true, color);
+      center(`${d.label}${d.dow}`, x, w, y + dateH / 2, 21, true, color);
     });
     cx.fillStyle = '#f2f4f6';
     cx.fillRect(pad, y, labelW, dateH + laneH);
