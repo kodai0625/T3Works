@@ -2772,7 +2772,15 @@ body.is-wide .page { max-width: 1700px; }
 .day-tab.is-active .day-tab__state { box-shadow: 0 0 0 1.5px rgba(255,255,255,.8); }
 
 /* ===================== モーダル ===================== */
-.modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; }
+/* ★上下の余白に safe-area を足します。これが無いと、iPhone の
+   ホーム画面アプリで、モーダルの見出しが時刻や電池の表示に
+   隠れてしまいます（ヘッダーは 134行目で同じことをしています） */
+.modal {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 16px) 16px
+           calc(env(safe-area-inset-bottom) + 16px);
+}
 .modal.is-hidden { display: none; }
 .modal__backdrop { position: absolute; inset: 0; background: rgba(10,12,16,.5); }
 .modal__panel {
@@ -2780,15 +2788,25 @@ body.is-wide .page { max-width: 1700px; }
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 16px; padding: 18px; box-shadow: 0 12px 40px rgba(10,12,16,.3);
   /* 設定は項目が多いので、画面に収まらない分はパネル内でスクロールさせる */
-  max-height: calc(100dvh - 32px); overflow-y: auto; -webkit-overflow-scrolling: touch;
+  max-height: calc(100dvh - env(safe-area-inset-top)
+                          - env(safe-area-inset-bottom) - 32px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .modal__title { margin: 0 0 14px; font-size: 16px; }
 /* ★見出しの右に置く「閉じる」。中身が長いモーダルでも、
    下まで送らずに戻れるようにするためのものです */
-.modal__topbar {
-  display: flex; align-items: flex-start; gap: 10px;
-  position: sticky; top: 0; z-index: 2;
-  background: var(--surface);
+.modal__topbar { display: flex; align-items: flex-start; gap: 10px; }
+/* ★見出しと下のボタンは動かさず、中身だけをスクロールさせる形。
+   position: sticky は使いません（負の余白と組み合わせると、
+   見出しが18px下にずれて中身にかぶりました） */
+.modal__panel--fixed-head {
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal__panel--fixed-head .modal__body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* パネルの内よ白まで使い切ります（表を端まで見せるため） */
+  margin: 0 -18px; padding: 0 18px;
 }
 .modal__topbar .modal__title { flex: 1 1 auto; }
 .modal__x {
@@ -3262,6 +3280,11 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   body.print-shift #shiftSheetModal .modal__panel {
     max-width: none; max-height: none; overflow: visible;
     border: 0; box-shadow: none; padding: 0;
+    display: block;
+  }
+  /* 中身だけをスクロールさせる囲いは、紙では外します */
+  body.print-shift #shiftSheetModal .modal__body {
+    overflow: visible; margin: 0; padding: 0;
   }
   body.print-shift .modal__title { font-size: 12pt; margin: 0 0 2mm; text-align: center; }
   body.print-shift .shift-sheet-wrap { overflow: visible; margin: 0; }
