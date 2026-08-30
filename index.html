@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=9fa3bd50">
-<meta name="app-version" content="82036f8f">
+<link rel="stylesheet" href="css/style.css?v=3886fb65">
+<meta name="app-version" content="d26aa5bb">
 </head>
 <body>
 
@@ -1079,6 +1079,15 @@
       </div>
     </div>
 
+    <!-- 人が足りないマス。入れる人がいないときに赤く塗って目印にします -->
+    <div class="field is-hidden" id="shiftPickShortField">
+      <span class="field__label">このマスに、まだ人がほしいか</span>
+      <div class="seg">
+        <button type="button" class="seg__btn is-on" id="shiftPickShortOff">足りている</button>
+        <button type="button" class="seg__btn" id="shiftPickShortOn">足りない（赤くする）</button>
+      </div>
+    </div>
+
     <div class="field" id="shiftPickNameField">
       <div id="shiftPickNames"></div>
     </div>
@@ -1244,12 +1253,12 @@
   </div>
 </div>
 
-<script src="js/config.js?v=efdbbb8b"></script>
+<script src="js/config.js?v=2273bb6b"></script>
 <script src="js/storage.js?v=14e77bf4"></script>
 <script src="js/sync.js?v=63c286e4"></script>
 <script src="js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="js/meeting-data.js?v=78ed94da"></script>
-<script src="js/app.js?v=79c6c6fd"></script>
+<script src="js/app.js?v=50225abe"></script>
 </body>
 </html>

@@ -144,6 +144,8 @@ const el = {
   shiftPickEarlyField: $('shiftPickEarlyField'),
   shiftPickEarlyOn: $('shiftPickEarlyOn'), shiftPickEarlyOff: $('shiftPickEarlyOff'),
   shiftPickFullOn: $('shiftPickFullOn'), shiftPickFullOff: $('shiftPickFullOff'),
+  shiftPickShortField: $('shiftPickShortField'),
+  shiftPickShortOn: $('shiftPickShortOn'), shiftPickShortOff: $('shiftPickShortOff'),
   shiftPickNameField: $('shiftPickNameField'),
   shiftPickNames: $('shiftPickNames'), shiftPickRemove: $('shiftPickRemove'),
   shiftWishModal: $('shiftWishModal'), shiftWishWhen: $('shiftWishWhen'),
@@ -4661,6 +4663,8 @@ function shiftDayOf(rec, dateStr) {
     memo: v.memo || '',
     // その日のパティの枠（'lunch' か 'dinner'。無ければ空）
     patty: SHIFT_PATTY_SLOTS.includes(v.patty) ? v.patty : '',
+    // 人が足りないマス（'dinner|k' の形。赤く塗ります）
+    short: Array.isArray(v.short) ? v.short.filter((x) => typeof x === 'string') : [],
   };
 }
 
@@ -4678,6 +4682,7 @@ function saveShiftDay(dateStr, day) {
   Store.setItem(SHIFT_STORE, shiftRecKey(), shiftDayKey(dateStr), {
     open: day.open, lunch: day.lunch, dinner: day.dinner,
     memo: day.memo, patty: day.patty || '',
+    short: Array.isArray(day.short) ? day.short : [],
   });
 }
 
@@ -5130,6 +5135,7 @@ function shiftGridBlock(rec, wishes, days) {
       td.appendChild(box);
     }
 
+    td.appendChild(shiftMemoTagBox(dateStr, input));
     td.appendChild(shiftPattyBox(shiftDayOf(rec, dateStr), dateStr));
     memo.appendChild(td);
   });
@@ -5143,6 +5149,8 @@ function shiftGridBlock(rec, wishes, days) {
 function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   const td = document.createElement('td');
   td.className = 'shift-cell';
+  // 人が足りないマスは赤く塗ります（元のシフト表と同じ見せ方です）
+  if (day.short.includes(shiftShortKey(slot.id, lane.id))) td.classList.add('is-short');
 
   day[slot.id].forEach((e, i) => {
     if (shiftLaneOf(e) !== lane.id) return;
@@ -5174,6 +5182,34 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   td.appendChild(add);
 
   return td;
+}
+
+/**
+ * メモにすぐ足せる決まり文句のボタン
+ *
+ * ★「まさ休み」「こうだいpopo」など、毎回おなじ言葉を打つので
+ *   ボタンにしています。押すたびに足す・外すが入れかわります。
+ * ★印刷・PDF・JPEG にボタンは出ません（メモの中身だけが出ます）。
+ */
+function shiftMemoTagBox(dateStr, input) {
+  const box = document.createElement('div');
+  box.className = 'memo-tags';
+  SHIFT_MEMO_TAGS.forEach((tag) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const on = shiftMemoHas(input.value, tag);
+    b.className = 'memo-tag' + (on ? ' is-on' : '');
+    b.textContent = tag;
+    b.title = on ? 'もう一度押すと消えます' : 'メモに足す';
+    b.addEventListener('click', () => {
+      const now = shiftDayOf(shiftRec(), dateStr);
+      now.memo = shiftMemoToggle(input.value, tag);
+      saveShiftDay(dateStr, now);
+      render();
+    });
+    box.appendChild(b);
+  });
+  return box;
 }
 
 /**
@@ -5313,6 +5349,14 @@ function renderShiftPick() {
   if (entry) {
     el.shiftPickEarlyOff.classList.toggle('is-on', !entry.early);
     el.shiftPickEarlyOn.classList.toggle('is-on', !!entry.early);
+  }
+
+  /* 人が足りないマス。マスに付く印なので、人を足すときだけ出します */
+  el.shiftPickShortField.classList.toggle('is-hidden', index !== null);
+  if (index === null) {
+    const on = day.short.includes(shiftShortKey(slotId, shiftPickAt.laneId));
+    el.shiftPickShortOff.classList.toggle('is-on', !on);
+    el.shiftPickShortOn.classList.toggle('is-on', on);
   }
 
   /* 名前 */
@@ -5465,6 +5509,20 @@ function setShiftEarly(on) {
   if (on) e.early = true;
   else delete e.early;
   now[slotId][index] = e;
+  saveShiftDay(dateStr, now);
+  closeShiftPick();
+  render();
+}
+
+/** 「このマスはまだ人がほしい」を切り替える */
+function setShiftShort(on) {
+  if (!shiftPickAt) return;
+  const { dateStr, slotId, laneId } = shiftPickAt;
+  const now = shiftDayOf(shiftRec(), dateStr);
+  const key = shiftShortKey(slotId, laneId);
+  const i = now.short.indexOf(key);
+  if (on && i < 0) now.short.push(key);
+  if (!on && i >= 0) now.short.splice(i, 1);
   saveShiftDay(dateStr, now);
   closeShiftPick();
   render();
@@ -5674,6 +5732,7 @@ function shiftSheetModel() {
         return SHIFT_LANES.map((lane) => ({
           closed: shiftClosedOn(s),
           patty: day.patty === slot.id,
+          short: day.short.includes(shiftShortKey(slot.id, lane.id)),
           names: shiftClosedOn(s) ? [] : day[slot.id]
             .filter((e) => shiftLaneOf(e) === lane.id)
             .map((e) => ({
@@ -5708,6 +5767,97 @@ function renderShiftSheet() {
 }
 
 /**
+ * 名前1人分の幅を、実際の字で測ります（名前の大きさの何倍か）
+ *
+ * ★はじめは文字数から見当をつけていましたが、数字や漢字が思ったより広く、
+ *   F の人だけマスからはみ出していました。字の形で測れば食い違いません。
+ *   測れないときは、config.js の数え方（shiftNameEm）に戻します。
+ */
+const shiftMeasureText = (() => {
+  let cx = null;
+  return (text, family, size, bold) => {
+    if (!text) return 0;
+    if (!cx) {
+      const c = document.createElement('canvas');
+      cx = c && c.getContext ? c.getContext('2d') : null;
+    }
+    if (!cx) return 0;
+    cx.font = `${bold ? '700 ' : ''}${size}px ${family}`;
+    return cx.measureText(text).width;
+  };
+})();
+
+function shiftNameEmAt(parts, family) {
+  const R = 100;
+  const name = shiftMeasureText(parts.name, family, R, false);
+  if (!name) return shiftNameEm(parts);
+  const time = parts.time ? shiftMeasureText(parts.time, family, R, false) * SHIFT_TIME_SCALE + R * 0.22 : 0;
+  // F の印は太字で、名前の0.85倍の大きさで出します
+  const full = parts.full ? shiftMeasureText(' F', family, R, true) * 0.85 : 0;
+  return (time + name + full) / R;
+}
+
+/** 絵（JPEG・PDF）で、いちばん幅のいる1人分 */
+function shiftCanvasEm(model, family) {
+  let em = 0;
+  model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
+    c.names.forEach((n) => { em = Math.max(em, shiftNameEmAt(n.parts, family)); });
+  })));
+  return em;
+}
+
+/** 1人分のかたまり（時刻＋名前）。表を組むときと、幅を測るときで同じ形にします */
+function shiftNameSpan(n) {
+  const one = document.createElement('span');
+  one.className = 'shift-sheet__name'
+    + (n.full ? ' is-full' : '') + (n.early ? ' is-early' : '');
+  if (n.parts.time) {
+    const t = document.createElement('i');
+    t.className = 'shift-sheet__at';
+    t.textContent = n.parts.time;
+    one.appendChild(t);
+  }
+  one.appendChild(document.createTextNode(n.parts.name));
+  return one;
+}
+
+/**
+ * 紙で、いちばん幅のいる1人分（名前の大きさの何倍か）
+ *
+ * ★字の形から計算するのではなく、見えないところに本物と同じ形で並べて測ります。
+ *   計算だと「F」の印やすき間のぶんが合わず、その人だけはみ出していました。
+ *   .shift-sheet-measure は、紙とおなじ組み方になるようにしてあります。
+ */
+function shiftPrintEm(model) {
+  const box = document.createElement('div');
+  box.className = 'shift-sheet-measure';
+  const spans = [];
+  const seen = {};
+  model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
+    c.names.forEach((n) => {
+      const key = n.text + (n.full ? '|F' : '');
+      if (seen[key]) return;
+      seen[key] = true;
+      const line = document.createElement('div');
+      const span = shiftNameSpan(n);
+      line.appendChild(span);
+      box.appendChild(line);
+      spans.push(span);
+    });
+  })));
+  if (!spans.length) return 0;
+  // ★body に置きます。表の中に置くと、まだ隠れているモーダルの中なので
+  //   幅がぜんぶ0で返ってきます（前にそれで名前が大きくなりすぎました）
+  box.style.fontFamily = getComputedStyle(el.shiftSheet).fontFamily;
+  document.body.appendChild(box);
+  let w = 0;
+  spans.forEach((sp) => { w = Math.max(w, sp.getBoundingClientRect().width); });
+  box.remove();
+  // 測るときの大きさは css で 100px にしてあります
+  return w / 100;
+}
+
+/**
  * 印刷したときに、名前が1行で収まる文字の大きさ（ポイント）
  *
  * ★A4横の紙の幅は297mm。左右の余白3mmずつと、枠名の列7mmを引いた残りを、
@@ -5715,15 +5865,15 @@ function renderShiftSheet() {
  *   1段8日だと17.8mmしかないので、いちばん長い名前に合わせて小さくします。
  */
 function shiftSheetNamePt(model, perDay) {
-  const cellMm = (297 - 3 * 2 - SHIFT_SHEET_LABEL_MM) / (perDay * SHIFT_LANES.length) - 0.7;
-  let em = 0;
-  model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
-    c.names.forEach((n) => { em = Math.max(em, shiftNameEm(n.parts)); });
-  })));
+  // 1マスの、字が入るところの幅（ミリ）。紙297mm − 余白3mm×2 − 枠名の列。
+  // 1.05mm 引いているのは、マスの内よ白（0.3mm×2）とけい線（1px）のぶんです
+  const cellMm = (297 - 3 * 2 - SHIFT_SHEET_LABEL_MM) / (perDay * SHIFT_LANES.length) - 1.05;
+  const em = shiftPrintEm(model);
   if (em <= 0) return 8;
-  // 1mm = 2.8346ポイント。大きくても8pt（それ以上は日付より目立ちます）
-  const pt = Math.min(8, (cellMm * 2.8346 / em) * 0.98);
-  return Math.max(5, Math.round(pt * 10) / 10);
+  // 1mm = 2.8346ポイント。大きくても8pt（それ以上は日付より目立ちます）。
+  // 0.97 は念のための余裕です（けい線の太さや、端末ごとの丸めのぶん）
+  const pt = Math.min(8, (cellMm * 2.8346 / em) * 0.97);
+  return Math.max(5, Math.floor(pt * 10) / 10);
 }
 
 function shiftSheetTable(block, perDay, namePt) {
@@ -5759,7 +5909,9 @@ function shiftSheetTable(block, perDay, namePt) {
   block.rows.forEach((row, ri) => {
     const tr = document.createElement('tr');
     const th = document.createElement('th');
-    th.className = 'shift-sheet__label';
+    // ★枠名だけ縦書きにします。1文字ぶんの幅で足りるので、
+    //   そのぶん日付の列を広くできます（メモは横書きのままです）
+    th.className = 'shift-sheet__label shift-sheet__label--v';
     th.textContent = row.label;
     tr.appendChild(th);
 
@@ -5781,6 +5933,7 @@ function shiftSheetTable(block, perDay, namePt) {
         const cell = row.cells[i];
         i += 1;
         const td = document.createElement('td');
+        if (cell.short) td.classList.add('is-short');
         // パティの枠は、キッチンとホールをまとめて桃色のふちで囲みます
         if (cell.patty) {
           td.classList.add('is-patty');
@@ -5790,20 +5943,7 @@ function shiftSheetTable(block, perDay, namePt) {
         // ★F（通し）は名前を灰色で塗ります。今のスプレッドシートで
         //   ランチのセルを塗りつぶしているのと同じ意味です。
         //   早上がりの人は、そのうえに橙のふちを付けます
-        cell.names.forEach((n) => {
-          const one = document.createElement('span');
-          one.className = 'shift-sheet__name'
-            + (n.full ? ' is-full' : '') + (n.early ? ' is-early' : '');
-          // 時刻は名前より小さく出します（紙のときだけ効きます）
-          if (n.parts.time) {
-            const t = document.createElement('i');
-            t.className = 'shift-sheet__at';
-            t.textContent = n.parts.time;
-            one.appendChild(t);
-          }
-          one.appendChild(document.createTextNode(n.parts.name));
-          td.appendChild(one);
-        });
+        cell.names.forEach((n) => td.appendChild(shiftNameSpan(n)));
         tr.appendChild(td);
       });
     });
@@ -5846,6 +5986,7 @@ function closeShiftSheet() {
  *  そのほうが、端末や字の設定で崩れません。
  */
 const SHEET_PX = { w: 1754, h: 1240 };   // A4横 150dpi
+const SHEET_FONT = '-apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
 
 function drawShiftSheet(canvas) {
   const model = shiftSheetModel();
@@ -5858,7 +5999,7 @@ function drawShiftSheet(canvas) {
   cx.fillStyle = '#ffffff';
   cx.fillRect(0, 0, W, H);
   cx.textBaseline = 'middle';
-  const font = (size, bold) => `${bold ? '700 ' : ''}${size}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+  const font = (size, bold) => `${bold ? '700 ' : ''}${size}px ${SHEET_FONT}`;
 
   // ★紙のふちぎりぎりまで使います。印刷に出ない程度の余白だけ残します
   const pad = 14;
@@ -5866,16 +6007,13 @@ function drawShiftSheet(canvas) {
   // 前と同じ幅にそろえたほうが、続きの表として読めるからです
   const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
   const cols = perDay * SHIFT_LANES.length;
-  // 左の枠名は、紙と同じように小さくします（縦書きにはしません。
-  // 横でも3文字ぶんあれば「立ち上げ」が2行で収まります）
-  const labelW = 52;
+  // 左の枠名は、紙と同じく縦書きにします。1文字ぶんの幅で足りるので、
+  // そのぶん日付の列を広くできます
+  const labelW = 28;
   const gridW = W - pad * 2 - labelW;
   const colW = gridW / cols;
   // 名前が1行に収まる大きさ。紙と同じ考え方です（shiftSheetNamePt）
-  let nameEm = 0;
-  model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
-    c.names.forEach((n) => { nameEm = Math.max(nameEm, shiftNameEm(n.parts)); });
-  })));
+  const nameEm = shiftCanvasEm(model, SHEET_FONT);
   const nameSize = Math.max(9, Math.min(16, nameEm ? ((colW - 8) / nameEm) * 0.98 : 16));
   const lh = Math.round(nameSize + 7);
 
@@ -5904,6 +6042,23 @@ function drawShiftSheet(canvas) {
     }
     cx.font = font(size, false);
     cx.fillText(parts.name, tx, yy, x + w - 3 - tx);
+    // F（通し）の印。塗りだけでなく字でも分かるようにします（紙の表と同じ）
+    if (parts.full) {
+      cx.fillStyle = '#5b6169';
+      cx.font = font(size * 0.85, true);
+      cx.fillText(' F', tx + nw, yy);
+    }
+  };
+  // 縦書き。紙の枠名（立ち上げ・ランチ・ディナー）と同じ形にします
+  const centerV = (text, x, w, top, h, size, bold, color) => {
+    cx.fillStyle = color || '#111418';
+    cx.font = font(size, bold);
+    cx.textAlign = 'center';
+    const chars = String(text).split('');
+    const step = size + 2;
+    let yy = top + h / 2 - ((chars.length - 1) * step) / 2;
+    chars.forEach((ch) => { cx.fillText(ch, x + w / 2, yy); yy += step; });
+    cx.textAlign = 'left';
   };
   const line = (x1, y1, x2, y2, strong) => {
     cx.strokeStyle = strong ? '#8a9099' : '#c8ccd2';
@@ -5965,7 +6120,7 @@ function drawShiftSheet(canvas) {
       const rowH = slotH[ri];
       cx.fillStyle = '#fafbfc';
       cx.fillRect(pad, y, labelW, rowH);
-      center(row.label, pad, labelW, y + rowH / 2, 13, true, '#3d434b');
+      centerV(row.label, pad, labelW, y, rowH, 13, true, '#3d434b');
 
       let i = 0;
       block.head.forEach((d, di) => {
@@ -5977,6 +6132,11 @@ function drawShiftSheet(canvas) {
           const cell = row.cells[i];
           i += 1;
           const x = x0 + colW * (SHIFT_LANES.length * di + li);
+          // 人が足りないマス。元のシフト表と同じ、うすい赤で塗ります
+          if (cell.short) {
+            cx.fillStyle = '#f6d3d3';
+            cx.fillRect(x, y, colW, rowH);
+          }
           // パティの枠は、キッチンとホールをまたいで1つの四角で囲みます
           // （持ち場ごとに描くと、あいだに縦線が入ってしまいます）
           if (cell.patty && li === 0) {
@@ -6644,6 +6804,8 @@ function bindEvents() {
   el.shiftPickEarlyOff.addEventListener('click', () => setShiftEarly(false));
   el.shiftPickFullOn.addEventListener('click', () => setShiftFull(true));
   el.shiftPickFullOff.addEventListener('click', () => setShiftFull(false));
+  el.shiftPickShortOn.addEventListener('click', () => setShiftShort(true));
+  el.shiftPickShortOff.addEventListener('click', () => setShiftShort(false));
   el.shiftPrintBtn.addEventListener('click', () => window.print());
   document.querySelectorAll('[data-shift-pick-close]')
     .forEach((b) => b.addEventListener('click', closeShiftPick));

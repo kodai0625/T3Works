@@ -1291,8 +1291,9 @@ const SHIFT_COLS = 2;
  */
 const SHIFT_PRINT_ROWS = 2;
 
-/** 印刷したときの、左はし（立ち上げ・ランチ…）の列の幅（ミリ）。css と同じ数です */
-const SHIFT_SHEET_LABEL_MM = 7;
+/** 印刷したときの、左はし（立ち上げ・ランチ…）の列の幅（ミリ）。css と同じ数です。
+    縦書きにしたので、1文字ぶんの幅で足ります */
+const SHIFT_SHEET_LABEL_MM = 5;
 
 /** その半月を何段かに分けたときの、1段ぶんの日数 */
 function shiftPrintCols(dayCount) {
@@ -1322,6 +1323,45 @@ function shiftFitSize(texts, width, max) {
   texts.forEach((t) => { em = Math.max(em, shiftTextEm(t)); });
   if (em <= 0) return max;
   return Math.min(max, (width / em) * 0.97);
+}
+
+/* -------- メモにすぐ足せる決まり文句 --------
+ *
+ * ★社員2人（こうだい・まさ）の動きの連絡です。毎回おなじ言葉を打つので、
+ *   ボタンにしています。押すたびに足す・外すが入れかわります。
+ */
+const SHIFT_MEMO_TAGS = [
+  'まさ休み', 'こうだい休み', 'こうだいpopo', 'こうだいランチpopo', 'こうだいディナーpopo',
+];
+const SHIFT_MEMO_SEP = '・';
+
+/** メモを「・」で分けたもの */
+function shiftMemoParts(memo) {
+  return String(memo || '').split(SHIFT_MEMO_SEP).map((x) => x.trim()).filter(Boolean);
+}
+
+/** その言葉がメモに入っているか */
+function shiftMemoHas(memo, tag) {
+  return shiftMemoParts(memo).indexOf(tag) >= 0;
+}
+
+/** 押したときの、あとのメモ（入っていれば外し、無ければ足します） */
+function shiftMemoToggle(memo, tag) {
+  const parts = shiftMemoParts(memo);
+  const i = parts.indexOf(tag);
+  if (i >= 0) parts.splice(i, 1);
+  else parts.push(tag);
+  return parts.join(SHIFT_MEMO_SEP);
+}
+
+/* -------- 人が足りないマス --------
+ *
+ * ★元のスプレッドシートで、赤く塗って「ここにもう1人ほしい」と
+ *   分かるようにしているのと同じものです。日ごとに
+ *   ['dinner|k', …] の形で持ちます。
+ */
+function shiftShortKey(slotId, laneId) {
+  return `${slotId}|${laneId}`;
 }
 
 /** その希望が、組んだ表のどの枠に入るか（F はランチへ） */
@@ -1450,17 +1490,23 @@ function shiftNameText(slotId, entry) {
  */
 const SHIFT_TIME_SCALE = 0.72;
 
+/** F（通し）の人の名前のうしろに付く「 F」のぶんの幅 */
+const SHIFT_FULL_MARK_EM = 0.9;
+
 function shiftNameParts(slotId, entry) {
   return {
     time: shiftTimeMark(slotId, entry && entry.t),
     name: String((entry && entry.n) || ''),
+    // ★F の人は名前のうしろに「 F」が付きます。この幅も数に入れないと、
+    //   その人だけマスからはみ出ます
+    full: !!(entry && entry.f),
   };
 }
 
 /** その1人分が、名前の大きさの何倍の幅になるか */
 function shiftNameEm(parts) {
   const t = parts.time ? shiftTextEm(parts.time) * SHIFT_TIME_SCALE + 0.22 : 0;
-  return t + shiftTextEm(parts.name);
+  return t + shiftTextEm(parts.name) + (parts.full ? SHIFT_FULL_MARK_EM : 0);
 }
 
 /* -------- 祝日と、肉の日 -------- */

@@ -3145,12 +3145,46 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .shift-sheet__name { display: block; white-space: nowrap; }
 /* 時刻の数字。画面では名前と同じ大きさで、紙のときだけ小さくします */
 .shift-sheet__at { font-style: normal; margin-right: .3em; }
+
+/* -------- 紙に出すときの、1人分の組み方 --------
+   ★「測り場」と「紙」で同じ指定にしてあります。
+     どちらかだけ直すと、測った幅と実際の幅がずれて、
+     名前がマスからはみ出します（前にそうなりました）。 */
+.shift-sheet-measure .shift-sheet__at,
+body.print-shift .shift-sheet__at {
+  font-size: .72em; margin-right: .22em;
+}
+.shift-sheet-measure .shift-sheet__name.is-full,
+body.print-shift .shift-sheet__name.is-full {
+  /* 字の大きさで変わらない px の余白は、測るときの邪魔になるので外します */
+  margin: 0; padding: 0;
+}
+.shift-sheet-measure .shift-sheet__name.is-full::after,
+body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
+
+/* 名前の幅を測るためだけの、見えない場所。
+   100px で並べて、その幅から「何倍あるか」を出します */
+.shift-sheet-measure {
+  position: absolute; left: -9999px; top: 0;
+  visibility: hidden; white-space: nowrap;
+  font-size: 100px; line-height: 1.2;
+}
+.shift-sheet-measure .shift-sheet__name { display: inline-block; }
 .shift-sheet__label {
   min-width: 52px; font-size: 11px; color: var(--text-sub);
   vertical-align: middle;
 }
 .shift-sheet__memo { font-size: 11px; color: var(--text-sub); }
 .shift-sheet td.is-closed { background: var(--line-2); color: var(--text-sub); text-align: center; }
+/* 枠名（立ち上げ・ランチ・ディナー）は縦書き。メモは横書きのままです */
+.shift-sheet__label--v {
+  writing-mode: vertical-rl; text-orientation: upright;
+  white-space: nowrap; letter-spacing: 0; line-height: 1;
+  min-width: 0; width: 1.6em; padding: 4px 0;
+}
+/* 人が足りないマス。元のシフト表と同じ、うすい赤で塗ります */
+.shift-cell.is-short,
+.shift-sheet td.is-short { background: color-mix(in srgb, var(--ng) 20%, transparent); }
 .shift-text {
   margin: 0; padding: 10px; white-space: pre-wrap; word-break: break-all;
   background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px;
@@ -3198,8 +3232,15 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   }
   /* 左の枠名。できるだけ細くします（js の SHIFT_SHEET_LABEL_MM と同じ数です） */
   body.print-shift .shift-sheet tr > th:first-child {
-    width: 7mm; font-size: 6.5pt; padding: 0 0.3mm;
+    width: 5mm; font-size: 6.5pt; padding: 0 0.3mm;
     line-height: 1.05; white-space: normal;
+  }
+  /* ★枠名は縦書き。1文字ぶんの幅で足りるので、日付の列を広くできます。
+     メモの行はこの指定を付けていないので、横書きのままです */
+  body.print-shift .shift-sheet__label--v {
+    writing-mode: vertical-rl; text-orientation: upright;
+    font-size: 6pt; line-height: 1; letter-spacing: 0;
+    white-space: nowrap; padding: 0.5mm 0;
   }
   body.print-shift .shift-sheet__lane { font-size: 5.5pt !important; padding: 0.2mm 0 !important; }
 
@@ -3211,12 +3252,12 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   body.print-shift .shift-sheet tr:nth-child(5) td { height: 31mm; }
   /* メモは長くなることがあるので、ここだけ折り返させます（高さは下に伸びます） */
   body.print-shift .shift-sheet tr:last-child td { height: 5.5mm; white-space: normal; }
+  /* 「メモ」の見出しは横書きのまま。5mm の列に1行で入る大きさにします */
+  body.print-shift .shift-sheet tr:last-child > th:first-child {
+    font-size: 5.5pt; white-space: nowrap;
+  }
   /* 名前の大きさは js が決めます（マスの幅に1行で収まる大きさ） */
   body.print-shift .shift-sheet__name { line-height: 1.5; font-size: var(--name-pt, 7pt); }
-  /* 時刻の数字は名前より小さく。そのぶん名前を大きくできます */
-  body.print-shift .shift-sheet__at {
-    font-style: normal; font-size: .72em; margin-right: .22em;
-  }
   body.print-shift .shift-sheet__name.is-full {
     background: #dcdcdc;
     outline: 1px solid #b4b4b4;
@@ -3257,6 +3298,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   body.print-shift .shift-sheet td.is-patty-first { border-left-color: #bf5480; }
   body.print-shift .shift-sheet td.is-patty-last { border-right-color: #bf5480; }
   body.print-shift .shift-sheet__name.is-early { outline-color: #d98324; }
+  /* 人が足りないマス。紙でも同じうすい赤で塗ります */
+  body.print-shift .shift-sheet td.is-short { background: #f6d3d3; }
 }
 
 /* -------- シフト：F（ランチからディナーまで通し） --------
@@ -3450,6 +3493,19 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 
 /* パティのボタンは、メモの下に置いています。印刷には出ません */
+/* メモにすぐ足せる決まり文句のボタン。パティのボタンのすぐ上に置きます */
+.memo-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.memo-tag {
+  border: 1px dashed var(--line); border-radius: 7px;
+  background: transparent; color: var(--text-weak);
+  font: inherit; font-size: 10.5px; font-weight: 700;
+  padding: 4px 7px; cursor: pointer;
+}
+.memo-tag.is-on {
+  border-style: solid; border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
 .patty-box { display: flex; gap: 4px; margin-top: 5px; }
 .shift-patty {
   flex: 1 1 0;
@@ -3465,16 +3521,15 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 
 /* キッチンとホールをまとめて1つの枠として囲みます。
-   ★あいだの縦線は消します。両側のマスの境目を0にすると、
-     表の線がつぶれて1本の囲みに見えます */
+   ★上下と外がわだけを桃色にします。キッチンとホールのあいだの線は
+     ほかのマスと同じまま残します（ここまで消すと、どちらの持ち場か
+     分からなくなるためです） */
 .shift-grid td.is-patty {
   border-top: 2px solid #bf5480;
   border-bottom: 2px solid #bf5480;
 }
 .shift-grid td.is-patty-first { border-left: 2px solid #bf5480; }
 .shift-grid td.is-patty-last  { border-right: 2px solid #bf5480; }
-.shift-grid td.is-patty-first:not(.is-patty-last) { border-right: 0; }
-.shift-grid td.is-patty:not(.is-patty-first) { border-left: 0; }
 
 /* 印刷の表。考え方は上と同じです */
 .shift-sheet__name.is-early {
@@ -3486,8 +3541,6 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 .shift-sheet td.is-patty-first { border-left: 2px solid #bf5480; }
 .shift-sheet td.is-patty-last  { border-right: 2px solid #bf5480; }
-.shift-sheet td.is-patty-first:not(.is-patty-last) { border-right: 0; }
-.shift-sheet td.is-patty:not(.is-patty-first) { border-left: 0; }
 @media print {
   body.print-shift .shift-sheet__name.is-early,
   body.print-shift .shift-sheet td.is-patty {
