@@ -46,7 +46,7 @@ const el = {};
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
-  'closedStoreName', 'dowToggles', 'exFrom', 'exTo', 'exKind', 'exAdd', 'exHint', 'exList',
+  'closedStoreName', 'dowToggles', 'exFrom', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
   'pauseModal', 'pauseItem', 'pauseFrom', 'pauseTo', 'pauseAdd', 'pauseHint', 'pauseList',
   'confirmDialog', 'confirmItem', 'confirmMessage', 'confirmOk',
@@ -1337,26 +1337,30 @@ function renderClosed() {
   });
 }
 
+/**
+ * 臨時の休業・営業を1日だけ登録する
+ *
+ * ★もとは「1/1〜1/3」のように期間で入れる作りでしたが、
+ *   まとめて登録することが無く、1日ずつしか使わないため、
+ *   日付を1つだけにしました（入れまちがいも減ります）。
+ *   続けて休むときは、その日数だけ押してください。
+ */
 function addClosedException() {
-  const from = el.exFrom.value;
-  const to = el.exTo.value || from;
+  const day = el.exFrom.value;
   el.exHint.textContent = '';
+  if (!day) { el.exHint.textContent = '日付を選んでください。'; return; }
 
-  if (!from) { el.exHint.textContent = '開始日を選んでください。'; return; }
-  if (to < from) { el.exHint.textContent = '終了日は開始日より後にしてください。'; return; }
+  const kind = el.exKind.value;
+  const before = Closed.exceptionOn(state.storeId, day);
+  Closed.setException(state.storeId, day, kind);
 
-  const start = new Date(from + 'T00:00:00');
-  const end = new Date(to + 'T00:00:00');
-  const days = Math.round((end - start) / 86400000) + 1;
-  if (days > 60) { el.exHint.textContent = '一度に登録できるのは60日までです。'; return; }
+  const [, m, d] = day.split('-').map(Number);
+  const name = kind === 'closed' ? '休業' : '営業';
+  el.exHint.textContent = before === kind
+    ? `${m}/${d} は、すでに「${name}」で登録ずみです。`
+    : `${m}/${d} を「${name}」で登録しました。`;
 
-  for (let i = 0; i < days; i++) {
-    const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-    Closed.setException(state.storeId, ymd(dt.getFullYear(), dt.getMonth() + 1, dt.getDate()), el.exKind.value);
-  }
-  el.exHint.textContent = `${days}日分を「${el.exKind.value === 'closed' ? '休業' : '営業'}」で登録しました。`;
   el.exFrom.value = '';
-  el.exTo.value = '';
   renderClosed();
 }
 

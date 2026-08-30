@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=9b1d8a0c">
+<link rel="stylesheet" href="../css/style.css?v=a92a15bd">
 <link rel="stylesheet" href="css/admin.css?v=e9145f39">
-<meta name="app-version" content="a0f13fca">
+<meta name="app-version" content="fd948cb1">
 </head>
 <body class="no-daytabs">
 
@@ -317,11 +317,12 @@
     <div class="dow-toggles" id="dowToggles"></div>
 
     <h3 class="admin-sub">臨時の休業・営業</h3>
-    <p class="admin-note">年末年始など。曜日の設定より優先されます。</p>
+    <p class="admin-note">
+      年末年始など。曜日の設定より優先されます。<b>1日ずつ登録します。</b><br>
+      何日か続けて休むときは、その日数だけ登録してください。
+    </p>
     <div class="ex-add">
-      <input type="date" id="exFrom" class="ex-date" aria-label="開始日">
-      <span class="ex-tilde">〜</span>
-      <input type="date" id="exTo" class="ex-date" aria-label="終了日">
+      <input type="date" id="exFrom" class="ex-date" aria-label="日付">
       <select id="exKind" class="ex-kind">
         <option value="closed">休業にする</option>
         <option value="open">営業する</option>
@@ -410,6 +411,6 @@
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=fc22ade4"></script>
+<script src="js/admin.js?v=cbf82862"></script>
 </body>
 </html>
