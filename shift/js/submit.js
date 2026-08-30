@@ -46,7 +46,7 @@ let phase = '';
 let picked = {};
 /** 日ごとの連絡。{ 'YYYY-MM-DD': '文' } */
 let notes = {};
-/** 出しずみかどうか */
+/** 提出済みかどうか */
 let sentAt = null;
 /** 店舗の定休日（サーバーから取ります） */
 let closed = { dows: [], ex: {} };
@@ -109,7 +109,7 @@ async function submitPin() {
   applyOpen(res);
 }
 
-/** 番号から分かったこと（名前・店舗・期間・定休日・出しずみの内容）を受け取る */
+/** 番号から分かったこと（名前・店舗・期間・定休日・提出済みの内容）を受け取る */
 function applyOpen(res) {
   me.name = res.name || '';
   me.store = res.store || '';
@@ -188,7 +188,7 @@ function renderPeriod() {
 
   el('periodState').className = 'period__state' + (sentAt ? ' is-sent' : '');
   el('periodState').textContent = sentAt
-    ? `出しずみ（${on}日）。直したら、もう一度出してください`
+    ? `提出済み（${on}日）。直したら、もう一度出してください`
     : `${days.length}日のうち ${on}日 えらんでいます`;
 
   el('slotHint').innerHTML = shiftWishSlots()

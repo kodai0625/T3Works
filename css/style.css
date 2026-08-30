@@ -3377,3 +3377,45 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .wish-chip--dinner.is-yet { color: var(--shift-dinner); }
 .wish-chip.is-extra { outline: 2px solid var(--text); outline-offset: -2px; }
 .wish-legend__gap { flex-basis: 100%; height: 0; }
+
+/* -------- シフト：早上がりと、パティ --------
+     早上がり … F で入れているが、早めに上がる人。橙のふちで囲みます
+     パティ   … その日のパティを作る枠。ランチかディナーのどちらか一方に付き、
+                その枠ぜんぶを桃色のふちで囲みます */
+.shift-chip.is-early {
+  border-color: #d98324;
+  box-shadow: inset 0 0 0 1px #d98324;
+}
+
+.shift-patty {
+  display: block; width: 100%; margin-top: 3px;
+  border: 1px dashed var(--line); border-radius: 7px;
+  background: transparent; color: var(--text-weak);
+  font: inherit; font-size: 10.5px; font-weight: 700;
+  padding: 4px 2px; cursor: pointer;
+}
+.shift-patty.is-on {
+  border-style: solid; border-color: #bf5480;
+  background: color-mix(in srgb, #bf5480 12%, transparent);
+  color: #bf5480;
+}
+
+/* 枠ぜんぶを囲むため、持ち場のマスをつないで1つのふちに見せます */
+.shift-grid td.is-patty {
+  border-top-color: #bf5480; border-bottom-color: #bf5480;
+  box-shadow: inset 0 2px 0 -1px #bf5480, inset 0 -2px 0 -1px #bf5480;
+}
+.shift-grid td.is-patty-first { border-left-color: #bf5480; box-shadow: inset 2px 0 0 -1px #bf5480, inset 0 2px 0 -1px #bf5480, inset 0 -2px 0 -1px #bf5480; }
+.shift-grid td.is-patty-last  { border-right-color: #bf5480; box-shadow: inset -2px 0 0 -1px #bf5480, inset 0 2px 0 -1px #bf5480, inset 0 -2px 0 -1px #bf5480; }
+
+/* 印刷の表 */
+.shift-sheet__name.is-early {
+  outline: 1.5px solid #d98324; outline-offset: -1px; border-radius: 3px;
+}
+.shift-sheet td.is-patty { box-shadow: inset 0 0 0 2px #bf5480; }
+@media print {
+  body.print-shift .shift-sheet__name.is-early,
+  body.print-shift .shift-sheet td.is-patty {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}

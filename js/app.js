@@ -138,6 +138,8 @@ const el = {
   shiftPickFreeField: $('shiftPickFreeField'), shiftPickFree: $('shiftPickFree'),
   shiftPickFreeGo: $('shiftPickFreeGo'),
   shiftPickFullField: $('shiftPickFullField'),
+  shiftPickEarlyField: $('shiftPickEarlyField'),
+  shiftPickEarlyOn: $('shiftPickEarlyOn'), shiftPickEarlyOff: $('shiftPickEarlyOff'),
   shiftPickFullOn: $('shiftPickFullOn'), shiftPickFullOff: $('shiftPickFullOff'),
   shiftPickNameField: $('shiftPickNameField'),
   shiftPickNames: $('shiftPickNames'), shiftPickRemove: $('shiftPickRemove'),
@@ -4654,6 +4656,8 @@ function shiftDayOf(rec, dateStr) {
     lunch: arr('lunch', v.lunch),
     dinner: arr('dinner', v.dinner),
     memo: v.memo || '',
+    // その日のパティの枠（'lunch' か 'dinner'。無ければ空）
+    patty: SHIFT_PATTY_SLOTS.includes(v.patty) ? v.patty : '',
   };
 }
 
@@ -4669,8 +4673,17 @@ function shiftMemoOf(rec, dateStr) {
 
 function saveShiftDay(dateStr, day) {
   Store.setItem(SHIFT_STORE, shiftRecKey(), shiftDayKey(dateStr), {
-    open: day.open, lunch: day.lunch, dinner: day.dinner, memo: day.memo,
+    open: day.open, lunch: day.lunch, dinner: day.dinner,
+    memo: day.memo, patty: day.patty || '',
   });
+}
+
+/** その日のパティの枠を決める（同じ枠をもう一度押すと外れます） */
+function toggleShiftPatty(dateStr, slotId) {
+  const now = shiftDayOf(shiftRec(), dateStr);
+  now.patty = now.patty === slotId ? '' : slotId;
+  saveShiftDay(dateStr, now);
+  render();
 }
 
 /** 出してもらった希望をぜんぶ。名簿の順に並べます */
@@ -5049,7 +5062,14 @@ function shiftGridBlock(rec, wishes, days) {
       }
       const day = shiftDayOf(rec, dateStr);
       SHIFT_LANES.forEach((lane, li) => {
-        tr.appendChild(shiftCell(rec, wishes, day, dateStr, slot, lane, li === 0));
+        const td = shiftCell(rec, wishes, day, dateStr, slot, lane, li === 0);
+        // パティの枠は、その日のその枠ぜんぶを桃色のふちで囲みます
+        if (day.patty === slot.id) {
+          td.classList.add('is-patty');
+          if (li === 0) td.classList.add('is-patty-first');
+          if (li === SHIFT_LANES.length - 1) td.classList.add('is-patty-last');
+        }
+        tr.appendChild(td);
       });
     });
     table.appendChild(tr);
@@ -5110,9 +5130,9 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     if (shiftLaneOf(e) !== lane.id) return;
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = 'shift-chip' + (e.f ? ' is-full' : '');
+    chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
     chip.textContent = shiftNameText(slot.id, e);
-    if (e.f) chip.title = 'F（ランチからディナーまで通し）';
+    if (e.f) chip.title = 'F（ランチからディナーまで通し）' + (e.early ? '・早上がり' : '');
     chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
     td.appendChild(chip);
   });
@@ -5133,6 +5153,20 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   add.title = rest ? `希望を出していて、まだ入っていない人が${rest}人います` : '人を足す';
   add.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, null));
   td.appendChild(add);
+
+  // パティ。ランチかディナーの、左の持ち場にだけ出します
+  // （日とその枠に付くもので、人に付くものではないため）
+  if (first && SHIFT_PATTY_SLOTS.includes(slot.id)) {
+    const patty = document.createElement('button');
+    patty.type = 'button';
+    patty.className = 'shift-patty' + (day.patty === slot.id ? ' is-on' : '');
+    patty.textContent = 'パティ';
+    patty.title = day.patty === slot.id
+      ? 'この枠のパティを外す'
+      : `この日のパティを${slot.name}にする`;
+    patty.addEventListener('click', () => toggleShiftPatty(dateStr, slot.id));
+    td.appendChild(patty);
+  }
 
   return td;
 }
@@ -5222,6 +5256,14 @@ function renderShiftPick() {
     const on = entry ? !!entry.f : !!shiftPickAt.full;
     el.shiftPickFullOff.classList.toggle('is-on', !on);
     el.shiftPickFullOn.classList.toggle('is-on', on);
+  }
+
+  /* 早上がり。F で入れている人だけに出します */
+  const isFull = !!(entry && entry.f);
+  el.shiftPickEarlyField.classList.toggle('is-hidden', !isFull);
+  if (isFull) {
+    el.shiftPickEarlyOff.classList.toggle('is-on', !entry.early);
+    el.shiftPickEarlyOn.classList.toggle('is-on', !!entry.early);
   }
 
   /* 名前 */
@@ -5349,7 +5391,7 @@ function applyShiftFreeTime() {
   if (to === 'open') to = slotId;
   // ★F（通し）の人を17時以降にずらしたら、それはもう通しではありません。
   //   通しの印（灰色の塗り）を外して、ディナーの枠へ移します
-  if (entry.f && to === 'dinner') delete entry.f;
+  if (entry.f && to === 'dinner') { delete entry.f; delete entry.early; }
   else if (entry.f) to = slotId;
   if (to && to !== slotId) {
     now[slotId].splice(index, 1);
@@ -5360,6 +5402,20 @@ function applyShiftFreeTime() {
     now[slotId] = shiftSort(now[slotId]);
   }
 
+  saveShiftDay(dateStr, now);
+  closeShiftPick();
+  render();
+}
+
+/** 「早上がり」を切り替える（Fで入れているが、早めに帰す人） */
+function setShiftEarly(on) {
+  if (!shiftPickAt || shiftPickAt.index === null) return;
+  const { dateStr, slotId, index } = shiftPickAt;
+  const now = shiftDayOf(shiftRec(), dateStr);
+  const e = { ...now[slotId][index] };
+  if (on) e.early = true;
+  else delete e.early;
+  now[slotId][index] = e;
   saveShiftDay(dateStr, now);
   closeShiftPick();
   render();
@@ -5377,8 +5433,13 @@ function setShiftFull(on) {
   }
   const now = shiftDayOf(shiftRec(), dateStr);
   const e = { ...now[slotId][index] };
-  if (on) e.f = true;
-  else delete e.f;
+  if (on) {
+    e.f = true;
+  } else {
+    // 通しでなくなれば「早上がり」も意味を失うので、一緒に外します
+    delete e.f;
+    delete e.early;
+  }
   now[slotId][index] = e;
   saveShiftDay(dateStr, now);
   closeShiftPick();
@@ -5567,9 +5628,10 @@ function shiftSheetModel() {
         const day = shiftDayOf(rec, s);
         return SHIFT_LANES.map((lane) => ({
           closed: shiftClosedOn(s),
+          patty: day.patty === slot.id,
           names: shiftClosedOn(s) ? [] : day[slot.id]
             .filter((e) => shiftLaneOf(e) === lane.id)
-            .map((e) => ({ text: shiftNameText(slot.id, e), full: !!e.f })),
+            .map((e) => ({ text: shiftNameText(slot.id, e), full: !!e.f, early: !!e.early })),
         }));
       }),
     }));
@@ -5642,11 +5704,15 @@ function shiftSheetTable(block) {
         const cell = row.cells[i];
         i += 1;
         const td = document.createElement('td');
+        // パティの枠は、その枠ぜんぶを桃色のふちで囲みます
+        if (cell.patty) td.classList.add('is-patty');
         // ★F（通し）は名前を灰色で塗ります。今のスプレッドシートで
-        //   ランチのセルを塗りつぶしているのと同じ意味です
+        //   ランチのセルを塗りつぶしているのと同じ意味です。
+        //   早上がりの人は、そのうえに橙のふちを付けます
         cell.names.forEach((n) => {
           const one = document.createElement('span');
-          one.className = 'shift-sheet__name' + (n.full ? ' is-full' : '');
+          one.className = 'shift-sheet__name'
+            + (n.full ? ' is-full' : '') + (n.early ? ' is-early' : '');
           one.textContent = n.text;
           td.appendChild(one);
         });
@@ -5789,12 +5855,24 @@ function drawShiftSheet(canvas) {
           i += 1;
           const x = x0 + colW * (SHIFT_LANES.length * di + li);
           const lh = 25;
+          // パティの枠は、その枠ぜんぶを桃色のふちで囲みます
+          if (cell.patty) {
+            cx.strokeStyle = '#bf5480';
+            cx.lineWidth = 2.5;
+            cx.strokeRect(x + 1.5, y + 1.5, colW - 3, slotH - 3);
+          }
           cell.names.forEach((n, ni) => {
             const ty = y + 16 + ni * lh;
             if (ty > y + slotH - 4) return;      // 入りきらない分は出しません
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
               cx.fillRect(x + 3, ty - 11, colW - 6, lh - 3);
+            }
+            // 早上がりは橙のふち。塗りの上から描くので、通しでも分かります
+            if (n.early) {
+              cx.strokeStyle = '#d98324';
+              cx.lineWidth = 2;
+              cx.strokeRect(x + 3, ty - 11, colW - 6, lh - 3);
             }
             center(n.text, x, colW, ty, 17, false, '#111418');
           });
@@ -6435,6 +6513,8 @@ function bindEvents() {
   el.shiftPickFreeGo.addEventListener('click', applyShiftFreeTime);
   el.shiftPickFree.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) applyShiftFreeTime(); });
   bindHalfWidthInput(el.shiftPickFree, 'code');
+  el.shiftPickEarlyOn.addEventListener('click', () => setShiftEarly(true));
+  el.shiftPickEarlyOff.addEventListener('click', () => setShiftEarly(false));
   el.shiftPickFullOn.addEventListener('click', () => setShiftFull(true));
   el.shiftPickFullOff.addEventListener('click', () => setShiftFull(false));
   el.shiftPrintBtn.addEventListener('click', () => window.print());

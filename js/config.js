@@ -1147,7 +1147,10 @@ function meetingMonthKey(y, m) {
  *          lunch:  [{ n: 'わかな', t: '11.5' }, { n: 'そう', t: '11', f: true }],
  *          dinner: [{ n: 'いな',   t: '18'   }],
  *          memo: 'まさ休み' }
- *        f: true が F（通し）です。ランチの枠にだけ入り、灰色で出ます
+ *        f: true     … F（通し）。ランチの枠にだけ入り、灰色で出ます
+ *        early: true … 早上がり（Fで入れているが、早めに帰す人）。橙のふちで出ます
+ *        patty       … その日の「パティ」の枠（'lunch' か 'dinner'）。
+ *                      その枠ぜんぶが桃色のふちで囲まれます
  *
  *    phase         … その半月がどこまで進んだか
  *        { v: 'open' | 'built', at: 日時, by: 名前 }
@@ -1211,6 +1214,14 @@ function shiftSlotByTime(t) {
   if (n >= 11) return 'lunch';
   return 'open';
 }
+
+/**
+ * パティを付けられる枠
+ *
+ * その日のランチかディナーの、どちらか一方だけです。
+ * （両方に付けることはありません。付け替えると前のは外れます）
+ */
+const SHIFT_PATTY_SLOTS = ['lunch', 'dinner'];
 
 /** 立ち上げからあふれた人を回す先（ランチの、いちばん早い時刻） */
 function shiftSpillTo() {
