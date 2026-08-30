@@ -1282,8 +1282,20 @@ function shiftLaneOf(entry) {
 /** 組む画面で、横に何日ぶん並べるか */
 const SHIFT_COLS = 2;
 
-/** 印刷の表で、1つのかたまりに何日ぶん入れるか（今のシフト表と同じ8日） */
-const SHIFT_PRINT_COLS = 8;
+/**
+ * 印刷の表を、何段に分けるか
+ *
+ * ★A4横1枚に必ず収めるための数です。
+ *   2段（1段8日）だと1列18mmしかなく、名前が折り返して背が伸び、
+ *   端末によっては2枚になっていました。3段にすると1列24〜28mm取れて、
+ *   名前が1行に収まり、高さも171mm（A4横の204mmに収まる）になります。
+ */
+const SHIFT_PRINT_ROWS = 3;
+
+/** その半月を3段に分けたときの、1段ぶんの日数 */
+function shiftPrintCols(dayCount) {
+  return Math.ceil(dayCount / SHIFT_PRINT_ROWS);
+}
 
 /** その希望が、組んだ表のどの枠に入るか（F はランチへ） */
 function shiftSlotFor(wishSlotId) {

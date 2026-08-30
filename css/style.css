@@ -3141,7 +3141,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .shift-sheet th { background: var(--surface-2); font-weight: 700; text-align: center; }
 .shift-sheet th.is-sun { color: var(--ng); }
 .shift-sheet th.is-sat { color: var(--shift-dinner); }
-.shift-sheet__dow { font-size: 10.5px; font-weight: 400; color: var(--text-sub); }
+/* 日付と曜日は1行にまとめたので、別行のスタイルは使いません */
+.shift-sheet__name { display: block; white-space: nowrap; }
 .shift-sheet__label {
   min-width: 52px; font-size: 11px; color: var(--text-sub);
   vertical-align: middle;
@@ -3173,21 +3174,40 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
     max-width: none; max-height: none; overflow: visible;
     border: 0; box-shadow: none; padding: 0;
   }
-  body.print-shift .modal__title { font-size: 13pt; margin: 0 0 2mm; text-align: center; }
+  body.print-shift .modal__title { font-size: 12pt; margin: 0 0 2mm; text-align: center; }
   body.print-shift .shift-sheet-wrap { overflow: visible; margin: 0; }
+
+  /* ★高さをミリで決め打ちします。
+     ブラウザまかせにすると、端末ごとに縮め方が違って
+     iPhoneでは2枚になっていました。3段×最大3人ぶんで
+     171mm。A4横（余白を引いて204mm）に必ず収まります */
   body.print-shift .shift-sheet {
     width: 100%; table-layout: fixed;
-    font-size: 9pt; margin: 0 0 3mm;
+    font-size: 8pt; margin: 0 0 3mm;
+    break-inside: avoid; page-break-inside: avoid;
   }
   body.print-shift .shift-sheet th,
   body.print-shift .shift-sheet td {
-    border-color: #888; padding: 1.2mm 0.5mm; min-width: 0;
+    border-color: #888; padding: 0.6mm 0.4mm; min-width: 0;
+    /* 名前を折り返させません。1行に収まる大きさにしてあります */
+    white-space: nowrap; overflow: hidden;
   }
-  body.print-shift .shift-sheet tr > th:first-child { width: 14mm; }
-  body.print-shift .shift-sheet__lane { font-size: 6.5pt !important; }
-  body.print-shift .shift-sheet__dow { font-size: 7pt; }
-  /* 途中で紙が変わらないように、1つのかたまりは切らせません */
-  body.print-shift .shift-sheet { break-inside: avoid; page-break-inside: avoid; }
+  /* 左の枠名。できるだけ細くします */
+  body.print-shift .shift-sheet tr > th:first-child {
+    width: 7mm; font-size: 6.5pt; padding: 0 0.3mm;
+    line-height: 1.05; white-space: normal;
+  }
+  body.print-shift .shift-sheet__lane { font-size: 6pt !important; padding: 0.3mm 0 !important; }
+
+  /* 1行ぶんの高さ。立ち上げは1人、ランチとディナーは3人まで入ります */
+  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6mm; }
+  body.print-shift .shift-sheet tr:nth-child(2) th { height: 4mm; }
+  body.print-shift .shift-sheet tr:nth-child(3) td { height: 7mm; }
+  body.print-shift .shift-sheet tr:nth-child(4) td,
+  body.print-shift .shift-sheet tr:nth-child(5) td { height: 16mm; }
+  /* メモは長くなることがあるので、ここだけ折り返させます（高さは下に伸びます） */
+  body.print-shift .shift-sheet tr:last-child td { height: 5mm; white-space: normal; }
+  body.print-shift .shift-sheet__name { line-height: 1.35; }
   body.print-shift .shift-sheet__name.is-full {
     background: #dcdcdc;
     outline: 1px solid #b4b4b4;
@@ -3210,7 +3230,6 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 
 /* 印刷の表。1つのマスに何人か入るので、名前ごとに塗ります */
-.shift-sheet__name { display: block; }
 .shift-sheet__name.is-full {
   background: color-mix(in srgb, var(--text) 15%, transparent);
   border-radius: 3px;

@@ -5650,8 +5650,9 @@ function shiftSheetModel() {
   const days = shiftDays(state.y, state.m, shiftHalf);
   const blocks = [];
 
-  for (let from = 0; from < days.length; from += SHIFT_PRINT_COLS) {
-    const part = days.slice(from, from + SHIFT_PRINT_COLS);
+  const per = shiftPrintCols(days.length);
+  for (let from = 0; from < days.length; from += per) {
+    const part = days.slice(from, from + per);
     const head = part.map((s) => {
       const [, m, d] = s.split('-').map(Number);
       const dow = new Date(s.replace(/-/g, '/')).getDay();
@@ -5708,7 +5709,7 @@ function shiftSheetTable(block) {
     const th = document.createElement('th');
     th.colSpan = SHIFT_LANES.length;
     th.className = d.sun ? 'is-sun' : d.sat ? 'is-sat' : '';
-    th.innerHTML = `${d.label}<br><span class="shift-sheet__dow">${d.dow}</span>`;
+    th.textContent = `${d.label}${d.dow}`;
     head.appendChild(th);
   });
   table.appendChild(head);
@@ -5822,10 +5823,13 @@ function drawShiftSheet(canvas) {
 
   // ★紙のふちぎりぎりまで使います。印刷に出ない程度の余白だけ残します
   const pad = 14;
-  // 列の幅は「いちばん多い日数」で決めます。後ろのかたまりが7日でも、
+  // 列の幅は「いちばん多い日数」で決めます。後ろの段が少なくても、
   // 前と同じ幅にそろえたほうが、続きの表として読めるからです
-  const cols = SHIFT_PRINT_COLS * SHIFT_LANES.length;
-  const labelW = 96;
+  const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
+  const cols = perDay * SHIFT_LANES.length;
+  // 左の枠名は、紙と同じように小さくします（縦書きにはしません。
+  // 横でも3文字ぶんあれば「立ち上げ」が2行で収まります）
+  const labelW = 52;
   const gridW = W - pad * 2 - labelW;
   const colW = gridW / cols;
 
@@ -5848,15 +5852,15 @@ function drawShiftSheet(canvas) {
   // 見出し
   center(model.title, 0, W, pad + 15, 28, true, '#111418');
 
-  let y = pad + 38;
-  const gapBlocks = 20;
-  const dateH = 40;
-  const laneH = 26;
-  const memoH = 34;
+  let y = pad + 34;
+  const gapBlocks = 12;
+  const dateH = 34;
+  const laneH = 22;
+  const memoH = 28;
   // 残りの高さを、枠の行に等しく配ります
   const blocks = model.blocks.length || 1;
   const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
-  const slotH = Math.max(44, (H - y - pad - fixed) / (blocks * SHIFT_SLOTS.length));
+  const slotH = Math.max(40, (H - y - pad - fixed) / (blocks * SHIFT_SLOTS.length));
 
   model.blocks.forEach((block, bi) => {
     const top = y;
@@ -5869,7 +5873,7 @@ function drawShiftSheet(canvas) {
       cx.fillStyle = '#f2f4f6';
       cx.fillRect(x, y, w, dateH);
       const color = d.sun ? '#c0392b' : d.sat ? '#33509a' : '#111418';
-      center(`${d.label}${d.dow}`, x, w, y + dateH / 2, 21, true, color);
+      center(`${d.label}${d.dow}`, x, w, y + dateH / 2, 19, true, color);
     });
     cx.fillStyle = '#f2f4f6';
     cx.fillRect(pad, y, labelW, dateH + laneH);
@@ -5881,7 +5885,7 @@ function drawShiftSheet(canvas) {
         const x = x0 + colW * (SHIFT_LANES.length * i + li);
         cx.fillStyle = '#f8f9fa';
         cx.fillRect(x, y, colW, laneH);
-        center(lane.name, x, colW, y + laneH / 2, 14, false, '#5b6169');
+        center(lane.name, x, colW, y + laneH / 2, 13, false, '#5b6169');
       });
     });
     y += laneH;
@@ -5890,7 +5894,7 @@ function drawShiftSheet(canvas) {
     block.rows.forEach((row) => {
       cx.fillStyle = '#fafbfc';
       cx.fillRect(pad, y, labelW, slotH);
-      center(row.label, pad, labelW, y + slotH / 2, 16, true, '#3d434b');
+      center(row.label, pad, labelW, y + slotH / 2, 13, true, '#3d434b');
 
       let i = 0;
       block.head.forEach((d, di) => {
@@ -5902,7 +5906,7 @@ function drawShiftSheet(canvas) {
           const cell = row.cells[i];
           i += 1;
           const x = x0 + colW * (SHIFT_LANES.length * di + li);
-          const lh = 25;
+          const lh = 23;
           // パティの枠は、キッチンとホールをまたいで1つの四角で囲みます
           // （持ち場ごとに描くと、あいだに縦線が入ってしまいます）
           if (cell.patty && li === 0) {
@@ -5912,7 +5916,7 @@ function drawShiftSheet(canvas) {
             cx.strokeRect(x + 1.5, y + 1.5, w2 - 3, slotH - 3);
           }
           cell.names.forEach((n, ni) => {
-            const ty = y + 16 + ni * lh;
+            const ty = y + 15 + ni * lh;
             if (ty > y + slotH - 4) return;      // 入りきらない分は出しません
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
@@ -5924,7 +5928,7 @@ function drawShiftSheet(canvas) {
               cx.lineWidth = 2;
               cx.strokeRect(x + 3, ty - 11, colW - 6, lh - 3);
             }
-            center(n.text, x, colW, ty, 17, false, '#111418');
+            center(n.text, x, colW, ty, 16, false, '#111418');
           });
         });
       });
@@ -5946,7 +5950,7 @@ function drawShiftSheet(canvas) {
     // 連絡
     cx.fillStyle = '#fafbfc';
     cx.fillRect(pad, y, labelW, memoH);
-    center('メモ', pad, labelW, y + memoH / 2, 14, true, '#3d434b');
+    center('メモ', pad, labelW, y + memoH / 2, 13, true, '#3d434b');
     block.head.forEach((d, i) => {
       const x = x0 + colW * SHIFT_LANES.length * i;
       const w = colW * SHIFT_LANES.length;
@@ -5955,7 +5959,7 @@ function drawShiftSheet(canvas) {
         cx.fillRect(x, y, w, memoH);
         return;
       }
-      center(block.memo[i] || '', x, w, y + memoH / 2, 14, false, '#3d434b');
+      center(block.memo[i] || '', x, w, y + memoH / 2, 13, false, '#3d434b');
     });
     y += memoH;
 
