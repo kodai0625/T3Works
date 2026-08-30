@@ -3170,11 +3170,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 body.print-shift .shift-sheet__at {
   font-size: .72em; margin-right: .22em;
 }
-.shift-sheet-measure .shift-sheet__name.is-full,
-body.print-shift .shift-sheet__name.is-full {
-  /* 字の大きさで変わらない px の余白は、測るときの邪魔になるので外します */
-  margin: 0; padding: 0;
-}
+/* 字の大きさで変わらない px の余白は、測るときの邪魔になるので外します */
+.shift-sheet-measure .shift-sheet__name { margin: 0; padding: 0; }
 .shift-sheet-measure .shift-sheet__name.is-full::after,
 body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
 
@@ -3278,8 +3275,14 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
   /* ★メモの中身。画面用の 11px（＝8.25pt）のままだと、名前より大きく出て
      すぐ2行になり、表が下に伸びて2枚になります */
   body.print-shift .shift-sheet__memo { font-size: 6pt; line-height: 1.3; }
-  /* 名前の大きさは js が決めます（マスの幅に1行で収まる大きさ） */
-  body.print-shift .shift-sheet__name { line-height: 1.5; font-size: var(--name-pt, 7pt); }
+  /* 名前の大きさは js が決めます（マスの幅に1行で収まる大きさ）。
+     ★札はマスのふち（日付やキッチン／ホールの線）までいっぱいに広げます。
+       前は字のまわりだけを囲んでいたので、早上がりの橙のふちが
+       時刻の数字にかぶっていました。線は外へ、字は少し内がわへ */
+  body.print-shift .shift-sheet__name {
+    line-height: 1.5; font-size: var(--name-pt, 7pt);
+    margin: 0 -0.3mm; padding: 0 0 0 0.5mm;
+  }
   body.print-shift .shift-sheet__name.is-full {
     background: #dcdcdc;
     outline: 1px solid #b4b4b4;
@@ -3319,7 +3322,10 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
   }
   body.print-shift .shift-sheet td.is-patty-first { border-left-color: #bf5480; }
   body.print-shift .shift-sheet td.is-patty-last { border-right-color: #bf5480; }
-  body.print-shift .shift-sheet__name.is-early { outline-color: #d98324; }
+  /* 早上がりの橙のふちは、札のいちばん外がわに引きます（マスの線に合います） */
+  body.print-shift .shift-sheet__name.is-early {
+    outline: 1px solid #d98324; outline-offset: -1px; border-radius: 0;
+  }
   /* 人が足りないぶんの赤いあき。紙でも同じ色で出します */
   body.print-shift .shift-sheet__name.is-short { background: #f2c4c4; }
 }

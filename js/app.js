@@ -6054,7 +6054,7 @@ function drawShiftSheet(canvas) {
   const colW = gridW / cols;
   // 名前が1行に収まる大きさ。紙と同じ考え方です（shiftSheetNamePt）
   const nameEm = shiftCanvasEm(model, SHEET_FONT);
-  const nameSize = Math.max(9, Math.min(16, nameEm ? ((colW - 8) / nameEm) * 0.98 : 16));
+  const nameSize = Math.max(9, Math.min(16, nameEm ? ((colW - 12) / nameEm) * 0.98 : 16));
   const lh = Math.round(nameSize + 7);
 
   const center = (text, x, w, yy, size, bold, color) => {
@@ -6075,7 +6075,7 @@ function drawShiftSheet(canvas) {
     const nw = cx.measureText(parts.name).width;
     // ★左よせ。名前の長さがまちまちなので、真ん中ぞろえだと
     //   1日ごとに出だしがずれて、表がガタガタに見えます
-    const tx0 = x + 4;
+    const tx0 = x + 7;
     let tx = tx0;
     if (parts.time) {
       cx.font = font(small, false);
@@ -6083,7 +6083,7 @@ function drawShiftSheet(canvas) {
       tx += tw;
     }
     cx.font = font(size, false);
-    cx.fillText(parts.name, tx, yy, x + w - 3 - tx);
+    cx.fillText(parts.name, tx, yy, x + w - 5 - tx);
     // F（通し）の印。塗りだけでなく字でも分かるようにします（紙の表と同じ）
     if (parts.full) {
       cx.fillStyle = '#5b6169';
@@ -6194,15 +6194,17 @@ function drawShiftSheet(canvas) {
           cell.names.forEach((n, ni) => {
             const ty = y + lh / 2 + 4 + ni * lh;
             if (ty > y + rowH - 4) return;      // 入りきらない分は出しません
+            // ★塗りもふちも、マスの幅いっぱいに引きます。字のまわりだけだと
+            //   橙のふちが時刻の数字にかぶります（紙の表と同じ考え方です）
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
-              cx.fillRect(x + 3, ty - lh / 2, colW - 6, lh - 3);
+              cx.fillRect(x + 1, ty - lh / 2, colW - 2, lh - 3);
             }
             // 早上がりは橙のふち。塗りの上から描くので、通しでも分かります
             if (n.early) {
               cx.strokeStyle = '#d98324';
               cx.lineWidth = 2;
-              cx.strokeRect(x + 3, ty - lh / 2, colW - 6, lh - 3);
+              cx.strokeRect(x + 2, ty - lh / 2 + 1, colW - 4, lh - 5);
             }
             drawName(n.parts, x, colW, ty, nameSize);
           });
@@ -6211,7 +6213,7 @@ function drawShiftSheet(canvas) {
             const ty = y + lh / 2 + 4 + (cell.names.length + k) * lh;
             if (ty > y + rowH - 4) break;
             cx.fillStyle = '#f2c4c4';
-            cx.fillRect(x + 3, ty - lh / 2, colW - 6, lh - 3);
+            cx.fillRect(x + 1, ty - lh / 2, colW - 2, lh - 3);
           }
         });
       });
