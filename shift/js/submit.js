@@ -340,10 +340,11 @@ function builtSheetModel() {
           .map((e) => (e.t === '' || e.t === undefined || e.t === null
             ? { ...e, t: shiftDefaultTime(slot.id) } : e))
           .sort((a, b) => Number(a.t) - Number(b.t));
+        const short = shiftShortMap(day.short);
         return SHIFT_LANES.map((lane) => ({
           closed: isClosedOn(s),
-          patty: false,
-          short: 0,
+          patty: day.patty === slot.id,
+          short: short[shiftShortKey(slot.id, lane.id)] || 0,
           names: isClosedOn(s) ? [] : list
             .filter((e) => (SHIFT_LANES.some((l) => l.id === e.p) ? e.p : SHIFT_LANES[0].id) === lane.id)
             .map((e) => ({
