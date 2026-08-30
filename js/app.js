@@ -5727,12 +5727,16 @@ function shiftSheetTable(block) {
         }
         return;
       }
-      SHIFT_LANES.forEach(() => {
+      SHIFT_LANES.forEach((lane, li) => {
         const cell = row.cells[i];
         i += 1;
         const td = document.createElement('td');
-        // パティの枠は、その枠ぜんぶを桃色のふちで囲みます
-        if (cell.patty) td.classList.add('is-patty');
+        // パティの枠は、キッチンとホールをまとめて桃色のふちで囲みます
+        if (cell.patty) {
+          td.classList.add('is-patty');
+          if (li === 0) td.classList.add('is-patty-first');
+          if (li === SHIFT_LANES.length - 1) td.classList.add('is-patty-last');
+        }
         // ★F（通し）は名前を灰色で塗ります。今のスプレッドシートで
         //   ランチのセルを塗りつぶしているのと同じ意味です。
         //   早上がりの人は、そのうえに橙のふちを付けます
@@ -5882,11 +5886,13 @@ function drawShiftSheet(canvas) {
           i += 1;
           const x = x0 + colW * (SHIFT_LANES.length * di + li);
           const lh = 25;
-          // パティの枠は、その枠ぜんぶを桃色のふちで囲みます
-          if (cell.patty) {
+          // パティの枠は、キッチンとホールをまたいで1つの四角で囲みます
+          // （持ち場ごとに描くと、あいだに縦線が入ってしまいます）
+          if (cell.patty && li === 0) {
+            const w2 = colW * SHIFT_LANES.length;
             cx.strokeStyle = '#bf5480';
             cx.lineWidth = 2.5;
-            cx.strokeRect(x + 1.5, y + 1.5, colW - 3, slotH - 3);
+            cx.strokeRect(x + 1.5, y + 1.5, w2 - 3, slotH - 3);
           }
           cell.names.forEach((n, ni) => {
             const ty = y + 16 + ni * lh;

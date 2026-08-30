@@ -3402,19 +3402,30 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   color: #bf5480;
 }
 
-/* 枠ぜんぶを囲むため、持ち場のマスをつないで1つのふちに見せます */
+/* キッチンとホールをまとめて1つの枠として囲みます。
+   ★あいだの縦線は消します。両側のマスの境目を0にすると、
+     表の線がつぶれて1本の囲みに見えます */
 .shift-grid td.is-patty {
-  border-top-color: #bf5480; border-bottom-color: #bf5480;
-  box-shadow: inset 0 2px 0 -1px #bf5480, inset 0 -2px 0 -1px #bf5480;
+  border-top: 2px solid #bf5480;
+  border-bottom: 2px solid #bf5480;
 }
-.shift-grid td.is-patty-first { border-left-color: #bf5480; box-shadow: inset 2px 0 0 -1px #bf5480, inset 0 2px 0 -1px #bf5480, inset 0 -2px 0 -1px #bf5480; }
-.shift-grid td.is-patty-last  { border-right-color: #bf5480; box-shadow: inset -2px 0 0 -1px #bf5480, inset 0 2px 0 -1px #bf5480, inset 0 -2px 0 -1px #bf5480; }
+.shift-grid td.is-patty-first { border-left: 2px solid #bf5480; }
+.shift-grid td.is-patty-last  { border-right: 2px solid #bf5480; }
+.shift-grid td.is-patty-first:not(.is-patty-last) { border-right: 0; }
+.shift-grid td.is-patty:not(.is-patty-first) { border-left: 0; }
 
-/* 印刷の表 */
+/* 印刷の表。考え方は上と同じです */
 .shift-sheet__name.is-early {
   outline: 1.5px solid #d98324; outline-offset: -1px; border-radius: 3px;
 }
-.shift-sheet td.is-patty { box-shadow: inset 0 0 0 2px #bf5480; }
+.shift-sheet td.is-patty {
+  border-top: 2px solid #bf5480;
+  border-bottom: 2px solid #bf5480;
+}
+.shift-sheet td.is-patty-first { border-left: 2px solid #bf5480; }
+.shift-sheet td.is-patty-last  { border-right: 2px solid #bf5480; }
+.shift-sheet td.is-patty-first:not(.is-patty-last) { border-right: 0; }
+.shift-sheet td.is-patty:not(.is-patty-first) { border-left: 0; }
 @media print {
   body.print-shift .shift-sheet__name.is-early,
   body.print-shift .shift-sheet td.is-patty {
