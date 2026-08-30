@@ -250,7 +250,17 @@ body.is-dragging { cursor: grabbing; user-select: none; }
   padding: 7px 10px;
   background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px;
 }
+/* 番号を送ったかの印。押すところを広めに取ります */
+.shift-code__sent {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; margin: -4px 0 -4px -4px; cursor: pointer;
+}
+.shift-code__sent input { width: 19px; height: 19px; accent-color: var(--ok, #2f9e44); }
 .shift-code__name { flex: 1 1 auto; font-size: 14px; font-weight: 700; min-width: 0; }
+/* 送りずみの行は、うすくして「もう済んだ」と分かるようにします */
+.shift-code.is-sent { background: var(--surface); }
+.shift-code.is-sent .shift-code__name,
+.shift-code.is-sent .shift-code__num { color: var(--text-sub); }
 .shift-code__num {
   font-size: 15px; font-weight: 700; letter-spacing: .08em;
   font-variant-numeric: tabular-nums;
@@ -258,7 +268,7 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 @media (max-width: 420px) {
   /* 幅が足りないときは、名前と番号を上の行に、ボタンを下の行に折ります */
   .shift-code { flex-wrap: wrap; }
-  .shift-code__name { flex: 1 1 100%; }
+  .shift-code__name { flex: 1 1 auto; }
   .shift-code__num { flex: 1 1 auto; }
 }
 

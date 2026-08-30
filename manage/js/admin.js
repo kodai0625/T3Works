@@ -1097,11 +1097,33 @@ function renderShiftCodes() {
     return;
   }
 
+  const 送りずみ = people.filter((p) => p.s).length;
+  const count = document.createElement('p');
+  count.className = 'admin-note';
+  count.textContent = 送りずみ === people.length
+    ? `全員に送りました（${people.length}人）`
+    : `送りずみ ${送りずみ} / ${people.length}人`;
+  el.shiftCodeList.appendChild(count);
+
   const box = document.createElement('div');
   box.className = 'shift-codes';
   people.forEach((p) => {
     const row = document.createElement('div');
-    row.className = 'shift-code';
+    row.className = 'shift-code' + (p.s ? ' is-sent' : '');
+
+    // ★番号をその人に送ったか。25人にLINEで配るので、
+    //   どこまで送ったか見失わないための印です
+    const sent = document.createElement('label');
+    sent.className = 'shift-code__sent';
+    sent.title = p.s ? '送りずみ（押すと外れます）' : '送ったら押してください';
+    const box2 = document.createElement('input');
+    box2.type = 'checkbox';
+    box2.checked = !!p.s;
+    box2.addEventListener('change', () => {
+      ShiftStaff.setSent(storeId, p.n, box2.checked);
+      renderShiftStaff();
+    });
+    sent.appendChild(box2);
 
     const name = document.createElement('span');
     name.className = 'shift-code__name';
@@ -1127,7 +1149,7 @@ function renderShiftCodes() {
       renderShiftStaff();
     });
 
-    row.append(name, code, copy, again);
+    row.append(sent, name, code, copy, again);
     box.appendChild(row);
   });
   el.shiftCodeList.appendChild(box);

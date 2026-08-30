@@ -425,7 +425,7 @@ const ShiftStaff = {
   _key: APP.storageKey + ':shiftStaff',
 
   /**
-   * { 店舗id: [{ n: 名前, c: 番号 }] } をまるごと返します
+   * { 店舗id: [{ n: 名前, c: 番号, s: 番号を送りずみか }] } をまるごと返します
    *
    * 名前だけの配列で入っていた時期のものは、番号なしとして読みます
    * （保存し直すと番号が振られます）。
@@ -437,7 +437,9 @@ const ShiftStaff = {
         const out = {};
         Object.keys(saved).forEach((id) => {
           out[id] = (saved[id] || []).map((v) => (
-            typeof v === 'string' ? { n: v, c: '' } : { n: String(v.n || ''), c: String(v.c || '') }
+            typeof v === 'string'
+              ? { n: v, c: '', s: false }
+              : { n: String(v.n || ''), c: String(v.c || ''), s: !!v.s }
           )).filter((v) => v.n);
         });
         return out;
@@ -497,7 +499,7 @@ const ShiftStaff = {
           code = makeShiftCode(used);
           used.add(code);
         }
-        list.push({ n: name, c: code });
+        list.push({ n: name, c: code, s: !!(p && p.s) });
       });
       if (list.length) clean[id] = list;
     });
@@ -517,7 +519,7 @@ const ShiftStaff = {
     map[storeId] = String(text || '').split('\n').map((line) => {
       const name = line.trim();
       const old = before.find((p) => p.n === name);
-      return { n: name, c: old ? old.c : '' };
+      return { n: name, c: old ? old.c : '', s: old ? old.s : false };
     }).filter((p) => p.n);
     return this.save(map);
   },
@@ -529,6 +531,17 @@ const ShiftStaff = {
     const who = list.find((p) => p.n === name);
     if (!who) return this.all();
     who.c = makeShiftCode(this.codes());
+    // 番号が変わったら、送りずみの印は外します（送り直しが要るため）
+    who.s = false;
+    return this.save(map);
+  },
+
+  /** 番号をその人に送りずみか、の印を付け外しする */
+  setSent(storeId, name, on) {
+    const map = this.all();
+    const who = (map[storeId] || []).find((p) => p.n === name);
+    if (!who) return this.all();
+    who.s = !!on;
     return this.save(map);
   },
 };
