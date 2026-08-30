@@ -4633,9 +4633,16 @@ function shiftRec() {
 }
 
 /** その日の組んだ結果（無ければ空） */
+/**
+ * その日の組んだ結果
+ *
+ * ★出すときに必ず入り時間の早い順にそろえます。
+ *   入れた順のまま出すと、あとから足した早い人が下に来て、
+ *   表を上から読めなくなるためです。
+ */
 function shiftDayOf(rec, dateStr) {
   const v = (rec.items || {})[shiftDayKey(dateStr)] || {};
-  const arr = (x) => (Array.isArray(x) ? x : []);
+  const arr = (x) => shiftSort(Array.isArray(x) ? x : []);
   return { open: arr(v.open), lunch: arr(v.lunch), dinner: arr(v.dinner), memo: v.memo || '' };
 }
 
@@ -4709,12 +4716,30 @@ function shiftTakenSet(rec) {
 function shiftSort(list) {
   const order = ShiftStaff.list(state.storeId);
   return list.slice().sort((a, b) => {
-    const ta = a.t === '' || a.t === undefined ? -1 : Number(a.t);
-    const tb = b.t === '' || b.t === undefined ? -1 : Number(b.t);
+    // 時刻が入っていない人（F など）は、その枠のいちばん下に置きます
+    const ta = a.t === '' || a.t === undefined ? 99 : Number(a.t);
+    const tb = b.t === '' || b.t === undefined ? 99 : Number(b.t);
     if (ta !== tb) return ta - tb;
     const ia = order.indexOf(a.n), ib = order.indexOf(b.n);
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
   });
+}
+
+/**
+ * その日、その人が実際にどこに入っているか
+ *
+ * 提出の一覧を、組んだシフトと突き合わせるために使います。
+ * 入れたり外したりすれば、こちらの見ためもすぐ変わります。
+ */
+function shiftPlacedOn(rec, dateStr, name) {
+  const day = shiftDayOf(rec, dateStr);
+  const out = [];
+  SHIFT_SLOTS.forEach((slot) => {
+    day[slot.id].forEach((e) => {
+      if (e.n === name) out.push({ slot: slot.id, t: e.t, f: !!e.f });
+    });
+  });
+  return out;
 }
 
 /** その日が定休日か（半月の画面は月をまたがないので、日付から直に見ます） */
@@ -4798,10 +4823,6 @@ function shiftTake() {
         // 印は「出してもらったときの枠」で付けます。ランチとFは別ものとして数えます
         const mark = `${dateStr}|${w.s}|${w.name}`;
         if (taken.has(mark)) return;
-        // ★立ち上げは2人まで。あふれた人は入れずに置いておきます。
-        //   「11:00から入れる」か「その日は入れない」かは、見て決めることなので
-        //   機械では決めません（＋の数字に残るので、押せば選べます）
-        if (slot.id === 'open' && day.open.length >= SHIFT_OPEN_MAX) return;
         taken.add(mark);
         if (day[slot.id].some((e) => e.n === w.name)) return;
         // 取り込んだ人は、ひとまず左の持ち場（キッチン）に入れます。
@@ -5221,10 +5242,7 @@ function renderShiftPick() {
         b.className = 'doer-btn' + (isWish ? ' is-wish' : '') + (isWish && item.full ? ' is-full' : '');
         const when = isWish && item.t ? `（${shiftTimeText(item.t)}）` : '';
         b.textContent = (isWish && item.full ? 'F ' : '') + name + when;
-        // ★立ち上げは2人まで。3人目からは、その場では入れられません
-        if (slotId === 'open' && day.open.length >= SHIFT_OPEN_MAX) b.disabled = true;
         b.addEventListener('click', () => {
-          if (b.disabled) return;
           const now = shiftDayOf(shiftRec(), dateStr);
           const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(slotId);
           // 通しかどうかは、押した切り替え → その人の希望、の順で決めます
@@ -5240,7 +5258,7 @@ function renderShiftPick() {
         grid.appendChild(b);
 
         // 立ち上げに希望を出した人には、時間をずらして入れる道も出します。
-        // 立ち上げは2人までなので、あふれた人はこちらへ回します
+        // 立ち上げが多い日に、押すだけでランチへ回せるようにするためです
         if (slotId === 'open' && isWish) {
           const to = shiftSpillTo();
           const spill = document.createElement('button');
@@ -5262,18 +5280,8 @@ function renderShiftPick() {
       el.shiftPickNames.appendChild(grid);
     };
 
-    // ★立ち上げは2人まで。いっぱいなら、名前を並べるかわりに逃がし先を出します
-    const full2 = slotId === 'open' && day.open.length >= SHIFT_OPEN_MAX;
-    if (full2) {
-      const note = document.createElement('p');
-      note.className = 'shift-pick__full';
-      note.textContent = `立ち上げに入れるのは${SHIFT_OPEN_MAX}人までです。`
-        + 'ほかの人は、下から時間をずらして入れるか、その日は入れないでください。';
-      el.shiftPickNames.appendChild(note);
-    }
-
     addGroup('希望を出している人', wish, true);
-    if (!full2) addGroup('そのほかの人', others, false);
+    addGroup('そのほかの人', others, false);
 
     if (!wish.length && !others.length) {
       el.shiftPickNames.innerHTML = '<p class="modal__note">入れられる人がいません。'
@@ -5424,32 +5432,58 @@ function openShiftWishes() {
   });
   table.appendChild(head);
 
-  /* 1人ずつ */
+  /* 1人ずつ。★組んだシフトと突き合わせて出します */
   names.forEach((name) => {
     const w = wishes.find((x) => x.name === name);
     const tr = document.createElement('tr');
     if (!w || !w.sentAt) tr.className = 'is-yet';
 
+    // その人が「出した日」と「実際に入った日」を数えます
+    let wished = 0;
+    let placed = 0;
+    open.forEach((d) => {
+      if (((w && w.days[d]) || []).length) wished += 1;
+      if (shiftPlacedOn(rec, d, name).length) placed += 1;
+    });
+
     const th = document.createElement('th');
     th.className = 'wish-table__name';
-    const n = open.reduce((sum, d) => sum + (((w && w.days[d]) || []).length ? 1 : 0), 0);
     th.innerHTML = `${name}<br><span class="wish-table__count">`
-      + (w && w.sentAt ? `${n}日` : 'まだ') + '</span>';
+      + (w && w.sentAt ? `出${wished} → 入${placed}` : 'まだ') + '</span>';
     tr.appendChild(th);
 
     days.forEach((d) => {
       const td = document.createElement('td');
       if (shiftClosedOn(d)) { td.className = 'is-closed'; tr.appendChild(td); return; }
+
+      const mine = shiftPlacedOn(rec, d, name);
       const list = (w && w.days[d]) || [];
-      list.forEach((e) => {
-        const slot = getShiftSlot(e.s);
-        if (!slot) return;
+
+      // 実際に入っている分。こちらが本物なので、濃い色で出します
+      mine.forEach((e) => {
+        const slot = getShiftSlot(e.slot);
         const chip = document.createElement('span');
-        chip.className = `wish-chip wish-chip--${e.s}`;
-        chip.textContent = e.t ? shiftTimeText(e.t) : slot.name;
-        chip.title = `${slot.name}${e.t ? ' ' + shiftTimeText(e.t) : ''}`;
+        // 希望を出していない日に入れた人は、印を付けます
+        chip.className = `wish-chip wish-chip--${e.slot}` + (list.length ? '' : ' is-extra');
+        chip.textContent = e.t ? shiftTimeText(e.t) : (e.f ? 'F' : slot.name);
+        chip.title = `${slot.name}${e.t ? ' ' + shiftTimeText(e.t) : ''}`
+          + (list.length ? '（入れました）' : '（希望なしで入れました）');
         td.appendChild(chip);
       });
+
+      // 出したのに入っていない日。薄く出して、拾い残しが見えるようにします
+      if (!mine.length) {
+        list.forEach((e) => {
+          const slot = getShiftSlot(e.s);
+          if (!slot) return;
+          const chip = document.createElement('span');
+          chip.className = `wish-chip wish-chip--${e.s} is-yet`;
+          chip.textContent = e.t ? shiftTimeText(e.t) : slot.name;
+          chip.title = `${slot.name}${e.t ? ' ' + shiftTimeText(e.t) : ''}（まだ入れていません）`;
+          td.appendChild(chip);
+        });
+      }
+
       if (w && w.notes[d]) {
         const note = document.createElement('span');
         note.className = 'wish-note';
@@ -5467,11 +5501,15 @@ function openShiftWishes() {
   wrap.appendChild(table);
   el.shiftWishList.appendChild(wrap);
 
-  /* 色の見かた */
+  /* 見かた */
   const legend = document.createElement('p');
   legend.className = 'wish-legend';
   legend.innerHTML = shiftWishSlots()
     .map((sl) => `<span class="wish-chip wish-chip--${sl.id}">${sl.name}</span>`).join('')
+    + '<span class="wish-legend__gap"></span>'
+    + '<span class="wish-chip wish-chip--lunch">濃い</span>シフトに入れた'
+    + '<span class="wish-chip wish-chip--lunch is-yet">薄い</span>出したが入れていない'
+    + '<span class="wish-chip wish-chip--lunch is-extra">印</span>希望なしで入れた'
     + '<span class="wish-note">連</span>連絡あり（押すと中身が出ます）';
   el.shiftWishList.appendChild(legend);
 
