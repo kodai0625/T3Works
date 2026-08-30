@@ -3165,10 +3165,12 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   margin-bottom: .22em;
 }
 .shift-sheet__name:last-child { margin-bottom: 0; }
+/* ★時刻は名前と同じ大きさ。色だけ少しうすくして見分けます
+   （js の SHIFT_TIME_SCALE と同じ 1 です） */
 .shift-sheet__at {
   display: block; font-style: normal;
-  font-size: .62em; line-height: 1.05;
-  color: var(--text-sub);
+  font-size: 1em; line-height: 1.05;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
 }
 .shift-sheet__who { display: block; font-weight: 600; line-height: 1.15; }
 
@@ -3177,7 +3179,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
    「測り場」と同じ指定を並べて書くこと（片方だけ直すと幅がずれます） */
 .shift-sheet-measure--one .shift-sheet__at,
 .shift-sheet--one .shift-sheet__at {
-  display: inline; margin-right: .22em; font-size: .72em;
+  /* js の SHIFT_TIME_SCALE_ONE と同じ数にすること */
+  display: inline; margin-right: .22em; font-size: .85em;
 }
 .shift-sheet-measure--one .shift-sheet__who,
 .shift-sheet--one .shift-sheet__who { display: inline; }
@@ -3278,7 +3281,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   body.print-shift .shift-sheet__lane { font-size: 5.5pt !important; padding: 0.2mm 0 !important; }
 
   /* 1行ぶんの高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
-  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 10pt; }
+  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 11pt; }
   body.print-shift .shift-sheet tr:nth-child(2) th { height: 4mm; }
   /* ★行の高さは js が中身から決めます（shiftSheetMetrics）。
      ランチとディナーは同じ高さです */

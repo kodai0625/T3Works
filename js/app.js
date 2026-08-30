@@ -5843,7 +5843,7 @@ function shiftNameEmAt(parts, family, mode) {
   const full = parts.full ? shiftMeasureText(' F', family, R, true) * 0.8 : 0;
   const time = parts.time ? shiftMeasureText(parts.time, family, R, false) : 0;
   // 1行のときは時刻と名前がならぶので、幅は足し算になります
-  if (mode === 'one') return (time * 0.72 + R * 0.22 + name + full) / R;
+  if (mode === 'one') return (time * SHIFT_TIME_SCALE_ONE + R * 0.22 + name + full) / R;
   // 2段のときは、広いほうの段で決まります
   return Math.max(name + full, time * SHIFT_TIME_SCALE) / R;
 }
@@ -5980,7 +5980,8 @@ function shiftSheetMetrics(model, perDay) {
     const em = shiftPrintEm(model, mode);
     // 1mm = 2.8346ポイント。0.97 は念のための余裕（けい線の太さと端末の丸め）
     // 大きくても9.5pt（日付の見出しより目立たせないため）
-    const byWidth = em > 0 ? Math.min(9.5, (cellMm * 2.8346 / em) * 0.97) : 9.5;
+    // 大きくても12pt。マスの幅がゆるすかぎり大きくします
+    const byWidth = em > 0 ? Math.min(12, (cellMm * 2.8346 / em) * 0.97) : 12;
     const byHeight = ((slotMm - 1.4) * 2.8346) / (share * SHIFT_ROW_EM[mode]);
     return Math.min(byWidth, byHeight);
   };
@@ -6301,7 +6302,7 @@ function drawShiftSheet(canvas, scale) {
     let base = top + size * 0.7;
     if (mode === 'one') {
       // 時刻と名前を1行に。時刻だけ小さくします
-      const small = Math.max(8, size * 0.72);
+      const small = Math.max(8, size * SHIFT_TIME_SCALE_ONE);
       if (parts.time) {
         cx.fillStyle = '#5b6169';
         cx.font = font(small, false);
