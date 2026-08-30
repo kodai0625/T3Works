@@ -1,17 +1,30 @@
 {
-  "name": "T3 シフト｜シフト提出",
+  "name": "バグる シフト提出",
   "short_name": "シフト",
-  "description": "シフトの希望を出すアプリ",
+  "description": "バグるのシフト希望を出すアプリ",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f4f5f7",
-  "theme_color": "#1c1f26",
+  "theme_color": "#bf5480",
   "icons": [
-    { "src": "../img/shift-icon-64.png",  "sizes": "64x64",   "type": "image/png" },
-    { "src": "../img/shift-icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "../img/shift-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "../img/shift-icon-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "../img/shift-icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "../img/shift-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }
