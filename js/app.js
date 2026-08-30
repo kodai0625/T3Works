@@ -6054,16 +6054,54 @@ function closeShiftSheet() {
  *  画面のHTMLを写し取るのではなく、数字から描き直しています。
  *  そのほうが、端末や字の設定で崩れません。
  */
-const SHEET_PX = { w: 1754, h: 1240 };   // A4横 150dpi
+const SHEET_PX = { w: 1754, h: 1240 };   // A4横 150dpi（組み立てるときの目盛り）
+/**
+ * 実際に描くときの倍率
+ *
+ * ★1倍（150dpi）だと、iPhone から刷ったときに字がぼやけていました。
+ *   組み立ての数はそのままに、描くときだけ倍にします（＝300dpi）。
+ */
+const SHEET_SCALE = 2;
+
+/**
+ * その端末で、倍の細かさの絵が作れるか
+ *
+ * ★古い端末には「これ以上大きい絵は作れない」という上限があり、
+ *   こえるとまっ白なまま返ってきます（何も言わずに失敗します）。
+ *   すみに1点だけ描いて、読み返せるかで確かめます。1度だけ調べます。
+ */
+let bigSheetOk = null;
+function canDrawBigSheet() {
+  if (bigSheetOk !== null) return bigSheetOk;
+  bigSheetOk = false;
+  try {
+    const c = document.createElement('canvas');
+    c.width = SHEET_PX.w * SHEET_SCALE;
+    c.height = SHEET_PX.h * SHEET_SCALE;
+    const cx = c.getContext('2d');
+    if (cx) {
+      cx.fillStyle = '#123456';
+      cx.fillRect(c.width - 2, c.height - 2, 2, 2);
+      const d = cx.getImageData(c.width - 1, c.height - 1, 1, 1).data;
+      bigSheetOk = d[0] === 0x12 && d[1] === 0x34 && d[2] === 0x56;
+    }
+  } catch (e) {
+    bigSheetOk = false;
+  }
+  return bigSheetOk;
+}
 const SHEET_FONT = '-apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
 
-function drawShiftSheet(canvas) {
+function drawShiftSheet(canvas, scale) {
   const model = shiftSheetModel();
   const cx = canvas.getContext('2d');
   const W = SHEET_PX.w;
   const H = SHEET_PX.h;
-  canvas.width = W;
-  canvas.height = H;
+  const S = scale || (canDrawBigSheet() ? SHEET_SCALE : 1);
+  canvas.width = W * S;
+  canvas.height = H * S;
+  // ここから先は 1754×1240 の目盛りのまま書けます
+  cx.setTransform(S, 0, 0, S, 0, 0);
 
   cx.fillStyle = '#ffffff';
   cx.fillRect(0, 0, W, H);
@@ -6122,11 +6160,18 @@ function drawShiftSheet(canvas) {
   };
   // 縦書き。紙の枠名（立ち上げ・ランチ・ディナー）と同じ形にします
   const centerV = (text, x, w, top, h, size, bold, color) => {
-    cx.fillStyle = color || '#111418';
-    cx.font = font(size, bold);
-    cx.textAlign = 'center';
     const chars = String(text).split('');
-    const step = size + 2;
+    // ★行が低いときは小さくします。そのまま書くと下が切れます
+    let s = size;
+    let step = s + 2;
+    const room = h - 4;
+    if (chars.length * step > room) {
+      step = Math.max(7, room / chars.length);
+      s = Math.max(7, step - 2);
+    }
+    cx.fillStyle = color || '#111418';
+    cx.font = font(s, bold);
+    cx.textAlign = 'center';
     let yy = top + h / 2 - ((chars.length - 1) * step) / 2;
     chars.forEach((ch) => { cx.fillText(ch, x + w / 2, yy); yy += step; });
     cx.textAlign = 'left';
@@ -6161,7 +6206,9 @@ function drawShiftSheet(canvas) {
       const row = b.rows[si];
       if (row) row.cells.forEach((c) => { need = Math.max(need, c.names.length + c.short); });
     });
-    return Math.max(need, slot.id === 'open' ? 1 : 3);
+    // 立ち上げは1人ぶんで足りますが、低すぎると縦書きの枠名が入らないので
+    // 少しだけ多めに取ります
+    return Math.max(need, slot.id === 'open' ? 1.6 : 3);
   });
   const unit = weight.reduce((a, b) => a + b, 0);
   const room = Math.max(unit * (lh + 8), H - y - pad - fixed);
@@ -6190,7 +6237,7 @@ function drawShiftSheet(canvas) {
         const x = x0 + colW * (SHIFT_LANES.length * i + li);
         cx.fillStyle = '#f8f9fa';
         cx.fillRect(x, y, colW, laneH);
-        center(lane.name, x, colW, y + laneH / 2, 13, false, '#5b6169');
+        center(lane.name, x, colW, y + laneH / 2, 13, true, '#3d434b');
       });
     });
     y += laneH;
@@ -6330,7 +6377,8 @@ async function saveShiftFile(kind) {
   const make = async () => {
     const canvas = document.createElement('canvas');
     drawShiftSheet(canvas);
-    const jpeg = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+    // ★細い線と小さい字がつぶれないよう、高めにします（0.92だと字のふちがにじみます）
+    const jpeg = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.95));
     if (!jpeg) return null;
     if (!isPdf) return jpeg;
     return makePdf(new Uint8Array(await jpeg.arrayBuffer()), canvas.width, canvas.height);
