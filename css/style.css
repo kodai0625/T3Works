@@ -3087,6 +3087,9 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 
 .shift-foot { display: flex; gap: 8px; margin: 10px 0 4px; }
 .shift-foot .btn { flex: 1 1 0; padding: 11px 6px; }
+/* ★このアプリでは .is-hidden を部品ごとに書く決まりです。
+     書き忘れると display:flex が勝って、隠したつもりが出たままになります */
+.shift-foot.is-hidden { display: none; }
 
 /* -------- 人をえらぶ画面 -------- */
 .seg--wrap { flex-wrap: wrap; }
@@ -3431,4 +3434,11 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   body.print-shift .shift-sheet td.is-patty {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+}
+
+/* 現場アプリでは、シフトは見るだけです（組むのは Mine） */
+.shift-top.is-readonly .shift-top__acts { display: none; }
+.shift-memo--read {
+  margin: 0; padding: 6px 7px; min-height: 30px;
+  font-size: 12px; text-align: center; color: var(--text);
 }
