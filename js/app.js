@@ -4639,6 +4639,16 @@ function shiftDayOf(rec, dateStr) {
   return { open: arr(v.open), lunch: arr(v.lunch), dinner: arr(v.dinner), memo: v.memo || '' };
 }
 
+/**
+ * その日のメモ
+ *
+ * 書いたものがあればそれ。無ければ、はじめから入れておく文
+ * （29日と2月9日の「肉の日」）を出します。
+ */
+function shiftMemoOf(rec, dateStr) {
+  return shiftDayOf(rec, dateStr).memo || shiftDefaultMemo(dateStr);
+}
+
 function saveShiftDay(dateStr, day) {
   Store.setItem(SHIFT_STORE, shiftRecKey(), shiftDayKey(dateStr), {
     open: day.open, lunch: day.lunch, dinner: day.dinner, memo: day.memo,
@@ -4957,11 +4967,14 @@ function shiftGridBlock(rec, wishes, days) {
   days.forEach((s) => {
     const [, m, d] = s.split('-').map(Number);
     const dow = new Date(s.replace(/-/g, '/')).getDay();
+    const [yy] = s.split('-').map(Number);
     const th = document.createElement('th');
     th.colSpan = SHIFT_LANES.length;
+    // 祝日は日曜と同じ色にします（休みの日と分かるように）
+    const holi = isHoliday(yy, m, d);
     th.className = 'shift-grid__date'
-      + (dow === 0 ? ' is-sun' : dow === 6 ? ' is-sat' : '');
-    th.textContent = `${m}/${d}（${DOW[dow]}）`;
+      + (dow === 0 || holi ? ' is-sun' : dow === 6 ? ' is-sat' : '');
+    th.textContent = `${m}/${d}（${DOW[dow]}${holi ? '・祝' : ''}）`;
     head.appendChild(th);
   });
   table.appendChild(head);
@@ -5010,7 +5023,7 @@ function shiftGridBlock(rec, wishes, days) {
   const memo = document.createElement('tr');
   const memoTh = document.createElement('th');
   memoTh.className = 'shift-grid__slot shift-grid__slot--memo';
-  memoTh.textContent = '連絡';
+  memoTh.textContent = 'メモ';
   memo.appendChild(memoTh);
   days.forEach((dateStr) => {
     const td = document.createElement('td');
@@ -5025,8 +5038,8 @@ function shiftGridBlock(rec, wishes, days) {
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'shift-memo';
-    input.placeholder = 'まさ休み など';
-    input.value = shiftDayOf(rec, dateStr).memo;
+    // ★29日と2月9日は「肉の日」がはじめから入ります（shiftDefaultMemo）
+    input.value = shiftMemoOf(rec, dateStr);
     input.addEventListener('change', () => {
       const now = shiftDayOf(shiftRec(), dateStr);
       now.memo = input.value.trim();
@@ -5404,7 +5417,14 @@ function shiftSheetModel() {
     const head = part.map((s) => {
       const [, m, d] = s.split('-').map(Number);
       const dow = new Date(s.replace(/-/g, '/')).getDay();
-      return { key: s, label: `${m}/${d}`, dow: DOW[dow], sun: dow === 0, sat: dow === 6, closed: shiftClosedOn(s) };
+      const [yy] = s.split('-').map(Number);
+      const holi = isHoliday(yy, m, d);
+      return {
+        key: s, label: `${m}/${d}`,
+        dow: DOW[dow] + (holi ? '・祝' : ''),
+        sun: dow === 0 || holi, sat: dow === 6,
+        closed: shiftClosedOn(s),
+      };
     });
 
     const rows = SHIFT_SLOTS.map((slot) => ({
@@ -5420,7 +5440,7 @@ function shiftSheetModel() {
       }),
     }));
 
-    const memo = part.map((s) => (shiftClosedOn(s) ? '' : shiftDayOf(rec, s).memo));
+    const memo = part.map((s) => (shiftClosedOn(s) ? '' : shiftMemoOf(rec, s)));
     blocks.push({ head, rows, memo });
   }
 
@@ -5505,7 +5525,7 @@ function shiftSheetTable(block) {
   const memo = document.createElement('tr');
   const memoTh = document.createElement('th');
   memoTh.className = 'shift-sheet__label';
-  memoTh.textContent = '連絡';
+  memoTh.textContent = 'メモ';
   memo.appendChild(memoTh);
   block.head.forEach((d, i) => {
     const td = document.createElement('td');
@@ -5552,7 +5572,8 @@ function drawShiftSheet(canvas) {
   cx.textBaseline = 'middle';
   const font = (size, bold) => `${bold ? '700 ' : ''}${size}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
 
-  const pad = 34;
+  // ★紙のふちぎりぎりまで使います。印刷に出ない程度の余白だけ残します
+  const pad = 14;
   // 列の幅は「いちばん多い日数」で決めます。後ろのかたまりが7日でも、
   // 前と同じ幅にそろえたほうが、続きの表として読めるからです
   const cols = SHIFT_PRINT_COLS * SHIFT_LANES.length;
@@ -5560,21 +5581,13 @@ function drawShiftSheet(canvas) {
   const gridW = W - pad * 2 - labelW;
   const colW = gridW / cols;
 
-  // 見出し
-  cx.fillStyle = '#111418';
-  cx.font = font(30, true);
-  cx.fillText(model.title, pad, pad + 16);
-
-  let y = pad + 46;
-  const gapBlocks = 20;
-  const dateH = 40;
-  const laneH = 26;
-  const memoH = 34;
-  // 残りの高さを、枠の行に等しく配ります
-  const blocks = model.blocks.length || 1;
-  const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
-  const slotH = Math.max(44, (H - y - pad - fixed) / (blocks * SHIFT_SLOTS.length));
-
+  const center = (text, x, w, yy, size, bold, color) => {
+    cx.fillStyle = color || '#111418';
+    cx.font = font(size, bold);
+    cx.textAlign = 'center';
+    cx.fillText(text, x + w / 2, yy, w - 6);
+    cx.textAlign = 'left';
+  };
   const line = (x1, y1, x2, y2, strong) => {
     cx.strokeStyle = strong ? '#8a9099' : '#c8ccd2';
     cx.lineWidth = strong ? 1.6 : 1;
@@ -5583,13 +5596,19 @@ function drawShiftSheet(canvas) {
     cx.lineTo(x2, y2);
     cx.stroke();
   };
-  const center = (text, x, w, yy, size, bold, color) => {
-    cx.fillStyle = color || '#111418';
-    cx.font = font(size, bold);
-    cx.textAlign = 'center';
-    cx.fillText(text, x + w / 2, yy, w - 6);
-    cx.textAlign = 'left';
-  };
+
+  // 見出し
+  center(model.title, 0, W, pad + 15, 28, true, '#111418');
+
+  let y = pad + 38;
+  const gapBlocks = 20;
+  const dateH = 40;
+  const laneH = 26;
+  const memoH = 34;
+  // 残りの高さを、枠の行に等しく配ります
+  const blocks = model.blocks.length || 1;
+  const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
+  const slotH = Math.max(44, (H - y - pad - fixed) / (blocks * SHIFT_SLOTS.length));
 
   model.blocks.forEach((block, bi) => {
     const top = y;
@@ -5623,9 +5642,7 @@ function drawShiftSheet(canvas) {
     block.rows.forEach((row) => {
       cx.fillStyle = '#fafbfc';
       cx.fillRect(pad, y, labelW, slotH);
-      cx.fillStyle = '#3d434b';
-      cx.font = font(16, true);
-      cx.fillText(row.label, pad + 10, y + slotH / 2);
+      center(row.label, pad, labelW, y + slotH / 2, 16, true, '#3d434b');
 
       let i = 0;
       block.head.forEach((d, di) => {
@@ -5643,11 +5660,9 @@ function drawShiftSheet(canvas) {
             if (ty > y + slotH - 4) return;      // 入りきらない分は出しません
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
-              cx.fillRect(x + 2, ty - 11, colW - 4, lh - 3);
+              cx.fillRect(x + 3, ty - 11, colW - 6, lh - 3);
             }
-            cx.fillStyle = '#111418';
-            cx.font = font(17, false);
-            cx.fillText(n.text, x + 6, ty, colW - 12);
+            center(n.text, x, colW, ty, 17, false, '#111418');
           });
         });
       });
@@ -5669,9 +5684,7 @@ function drawShiftSheet(canvas) {
     // 連絡
     cx.fillStyle = '#fafbfc';
     cx.fillRect(pad, y, labelW, memoH);
-    cx.fillStyle = '#3d434b';
-    cx.font = font(14, true);
-    cx.fillText('連絡', pad + 10, y + memoH / 2);
+    center('メモ', pad, labelW, y + memoH / 2, 14, true, '#3d434b');
     block.head.forEach((d, i) => {
       const x = x0 + colW * SHIFT_LANES.length * i;
       const w = colW * SHIFT_LANES.length;
@@ -5680,9 +5693,7 @@ function drawShiftSheet(canvas) {
         cx.fillRect(x, y, w, memoH);
         return;
       }
-      cx.fillStyle = '#3d434b';
-      cx.font = font(14, false);
-      cx.fillText(block.memo[i] || '', x + 6, y + memoH / 2, w - 12);
+      center(block.memo[i] || '', x, w, y + memoH / 2, 14, false, '#3d434b');
     });
     y += memoH;
 

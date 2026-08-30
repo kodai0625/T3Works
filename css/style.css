@@ -3035,8 +3035,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   color: var(--text-sub); background: var(--surface-2); text-align: center;
 }
 .shift-grid__slot {
-  padding: 6px 4px; font-size: 11px; font-weight: 700;
-  text-align: left; vertical-align: middle;
+  padding: 6px 2px; font-size: 11px; font-weight: 700;
+  text-align: center; vertical-align: middle;
 }
 .shift-grid__slot--open   { color: var(--shift-open); }
 .shift-grid__slot--lunch  { color: var(--shift-lunch); }
@@ -3052,7 +3052,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 
 /* -------- マスの中の名前 -------- */
 .shift-chip {
-  display: block; width: 100%; margin-bottom: 3px;
+  display: block; width: 100%; margin-bottom: 3px; text-align: center;
   border: 1px solid var(--line); border-radius: 7px;
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: 12.5px; font-weight: 600;
@@ -3078,7 +3078,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 
 .shift-memo {
-  width: 100%; box-sizing: border-box;
+  width: 100%; box-sizing: border-box; text-align: center;
   border: 1px solid var(--line-2); border-radius: 7px;
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: 12px; padding: 6px 7px;
@@ -3132,7 +3132,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 .shift-sheet th, .shift-sheet td {
   border: 1px solid var(--line);
-  padding: 5px 6px; vertical-align: top; text-align: left;
+  padding: 5px 4px; vertical-align: top; text-align: center;
   min-width: 76px;
 }
 .shift-sheet th { background: var(--surface-2); font-weight: 700; text-align: center; }
@@ -3140,8 +3140,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .shift-sheet th.is-sat { color: var(--shift-dinner); }
 .shift-sheet__dow { font-size: 10.5px; font-weight: 400; color: var(--text-sub); }
 .shift-sheet__label {
-  min-width: 52px; text-align: left !important;
-  font-size: 11px; color: var(--text-sub);
+  min-width: 52px; font-size: 11px; color: var(--text-sub);
+  vertical-align: middle;
 }
 .shift-sheet__memo { font-size: 11px; color: var(--text-sub); }
 .shift-sheet td.is-closed { background: var(--line-2); color: var(--text-sub); text-align: center; }
@@ -3157,7 +3157,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 @media print {
   /* ★シフト表は A4 の横向きで、紙のふちまで使って大きく出します。
      余白を最小にして、表を紙いっぱいに広げています */
-  @page { size: A4 landscape; margin: 6mm; }
+    /* 紙のふちぎりぎりまで使います。3mm はプリンタが必ず余らせる幅です */
+  @page { size: A4 landscape; margin: 3mm; }
 
   body.print-shift > *:not(#shiftSheetModal) { display: none !important; }
   body.print-shift #shiftSheetModal {
@@ -3169,17 +3170,17 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
     max-width: none; max-height: none; overflow: visible;
     border: 0; box-shadow: none; padding: 0;
   }
-  body.print-shift .modal__title { font-size: 13pt; margin: 0 0 3mm; }
+  body.print-shift .modal__title { font-size: 13pt; margin: 0 0 2mm; text-align: center; }
   body.print-shift .shift-sheet-wrap { overflow: visible; margin: 0; }
   body.print-shift .shift-sheet {
     width: 100%; table-layout: fixed;
-    font-size: 8.5pt; margin: 0 0 4mm;
+    font-size: 9pt; margin: 0 0 3mm;
   }
   body.print-shift .shift-sheet th,
   body.print-shift .shift-sheet td {
-    border-color: #888; padding: 1mm 0.8mm; min-width: 0;
+    border-color: #888; padding: 1.2mm 0.5mm; min-width: 0;
   }
-  body.print-shift .shift-sheet tr > th:first-child { width: 16mm; }
+  body.print-shift .shift-sheet tr > th:first-child { width: 14mm; }
   body.print-shift .shift-sheet__lane { font-size: 6.5pt !important; }
   body.print-shift .shift-sheet__dow { font-size: 7pt; }
   /* 途中で紙が変わらないように、1つのかたまりは切らせません */
@@ -3250,7 +3251,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 /* アルバイトが書いてきた、その日の連絡。こちらが書くメモとは別ものなので、
    色を変えて「もらったもの」だと分かるようにしています */
 .shift-said {
-  margin: 6px 0 0; padding: 6px 9px;
+  margin: 6px 0 0; padding: 6px 9px; text-align: center;
   font-size: 12.5px; line-height: 1.6;
   border-radius: 7px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);

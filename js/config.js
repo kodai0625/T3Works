@@ -1329,29 +1329,113 @@ function shiftTimeKey(hours) {
 }
 
 /**
- * 表に書くときの時刻の印（今のシフト表と同じ書き方）
+ * 表に書くときの時刻
  *
- *   17    → ⑰       17.5  → (17.5)     11.25 → (11:15)
- *   既定の時刻の人には、何も付けません（今のランチの11時と同じ）
+ *   17    → 17:00      17.5  → 17:30      11.25 → 11:15
+ *   既定の時刻の人には、何も付けません（ランチの11時など）。
+ *
+ * ★以前は ⑰ や (17.5) と書いていましたが、読みちがえるので
+ *   全部「時:分」にそろえました。
  */
 function shiftTimeMark(slotId, t) {
   const slot = getShiftSlot(slotId);
   const v = String(t === null || t === undefined ? '' : t);
   if (!slot || v === '' || v === slot.start) return '';
-  const n = Number(v);
-  if (!isFinite(n)) return '';
-  const h = Math.floor(n);
-  const mi = Math.round((n - h) * 60);
-  // ①〜⑳ の丸数字。①が U+2460 なので、そこから数えます
-  if (mi === 0) return (h >= 1 && h <= 20) ? String.fromCharCode(0x2460 + h - 1) : `${h}時`;
-  if (mi === 30) return `(${h}.5)`;
-  // 半でも丁でもない時刻（11:15 など）は、そのまま書きます
-  return `(${h}:${String(mi).padStart(2, '0')})`;
+  return shiftTimeText(v);
 }
 
-/** 表に出す1人分（'⑱そう' のような形） */
+/** 表に出す1人分（'18:00 そう' のような形） */
 function shiftNameText(slotId, entry) {
-  return shiftTimeMark(slotId, entry && entry.t) + String((entry && entry.n) || '');
+  const mark = shiftTimeMark(slotId, entry && entry.t);
+  const name = String((entry && entry.n) || '');
+  return mark ? `${mark} ${name}` : name;
+}
+
+/* -------- 祝日と、肉の日 -------- */
+
+/**
+ * 日本の祝日かどうか
+ *
+ *  表に「祝」と出すためだけのものなので、名前は持ちません。
+ *  ・日付が決まっているもの（元日・建国記念の日 …）
+ *  ・第◯月曜のもの（成人の日・海の日・敬老の日・スポーツの日）
+ *  ・春分・秋分（年で動くので、計算で出します）
+ *  ・振替休日（日曜と重なった祝日の次の平日）
+ *  ・国民の休日（祝日にはさまれた平日。9月に出ることがあります）
+ *
+ *  ★2099年までの決まりで作っています。法律が変わったら直してください。
+ */
+function isHoliday(y, m, d) {
+  const set = holidaysOf(y);
+  return set.has(`${m}-${d}`);
+}
+
+const holidayMemo = {};
+
+function holidaysOf(y) {
+  if (holidayMemo[y]) return holidayMemo[y];
+
+  const fixed = [
+    [1, 1], [2, 11], [2, 23], [4, 29], [5, 3], [5, 4], [5, 5],
+    [8, 11], [11, 3], [11, 23],
+  ];
+  // 第◯月曜のもの  [月, 何番目]
+  const mondays = [[1, 2], [7, 3], [9, 3], [10, 2]];
+
+  const days = new Set();
+  fixed.forEach(([mm, dd]) => days.add(`${mm}-${dd}`));
+  mondays.forEach(([mm, nth]) => days.add(`${mm}-${nthMonday(y, mm, nth)}`));
+  days.add(`3-${equinox(y, 20.8431)}`);   // 春分の日
+  days.add(`9-${equinox(y, 23.2488)}`);   // 秋分の日
+
+  const has = (dt) => days.has(`${dt.getMonth() + 1}-${dt.getDate()}`);
+
+  // 国民の休日（前後を祝日にはさまれた平日）
+  [...days].forEach((k) => {
+    const [mm, dd] = k.split('-').map(Number);
+    const next = new Date(y, mm - 1, dd + 2);
+    const between = new Date(y, mm - 1, dd + 1);
+    if (has(next) && !has(between) && between.getDay() !== 0) {
+      days.add(`${between.getMonth() + 1}-${between.getDate()}`);
+    }
+  });
+
+  // 振替休日（日曜と重なったら、次の祝日でない日）
+  [...days].forEach((k) => {
+    const [mm, dd] = k.split('-').map(Number);
+    const dt = new Date(y, mm - 1, dd);
+    if (dt.getDay() !== 0) return;
+    const nx = new Date(y, mm - 1, dd);
+    do { nx.setDate(nx.getDate() + 1); } while (has(nx));
+    days.add(`${nx.getMonth() + 1}-${nx.getDate()}`);
+  });
+
+  holidayMemo[y] = days;
+  return days;
+}
+
+/** その月の第 nth 月曜の日にち */
+function nthMonday(y, m, nth) {
+  const first = new Date(y, m - 1, 1).getDay();      // 0=日
+  return 1 + ((8 - first) % 7) + (nth - 1) * 7;
+}
+
+/** 春分・秋分の日（1980〜2099年） */
+function equinox(y, base) {
+  return Math.floor(base + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+}
+
+/**
+ * その日にはじめから入れておくメモ
+ *
+ *  毎月29日と、2月9日は「肉の日」。シフト表に前もって出しておきます。
+ *  ★ほかにも決まった日があれば、ここに足してください。
+ *  ★アルバイトの提出ページには出しません（組む側の覚え書きなので）。
+ */
+function shiftDefaultMemo(dateStr) {
+  const [, m, d] = String(dateStr || '').split('-').map(Number);
+  if (d === 29 || (m === 2 && d === 9)) return '肉の日';
+  return '';
 }
 
 /* -------- 半月のあつかい -------- */
