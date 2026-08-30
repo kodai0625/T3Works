@@ -128,7 +128,6 @@ const el = {
   shiftToday: $('shiftToday'), shiftNavMain: $('shiftNavMain'), shiftNavSub: $('shiftNavSub'),
   shiftWishCount: $('shiftWishCount'), shiftWishNote: $('shiftWishNote'),
   shiftWishBtn: $('shiftWishBtn'), shiftTakeBtn: $('shiftTakeBtn'),
-  shiftTop: $('shiftTop'), shiftFootBuild: $('shiftFootBuild'),
   shiftPhase: $('shiftPhase'), shiftOpenBtn: $('shiftOpenBtn'),
   shiftBuildBtn: $('shiftBuildBtn2'),
   shiftDays: $('shiftDays'), shiftSheetBtn: $('shiftSheetBtn'),
@@ -4961,16 +4960,9 @@ function renderShift() {
   const phase = shiftPhaseOf(rec);
 
   /* -------- 募集の状態 -------- */
-  // ★現場アプリでは見るだけ。組むためのボタンは出しません
-  const ro = shiftReadOnly();
-  el.shiftTop.classList.toggle('is-readonly', ro);
-  el.shiftFootBuild.classList.toggle('is-hidden', ro);
-  el.shiftWishBtn.classList.toggle('is-hidden', ro);
-  el.shiftTakeBtn.classList.toggle('is-hidden', ro);
-
   el.shiftPhase.textContent = shiftPhaseText(phase);
   el.shiftPhase.className = 'shift-phase shift-phase--' + (phase || 'yet');
-  el.shiftOpenBtn.classList.toggle('is-hidden', ro || phase === SHIFT_OPEN);
+  el.shiftOpenBtn.classList.toggle('is-hidden', phase === SHIFT_OPEN);
   el.shiftOpenBtn.textContent = phase === SHIFT_BUILT ? '募集をやり直す' : 'シフト募集をはじめる';
   // 確定は、募集をはじめてからでないと押せません
   el.shiftBuildBtn.disabled = phase !== SHIFT_OPEN;
@@ -4979,12 +4971,7 @@ function renderShift() {
     : 'シフトを確定する';
 
   el.shiftWishCount.textContent = names.length ? `提出 ${sent} / ${names.length}人` : '名簿が未登録';
-  if (ro) {
-    el.shiftWishCount.textContent = '';
-    el.shiftWishNote.textContent = phase === SHIFT_BUILT
-      ? 'このシフトは確定しています'
-      : '組んでいる途中です。直すのは T3 Works Mine から';
-  } else if (!names.length) {
+  if (!names.length) {
     el.shiftWishNote.textContent = 'マネージの「シフトに入る人」で登録してください';
   } else if (!phase) {
     el.shiftWishNote.textContent = '募集をはじめると、みんなの提出ページに出ます';
@@ -5099,25 +5086,17 @@ function shiftGridBlock(rec, wishes, days) {
       return;
     }
 
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'shift-memo';
     // ★29日と2月9日は「肉の日」がはじめから入ります（shiftDefaultMemo）
-    const memoText = shiftMemoOf(rec, dateStr);
-    if (shiftReadOnly()) {
-      const p2 = document.createElement('p');
-      p2.className = 'shift-memo shift-memo--read';
-      p2.textContent = memoText;
-      td.appendChild(p2);
-    } else {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'shift-memo';
-      input.value = memoText;
-      input.addEventListener('change', () => {
-        const now = shiftDayOf(shiftRec(), dateStr);
-        now.memo = input.value.trim();
-        saveShiftDay(dateStr, now);
-      });
-      td.appendChild(input);
-    }
+    input.value = shiftMemoOf(rec, dateStr);
+    input.addEventListener('change', () => {
+      const now = shiftDayOf(shiftRec(), dateStr);
+      now.memo = input.value.trim();
+      saveShiftDay(dateStr, now);
+    });
+    td.appendChild(input);
 
     // アルバイトからのその日の連絡。組むときに見えないと意味がないので、ここに出します
     const said = wishes
@@ -5130,7 +5109,7 @@ function shiftGridBlock(rec, wishes, days) {
       td.appendChild(box);
     }
 
-    if (!shiftReadOnly()) td.appendChild(shiftPattyBox(shiftDayOf(rec, dateStr), dateStr));
+    td.appendChild(shiftPattyBox(shiftDayOf(rec, dateStr), dateStr));
     memo.appendChild(td);
   });
   table.appendChild(memo);
@@ -5144,21 +5123,17 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   const td = document.createElement('td');
   td.className = 'shift-cell';
 
-  const ro = shiftReadOnly();
-
   day[slot.id].forEach((e, i) => {
     if (shiftLaneOf(e) !== lane.id) return;
-    const chip = document.createElement(ro ? 'span' : 'button');
-    if (!ro) chip.type = 'button';
+    const chip = document.createElement('button');
+    chip.type = 'button';
     chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
     chip.textContent = shiftNameText(slot.id, e);
     const note = [e.f ? 'F（ランチからディナーまで通し）' : '', e.early ? '早上がり' : ''].filter(Boolean);
     if (note.length) chip.title = note.join('・');
-    if (!ro) chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
+    chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
     td.appendChild(chip);
   });
-
-  if (ro) return td;   // 見るだけのときは、足すボタンも出しません
 
   // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように、
   // 左の持ち場にだけ出します（両方に出すと二重に数えたように見えます）。

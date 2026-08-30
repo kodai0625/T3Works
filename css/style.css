@@ -3436,9 +3436,3 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   }
 }
 
-/* 現場アプリでは、シフトは見るだけです（組むのは Mine） */
-.shift-top.is-readonly .shift-top__acts { display: none; }
-.shift-memo--read {
-  margin: 0; padding: 6px 7px; min-height: 30px;
-  font-size: 12px; text-align: center; color: var(--text);
-}

@@ -1808,8 +1808,8 @@ const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
   // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します
   { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
-  // シフトは現場アプリにも出します。ただし現場では**見るだけ**です
-  // （募集や確定を現場から押せると事故になるため。shiftReadOnly を参照）。
+  // シフトは現場アプリにも Mine にも、同じように出します。
+  // 組むのは現場スタッフなので、どちらからでも同じことができます。
   // アルバイトが希望を出すのは、別に配る提出ページ（…/shift/）です
   { id: 'shift', name: 'シフト',   sub: '希望を集めて組む',           icon: '🗓',
     when: (storeId) => SHIFT_STORES.includes(storeId) },
@@ -1825,17 +1825,6 @@ const TASKS = [
  */
 function isMine() {
   return !!(document.body && document.body.dataset.mode === 'mine');
-}
-
-/**
- * シフトの画面を「見るだけ」にするか
- *
- * 現場アプリ（T3 Works）では見るだけです。組むのは Mine の役目で、
- * 募集や確定を現場から押せてしまうと、提出の受け付けが止まったり
- * 早すぎる確定でみんなに配られたりするためです。
- */
-function shiftReadOnly() {
-  return !isMine();
 }
 
 /** いま使える業務だけ（店舗によって出る・出ないが変わるものがあります） */
