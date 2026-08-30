@@ -64,6 +64,7 @@
     },
     {
       "id": "popo",
+      "自動投稿": false,
       "名前": "popo",
       "説明": "Cafe Stand popo",
       "ロゴ": "../img/popo.png",
