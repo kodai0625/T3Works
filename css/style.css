@@ -3226,6 +3226,37 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
     background: #ececec;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+
+  /* ★色を紙に出させます。
+     これが無いと、ブラウザは「背景の色は刷らない」ことにしてしまいます */
+  body.print-shift .shift-sheet,
+  body.print-shift .shift-sheet * {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  /* ★色は変数を使わず、ここで決め打ちにします。
+     var(--…) のままだと、端末が夜モードのときに
+     紙まで暗い色で刷られてしまうためです */
+  body.print-shift .modal__title { color: #111418; }
+  body.print-shift .shift-sheet { color: #111418; }
+  body.print-shift .shift-sheet th { background: #f2f4f6; color: #111418; }
+  body.print-shift .shift-sheet th.is-sun { color: #c0392b; }
+  body.print-shift .shift-sheet th.is-sat { color: #33509a; }
+  body.print-shift .shift-sheet__label,
+  body.print-shift .shift-sheet__lane,
+  body.print-shift .shift-sheet__memo { color: #3d434b; }
+  body.print-shift .shift-sheet td.is-closed { color: #6b7280; }
+
+  /* ★パティの桃色と、早上がりの橙。
+     上の「th, td { border-color: #888 }」のほうが強くて、
+     せっかくの色が灰色に上書きされていました（印刷が白黒に見えた原因）。
+     ここで色だけ塗り直します（線の太さと、内側の縦線を消す指定はそのまま） */
+  body.print-shift .shift-sheet td.is-patty {
+    border-top-color: #bf5480; border-bottom-color: #bf5480;
+  }
+  body.print-shift .shift-sheet td.is-patty-first { border-left-color: #bf5480; }
+  body.print-shift .shift-sheet td.is-patty-last { border-right-color: #bf5480; }
+  body.print-shift .shift-sheet__name.is-early { outline-color: #d98324; }
 }
 
 /* -------- シフト：F（ランチからディナーまで通し） --------
