@@ -14,7 +14,7 @@
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=9b1d8a0c">
 <link rel="stylesheet" href="css/admin.css?v=e9145f39">
-<meta name="app-version" content="fc78a6e7">
+<meta name="app-version" content="a0f13fca">
 </head>
 <body class="no-daytabs">
 
@@ -87,34 +87,6 @@
       <button type="button" class="btn btn--primary" id="saveCatchStaff">名前を保存</button>
       <span class="admin-saved is-hidden" id="catchStaffSaved">保存しました</span>
     </div>
-  </section>
-
-  <!-- ===== シフトに入る人（店舗ごと） ===== -->
-  <section class="admin-block">
-    <div class="admin-block__head">
-      <h2 class="admin-block__title">シフトに入る人</h2>
-      <span class="admin-count" id="shiftStaffCount"></span>
-    </div>
-    <p class="admin-note">
-      1行に1人。保存すると、<b>1人ずつに番号</b>が作られます。
-      その番号を本人にLINEで送ってください。<br>
-      提出ページは<b>番号で誰なのかが決まる</b>ので、他の人の名前では出せません。
-      名前の一覧も出しません。<br>
-      クローズの担当者（社員）とも、キャッチをする人とも<b>別のリスト</b>です。
-      名前を消しても、<b>組みおわったシフトはそのまま残ります</b>。
-    </p>
-    <div class="admin-fields" id="shiftStaffFields"></div>
-    <div class="admin-actions">
-      <button type="button" class="btn btn--primary" id="saveShiftStaff">名前を保存</button>
-      <span class="admin-saved is-hidden" id="shiftStaffSaved">保存しました</span>
-    </div>
-
-    <h3 class="admin-sub">配る番号</h3>
-    <p class="admin-note">
-      「コピー」を押すと、その人に送る文面がそのままコピーされます。<br>
-      番号が漏れて困るときは<b>「作り直す」</b>を押してください。前の番号では入れなくなります。
-    </p>
-    <div id="shiftCodeList"></div>
   </section>
 
   <!-- ===== 日報フォルダ（会議資料の自動取り込みに使います） ===== -->
@@ -254,6 +226,36 @@
 </section>
 
 <!-- ===== 交通費（配達記録アプリ・バグるだけ） ===== -->
+<section class="view is-hidden" id="viewShift">
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">シフトに入る人</h2>
+      <span class="admin-count" id="shiftStaffCount"></span>
+    </div>
+    <p class="admin-note">
+      1行に1人。保存すると、<b>1人ずつに番号</b>が作られます。
+      その番号を本人にLINEで送ってください。<br>
+      提出ページは<b>番号で誰なのかが決まる</b>ので、他の人の名前では出せません。
+      名前の一覧も出しません。<br>
+      クローズの担当者（社員）とも、キャッチをする人とも<b>別のリスト</b>です。
+      名前を消しても、<b>組みおわったシフトはそのまま残ります</b>。
+    </p>
+    <textarea id="shiftStaffInput" class="field__input field__input--area" rows="12"
+      placeholder="ほのか&#10;りの&#10;わかな"></textarea>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveShiftStaff">名前を保存</button>
+      <span class="admin-saved is-hidden" id="shiftStaffSaved">保存しました</span>
+    </div>
+
+    <h3 class="admin-sub">配る番号</h3>
+    <p class="admin-note">
+      「コピー」を押すと、その人に送る文面がそのままコピーされます。<br>
+      番号が漏れて困るときは<b>「作り直す」</b>を押してください。前の番号では入れなくなります。
+    </p>
+    <div id="shiftCodeList"></div>
+  </section>
+</section>
+
 <section class="view is-hidden" id="viewDrive">
   <section class="admin-block">
     <div class="admin-block__head">
@@ -408,6 +410,6 @@
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=4591df72"></script>
+<script src="js/admin.js?v=fc22ade4"></script>
 </body>
 </html>

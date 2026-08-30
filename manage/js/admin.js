@@ -41,8 +41,8 @@ const el = {};
   'staffInput', 'saveStaff', 'staffCount', 'staffSaved',
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
-  'shiftStaffFields', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
-  'shiftCodeList',
+  'shiftStaffInput', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
+  'shiftCodeList', 'viewShift',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1072,29 +1072,10 @@ function saveCatchStaff() {
  *  シフトを組む店舗（config.js の SHIFT_STORES）だけを並べます。
  */
 function renderShiftStaff() {
-  const map = ShiftStaff.all();
-  const n = ShiftStaff.count();
-  el.shiftStaffCount.textContent = n ? `${n}人` : 'まだ登録なし';
-
-  el.shiftStaffFields.innerHTML = '';
-  SHIFT_STORES.forEach((id) => {
-    const s = getStore(id);
-    const wrap = document.createElement('label');
-    wrap.className = 'field';
-    const label = document.createElement('span');
-    label.className = 'field__label';
-    const people = map[id] || [];
-    label.textContent = `${s.name}（${people.length}人）`;
-    const area = document.createElement('textarea');
-    area.className = 'field__input field__input--area';
-    area.rows = 10;
-    area.dataset.store = id;
-    area.placeholder = '1行に1人ずつ';
-    area.value = people.map((p) => p.n).join('\n');
-    wrap.append(label, area);
-    el.shiftStaffFields.appendChild(wrap);
-  });
-
+  const store = getStore(state.storeId);
+  const people = ShiftStaff.people(store.id);
+  el.shiftStaffCount.textContent = people.length ? `${people.length}人` : 'まだ登録なし';
+  el.shiftStaffInput.value = people.map((p) => p.n).join('\n');
   renderShiftCodes();
 }
 
@@ -1105,56 +1086,49 @@ function renderShiftStaff() {
  * 本人に送るための文面を、そのままコピーできるようにしてあります。
  */
 function renderShiftCodes() {
-  const map = ShiftStaff.all();
+  const storeId = state.storeId;
+  const people = ShiftStaff.people(storeId);
   el.shiftCodeList.innerHTML = '';
 
-  SHIFT_STORES.forEach((id) => {
-    const people = map[id] || [];
-    if (!people.length) return;
-    const head = document.createElement('p');
-    head.className = 'field__label';
-    head.textContent = getStore(id).name;
-    el.shiftCodeList.appendChild(head);
-
-    const box = document.createElement('div');
-    box.className = 'shift-codes';
-    people.forEach((p) => {
-      const row = document.createElement('div');
-      row.className = 'shift-code';
-
-      const name = document.createElement('span');
-      name.className = 'shift-code__name';
-      name.textContent = p.n;
-
-      const code = document.createElement('span');
-      code.className = 'shift-code__num';
-      code.textContent = p.c || '—';
-
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'btn btn--small';
-      copy.textContent = 'コピー';
-      copy.addEventListener('click', () => copyShiftCode(p, copy));
-
-      const again = document.createElement('button');
-      again.type = 'button';
-      again.className = 'btn btn--small';
-      again.textContent = '作り直す';
-      again.addEventListener('click', () => {
-        if (!window.confirm(`${p.n}さんの番号を作り直します。\n前の番号では入れなくなります。`)) return;
-        ShiftStaff.reissue(id, p.n);
-        renderShiftStaff();
-      });
-
-      row.append(name, code, copy, again);
-      box.appendChild(row);
-    });
-    el.shiftCodeList.appendChild(box);
-  });
-
-  if (!el.shiftCodeList.children.length) {
+  if (!people.length) {
     el.shiftCodeList.innerHTML = '<p class="admin-note">名前を保存すると、ここに番号が出ます。</p>';
+    return;
   }
+
+  const box = document.createElement('div');
+  box.className = 'shift-codes';
+  people.forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'shift-code';
+
+    const name = document.createElement('span');
+    name.className = 'shift-code__name';
+    name.textContent = p.n;
+
+    const code = document.createElement('span');
+    code.className = 'shift-code__num';
+    code.textContent = p.c || '—';
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn--small';
+    copy.textContent = 'コピー';
+    copy.addEventListener('click', () => copyShiftCode(p, copy));
+
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'btn btn--small';
+    again.textContent = '作り直す';
+    again.addEventListener('click', () => {
+      if (!window.confirm(`${p.n}さんの番号を作り直します。\n前の番号では入れなくなります。`)) return;
+      ShiftStaff.reissue(storeId, p.n);
+      renderShiftStaff();
+    });
+
+    row.append(name, code, copy, again);
+    box.appendChild(row);
+  });
+  el.shiftCodeList.appendChild(box);
 }
 
 /** その人に送る文面をコピーする */
@@ -1172,11 +1146,7 @@ function copyShiftCode(p, btn) {
 }
 
 function saveShiftStaff() {
-  let map = ShiftStaff.all();
-  [...el.shiftStaffFields.querySelectorAll('textarea[data-store]')].forEach((a) => {
-    // 名前だけを見て、すでにいる人の番号は saveFromText が引き継ぎます
-    map = ShiftStaff.saveFromText(a.dataset.store, a.value);
-  });
+  ShiftStaff.saveFromText(state.storeId, el.shiftStaffInput.value);
   renderShiftStaff();
   el.shiftStaffSaved.classList.remove('is-hidden');
   setTimeout(() => el.shiftStaffSaved.classList.add('is-hidden'), 2500);
@@ -1482,6 +1452,11 @@ const ADMIN_PAGES = [
     id: 'drive', name: '交通費', sub: '配達記録アプリの名前', icon: '🛵',
     when: (storeId) => storeId === DRIVE_SHOP,
   },
+  // シフトは、シフトを組んでいる店舗にだけ出します（config.js の SHIFT_STORES）
+  {
+    id: 'shift', name: 'シフト', sub: 'シフトに入る人と番号', icon: '👥',
+    when: (storeId) => SHIFT_STORES.includes(storeId),
+  },
 ];
 
 /** その店舗で使えるページだけ */
@@ -1566,6 +1541,10 @@ function pageStatus(pageId, storeId) {
       + (ex ? ` / 臨時${ex}日` : '');
   }
   if (pageId === 'drive') return `${Drivers.list().length}人`;
+  if (pageId === 'shift') {
+    const n = ShiftStaff.count(storeId);
+    return n ? `${n}人` : 'まだ登録なし';
+  }
   return '';
 }
 
@@ -1635,6 +1614,7 @@ function renderAll() {
   el.viewWeekly.classList.toggle('is-hidden', state.view !== 'weekly');
   el.viewClosed.classList.toggle('is-hidden', state.view !== 'closed');
   el.viewDrive.classList.toggle('is-hidden', state.view !== 'drive');
+  el.viewShift.classList.toggle('is-hidden', state.view !== 'shift');
 
   if (isStores) {
     document.documentElement.style.setProperty('--store', '#2b7fd4');
@@ -1642,7 +1622,6 @@ function renderAll() {
     renderStorePicker();
     renderStaff();
     renderCatchStaff();
-    renderShiftStaff();
     renderNippouFolders();
     renderSyncStatus();
     return;
@@ -1667,6 +1646,8 @@ function renderAll() {
     renderClosed();
   } else if (state.view === 'drive') {
     renderDrivers();
+  } else if (state.view === 'shift') {
+    renderShiftStaff();
   }
 }
 
