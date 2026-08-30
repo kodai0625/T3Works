@@ -42,7 +42,7 @@ const el = {};
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
   'shiftStaffInput', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
-  'shiftCodeList', 'viewShift',
+  'shiftCodeList', 'shiftSubmitUrl', 'viewShift',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1083,12 +1083,14 @@ function renderShiftStaff() {
  * 配る番号の一覧
  *
  * 番号は1人に1つで、これが提出ページの入口になります。
- * 本人に送るための文面を、そのままコピーできるようにしてあります。
+ * 「コピー」で番号だけが取れます（URLは全員おなじなので、上に1つ出しています）。
  */
 function renderShiftCodes() {
   const storeId = state.storeId;
   const people = ShiftStaff.people(storeId);
   el.shiftCodeList.innerHTML = '';
+  // 提出ページのURL。マネージは1つ下の階層にあるので ../ で戻ります
+  el.shiftSubmitUrl.textContent = new URL('../' + SHIFT_SUBMIT_PATH, location.href).href;
 
   if (!people.length) {
     el.shiftCodeList.innerHTML = '<p class="admin-note">名前を保存すると、ここに番号が出ます。</p>';
@@ -1131,11 +1133,14 @@ function renderShiftCodes() {
   el.shiftCodeList.appendChild(box);
 }
 
-/** その人に送る文面をコピーする */
+/**
+ * 配る番号をコピーする
+ *
+ * ★番号だけをコピーします。前は案内の文もいっしょに入れていましたが、
+ *   その人のLINEに貼るときに要らない文まで付いてくるので、番号だけにしました。
+ */
 function copyShiftCode(p, btn) {
-  // 提出ページのURL。マネージは1つ下の階層にあるので ../ で戻ります
-  const url = new URL('../' + SHIFT_SUBMIT_PATH, location.href).href;
-  const text = `${p.n}さん\nシフトの提出はこちらから\n${url}\nあなたの番号：${p.c}`;
+  const text = String(p.c || '');
   navigator.clipboard.writeText(text).then(
     () => {
       btn.textContent = 'コピーした';

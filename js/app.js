@@ -5919,10 +5919,15 @@ function shiftSheetTable(block, perDay, namePt) {
   block.rows.forEach((row, ri) => {
     const tr = document.createElement('tr');
     const th = document.createElement('th');
+    th.className = 'shift-sheet__label';
     // ★枠名だけ縦書きにします。1文字ぶんの幅で足りるので、
-    //   そのぶん日付の列を広くできます（メモは横書きのままです）
-    th.className = 'shift-sheet__label shift-sheet__label--v';
-    th.textContent = row.label;
+    //   そのぶん日付の列を広くできます（メモは横書きのままです）。
+    //   縦書きは中の span に付けます。マスに直に付けると、
+    //   字が右のはしに寄って真ん中に来ません
+    const vlab = document.createElement('span');
+    vlab.className = 'shift-sheet__vlabel';
+    vlab.textContent = row.label;
+    th.appendChild(vlab);
     tr.appendChild(th);
 
     let i = 0;
@@ -6049,8 +6054,10 @@ function drawShiftSheet(canvas) {
     const tw = parts.time ? cx.measureText(parts.time).width + size * 0.22 : 0;
     cx.font = font(size, false);
     const nw = cx.measureText(parts.name).width;
-    let tx = x + (w - (tw + nw)) / 2;
-    if (tx < x + 3) tx = x + 3;
+    // ★左よせ。名前の長さがまちまちなので、真ん中ぞろえだと
+    //   1日ごとに出だしがずれて、表がガタガタに見えます
+    const tx0 = x + 4;
+    let tx = tx0;
     if (parts.time) {
       cx.font = font(small, false);
       cx.fillText(parts.time, tx, yy + (size - small) * 0.12);

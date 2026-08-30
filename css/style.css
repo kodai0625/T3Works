@@ -3150,7 +3150,10 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .shift-sheet th.is-sun { color: var(--ng); }
 .shift-sheet th.is-sat { color: var(--shift-dinner); }
 /* 日付と曜日は1行にまとめたので、別行のスタイルは使いません */
-.shift-sheet__name { display: block; white-space: nowrap; }
+/* ★名前と時刻だけ左よせ。名前の長さがまちまちなので、真ん中ぞろえだと
+   1日ごとに出だしがずれて、表がガタガタに見えます。
+   日付・持ち場・定休日・メモは、今までどおり真ん中ぞろえです */
+.shift-sheet__name { display: block; white-space: nowrap; text-align: left; }
 /* 時刻の数字。画面では名前と同じ大きさで、紙のときだけ小さくします */
 .shift-sheet__at { font-style: normal; margin-right: .3em; }
 
@@ -3184,12 +3187,16 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
 }
 .shift-sheet__memo { font-size: 11px; color: var(--text-sub); }
 .shift-sheet td.is-closed { background: var(--line-2); color: var(--text-sub); text-align: center; }
-/* 枠名（立ち上げ・ランチ・ディナー）は縦書き。メモは横書きのままです */
-.shift-sheet__label--v {
+/* 枠名（立ち上げ・ランチ・ディナー）は縦書き。メモは横書きのままです。
+   ★縦書きはマスではなく中の span に付けます。マスに直に付けると
+     字が右のはしに寄ってしまい、真ん中に来ません */
+.shift-sheet__vlabel {
+  display: inline-block; vertical-align: middle;
   writing-mode: vertical-rl; text-orientation: upright;
   white-space: nowrap; letter-spacing: 0; line-height: 1;
-  min-width: 0; width: 1.6em; padding: 4px 0;
 }
+/* 枠名とメモの見出しは、マスの真ん中（たても よこも）にそろえます */
+.shift-sheet th.shift-sheet__label { vertical-align: middle; text-align: center; }
 /* 人が足りないぶんの、赤いあき。1人につき1つ、名前と同じ大きさで出します
    （元のシフト表で、足りないところのマスを赤く塗っているのと同じ意味です） */
 .shift-sheet__name.is-short {
@@ -3247,12 +3254,8 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
     line-height: 1.05; white-space: normal;
   }
   /* ★枠名は縦書き。1文字ぶんの幅で足りるので、日付の列を広くできます。
-     メモの行はこの指定を付けていないので、横書きのままです */
-  body.print-shift .shift-sheet__label--v {
-    writing-mode: vertical-rl; text-orientation: upright;
-    font-size: 6pt; line-height: 1; letter-spacing: 0;
-    white-space: nowrap; padding: 0.5mm 0;
-  }
+     メモの見出しはこの span を使っていないので、横書きのままです */
+  body.print-shift .shift-sheet__vlabel { font-size: 6pt; }
   body.print-shift .shift-sheet__lane { font-size: 5.5pt !important; padding: 0.2mm 0 !important; }
 
   /* 1行ぶんの高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
