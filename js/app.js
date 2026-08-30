@@ -5676,7 +5676,11 @@ function shiftSheetModel() {
           patty: day.patty === slot.id,
           names: shiftClosedOn(s) ? [] : day[slot.id]
             .filter((e) => shiftLaneOf(e) === lane.id)
-            .map((e) => ({ text: shiftNameText(slot.id, e), full: !!e.f, early: !!e.early })),
+            .map((e) => ({
+              text: shiftNameText(slot.id, e),
+              parts: shiftNameParts(slot.id, e),
+              full: !!e.f, early: !!e.early,
+            })),
         }));
       }),
     }));
@@ -5696,12 +5700,40 @@ function renderShiftSheet() {
   const model = shiftSheetModel();
   el.shiftSheetTitle.textContent = model.title;
   el.shiftSheet.innerHTML = '';
-  model.blocks.forEach((b) => el.shiftSheet.appendChild(shiftSheetTable(b)));
+  // 列の幅は「いちばん多い日数」でそろえます。後ろの段が少ない半月でも、
+  // 前の段と同じ幅にしておくと、続きの表として読めます
+  const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
+  const namePt = shiftSheetNamePt(model, perDay);
+  model.blocks.forEach((b) => el.shiftSheet.appendChild(shiftSheetTable(b, perDay, namePt)));
 }
 
-function shiftSheetTable(block) {
+/**
+ * 印刷したときに、名前が1行で収まる文字の大きさ（ポイント）
+ *
+ * ★A4横の紙の幅は297mm。左右の余白3mmずつと、枠名の列7mmを引いた残りを、
+ *   日数×2（キッチンとホール）で割ったのが1マスの幅です。
+ *   1段8日だと17.8mmしかないので、いちばん長い名前に合わせて小さくします。
+ */
+function shiftSheetNamePt(model, perDay) {
+  const cellMm = (297 - 3 * 2 - SHIFT_SHEET_LABEL_MM) / (perDay * SHIFT_LANES.length) - 0.7;
+  let em = 0;
+  model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
+    c.names.forEach((n) => { em = Math.max(em, shiftNameEm(n.parts)); });
+  })));
+  if (em <= 0) return 8;
+  // 1mm = 2.8346ポイント。大きくても8pt（それ以上は日付より目立ちます）
+  const pt = Math.min(8, (cellMm * 2.8346 / em) * 0.98);
+  return Math.max(5, Math.round(pt * 10) / 10);
+}
+
+function shiftSheetTable(block, perDay, namePt) {
   const table = document.createElement('table');
   table.className = 'shift-sheet';
+  // 日数の少ない段は、そのぶん短くします（右はしが空くだけで、列の幅は同じ）
+  if (perDay && block.head.length < perDay) {
+    table.style.setProperty('--sheet-w', `${(block.head.length / perDay) * 100}%`);
+  }
+  if (namePt) table.style.setProperty('--name-pt', `${namePt}pt`);
 
   const head = document.createElement('tr');
   head.appendChild(document.createElement('th'));
@@ -5762,7 +5794,14 @@ function shiftSheetTable(block) {
           const one = document.createElement('span');
           one.className = 'shift-sheet__name'
             + (n.full ? ' is-full' : '') + (n.early ? ' is-early' : '');
-          one.textContent = n.text;
+          // 時刻は名前より小さく出します（紙のときだけ効きます）
+          if (n.parts.time) {
+            const t = document.createElement('i');
+            t.className = 'shift-sheet__at';
+            t.textContent = n.parts.time;
+            one.appendChild(t);
+          }
+          one.appendChild(document.createTextNode(n.parts.name));
           td.appendChild(one);
         });
         tr.appendChild(td);
@@ -5832,6 +5871,13 @@ function drawShiftSheet(canvas) {
   const labelW = 52;
   const gridW = W - pad * 2 - labelW;
   const colW = gridW / cols;
+  // 名前が1行に収まる大きさ。紙と同じ考え方です（shiftSheetNamePt）
+  let nameEm = 0;
+  model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
+    c.names.forEach((n) => { nameEm = Math.max(nameEm, shiftNameEm(n.parts)); });
+  })));
+  const nameSize = Math.max(9, Math.min(16, nameEm ? ((colW - 8) / nameEm) * 0.98 : 16));
+  const lh = Math.round(nameSize + 7);
 
   const center = (text, x, w, yy, size, bold, color) => {
     cx.fillStyle = color || '#111418';
@@ -5839,6 +5885,25 @@ function drawShiftSheet(canvas) {
     cx.textAlign = 'center';
     cx.fillText(text, x + w / 2, yy, w - 6);
     cx.textAlign = 'left';
+  };
+  // 1人分（時刻＋名前）。時刻だけ小さく描いて、2つで真ん中にそろえます
+  const drawName = (parts, x, w, yy, size) => {
+    const small = size * SHIFT_TIME_SCALE;
+    cx.textAlign = 'left';
+    cx.fillStyle = '#111418';
+    cx.font = font(small, false);
+    const tw = parts.time ? cx.measureText(parts.time).width + size * 0.22 : 0;
+    cx.font = font(size, false);
+    const nw = cx.measureText(parts.name).width;
+    let tx = x + (w - (tw + nw)) / 2;
+    if (tx < x + 3) tx = x + 3;
+    if (parts.time) {
+      cx.font = font(small, false);
+      cx.fillText(parts.time, tx, yy + (size - small) * 0.12);
+      tx += tw;
+    }
+    cx.font = font(size, false);
+    cx.fillText(parts.name, tx, yy, x + w - 3 - tx);
   };
   const line = (x1, y1, x2, y2, strong) => {
     cx.strokeStyle = strong ? '#8a9099' : '#c8ccd2';
@@ -5860,7 +5925,12 @@ function drawShiftSheet(canvas) {
   // 残りの高さを、枠の行に等しく配ります
   const blocks = model.blocks.length || 1;
   const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
-  const slotH = Math.max(40, (H - y - pad - fixed) / (blocks * SHIFT_SLOTS.length));
+  // ★元のスプレッドシートと同じ配分です。立ち上げは1人、
+  //   ランチとディナーは3人ぶん入る高さにします
+  const weight = SHIFT_SLOTS.map((slot) => (slot.id === 'open' ? 1 : 3));
+  const unit = weight.reduce((a, b) => a + b, 0);
+  const room = Math.max(unit * (lh + 8), H - y - pad - fixed);
+  const slotH = SHIFT_SLOTS.map((slot, i) => (room / blocks) * (weight[i] / unit));
 
   model.blocks.forEach((block, bi) => {
     const top = y;
@@ -5891,10 +5961,11 @@ function drawShiftSheet(canvas) {
     y += laneH;
 
     // 枠ごとの行
-    block.rows.forEach((row) => {
+    block.rows.forEach((row, ri) => {
+      const rowH = slotH[ri];
       cx.fillStyle = '#fafbfc';
-      cx.fillRect(pad, y, labelW, slotH);
-      center(row.label, pad, labelW, y + slotH / 2, 13, true, '#3d434b');
+      cx.fillRect(pad, y, labelW, rowH);
+      center(row.label, pad, labelW, y + rowH / 2, 13, true, '#3d434b');
 
       let i = 0;
       block.head.forEach((d, di) => {
@@ -5906,33 +5977,32 @@ function drawShiftSheet(canvas) {
           const cell = row.cells[i];
           i += 1;
           const x = x0 + colW * (SHIFT_LANES.length * di + li);
-          const lh = 23;
           // パティの枠は、キッチンとホールをまたいで1つの四角で囲みます
           // （持ち場ごとに描くと、あいだに縦線が入ってしまいます）
           if (cell.patty && li === 0) {
             const w2 = colW * SHIFT_LANES.length;
             cx.strokeStyle = '#bf5480';
             cx.lineWidth = 2.5;
-            cx.strokeRect(x + 1.5, y + 1.5, w2 - 3, slotH - 3);
+            cx.strokeRect(x + 1.5, y + 1.5, w2 - 3, rowH - 3);
           }
           cell.names.forEach((n, ni) => {
-            const ty = y + 15 + ni * lh;
-            if (ty > y + slotH - 4) return;      // 入りきらない分は出しません
+            const ty = y + lh / 2 + 4 + ni * lh;
+            if (ty > y + rowH - 4) return;      // 入りきらない分は出しません
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
-              cx.fillRect(x + 3, ty - 11, colW - 6, lh - 3);
+              cx.fillRect(x + 3, ty - lh / 2, colW - 6, lh - 3);
             }
             // 早上がりは橙のふち。塗りの上から描くので、通しでも分かります
             if (n.early) {
               cx.strokeStyle = '#d98324';
               cx.lineWidth = 2;
-              cx.strokeRect(x + 3, ty - 11, colW - 6, lh - 3);
+              cx.strokeRect(x + 3, ty - lh / 2, colW - 6, lh - 3);
             }
-            center(n.text, x, colW, ty, 16, false, '#111418');
+            drawName(n.parts, x, colW, ty, nameSize);
           });
         });
       });
-      y += slotH;
+      y += rowH;
     });
 
     // 定休日は、枠の行をまとめて塗ります
@@ -5941,7 +6011,7 @@ function drawShiftSheet(canvas) {
       const x = x0 + colW * SHIFT_LANES.length * i;
       const w = colW * SHIFT_LANES.length;
       const cy = top + dateH + laneH;
-      const ch = slotH * block.rows.length;
+      const ch = slotH.reduce((a, b) => a + b, 0);
       cx.fillStyle = '#eceef1';
       cx.fillRect(x, cy, w, ch);
       center('定休日', x, w, cy + ch / 2, 17, false, '#6b7280');
@@ -5976,7 +6046,7 @@ function drawShiftSheet(canvas) {
     let ry = top;
     [dateH, laneH].forEach((h) => { line(pad, ry, right, ry, true); ry += h; });
     line(pad, ry, right, ry, true);
-    block.rows.forEach(() => { ry += slotH; line(pad, ry, right, ry, false); });
+    block.rows.forEach((_, ri) => { ry += slotH[ri]; line(pad, ry, right, ry, false); });
     ry += memoH;
     line(pad, ry, right, ry, true);
 

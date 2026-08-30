@@ -1285,16 +1285,43 @@ const SHIFT_COLS = 2;
 /**
  * 印刷の表を、何段に分けるか
  *
- * ★A4横1枚に必ず収めるための数です。
- *   2段（1段8日）だと1列18mmしかなく、名前が折り返して背が伸び、
- *   端末によっては2枚になっていました。3段にすると1列24〜28mm取れて、
- *   名前が1行に収まり、高さも171mm（A4横の204mmに収まる）になります。
+ * ★元のスプレッドシートと同じ2段（1段8日）です。
+ *   1列が17.8mmしかないので、名前は入る大きさまで自動で小さくします
+ *   （shiftFitSize）。段を増やせば列は広がりますが、見た目が変わります。
  */
-const SHIFT_PRINT_ROWS = 3;
+const SHIFT_PRINT_ROWS = 2;
 
-/** その半月を3段に分けたときの、1段ぶんの日数 */
+/** 印刷したときの、左はし（立ち上げ・ランチ…）の列の幅（ミリ）。css と同じ数です */
+const SHIFT_SHEET_LABEL_MM = 7;
+
+/** その半月を何段かに分けたときの、1段ぶんの日数 */
 function shiftPrintCols(dayCount) {
   return Math.ceil(dayCount / SHIFT_PRINT_ROWS);
+}
+
+/**
+ * 文字の幅を「全角いくつぶん」で数えます
+ *
+ * ★「11:00 もっちゃん」なら、半角6文字（0.5ぶん）＋かな5文字で 8ぶん。
+ *   フォントを読み込む前でも数えられるので、印刷でも絵でも同じ答えになります。
+ */
+function shiftTextEm(text) {
+  let n = 0;
+  for (const ch of String(text)) n += /[\u0020-\u007e\uff61-\uff9f]/.test(ch) ? 0.5 : 1;
+  return n;
+}
+
+/**
+ * マスの幅に名前が1行で収まる、文字の大きさを返します
+ *
+ * ★名前を折り返させないための計算です。単位は呼ぶ側にまかせます
+ *   （印刷はポイント、絵はピクセル）。max より大きくはしません。
+ */
+function shiftFitSize(texts, width, max) {
+  let em = 0;
+  texts.forEach((t) => { em = Math.max(em, shiftTextEm(t)); });
+  if (em <= 0) return max;
+  return Math.min(max, (width / em) * 0.97);
 }
 
 /** その希望が、組んだ表のどの枠に入るか（F はランチへ） */
@@ -1413,6 +1440,27 @@ function shiftNameText(slotId, entry) {
   const mark = shiftTimeMark(slotId, entry && entry.t);
   const name = String((entry && entry.n) || '');
   return mark ? `${mark} ${name}` : name;
+}
+
+/**
+ * 印刷の1マスで、時刻と名前を分けたもの
+ *
+ * ★1段8日だと1マスが17.8mmしかありません。時刻の数字を名前より
+ *   小さく出すことで、そのぶん名前を大きくできます（SHIFT_TIME_SCALE）。
+ */
+const SHIFT_TIME_SCALE = 0.72;
+
+function shiftNameParts(slotId, entry) {
+  return {
+    time: shiftTimeMark(slotId, entry && entry.t),
+    name: String((entry && entry.n) || ''),
+  };
+}
+
+/** その1人分が、名前の大きさの何倍の幅になるか */
+function shiftNameEm(parts) {
+  const t = parts.time ? shiftTextEm(parts.time) * SHIFT_TIME_SCALE + 0.22 : 0;
+  return t + shiftTextEm(parts.name);
 }
 
 /* -------- 祝日と、肉の日 -------- */

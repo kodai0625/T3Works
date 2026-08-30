@@ -3143,6 +3143,8 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .shift-sheet th.is-sat { color: var(--shift-dinner); }
 /* 日付と曜日は1行にまとめたので、別行のスタイルは使いません */
 .shift-sheet__name { display: block; white-space: nowrap; }
+/* 時刻の数字。画面では名前と同じ大きさで、紙のときだけ小さくします */
+.shift-sheet__at { font-style: normal; margin-right: .3em; }
 .shift-sheet__label {
   min-width: 52px; font-size: 11px; color: var(--text-sub);
   vertical-align: middle;
@@ -3179,35 +3181,42 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 
   /* ★高さをミリで決め打ちします。
      ブラウザまかせにすると、端末ごとに縮め方が違って
-     iPhoneでは2枚になっていました。3段×最大3人ぶんで
-     171mm。A4横（余白を引いて204mm）に必ず収まります */
+     iPhoneでは2枚になっていました。2段ぶんで198mm。
+     A4横（余白を引いて204mm）に必ず収まります */
   body.print-shift .shift-sheet {
-    width: 100%; table-layout: fixed;
-    font-size: 8pt; margin: 0 0 3mm;
+    /* 日数の少ない段は --sheet-w で短くします。列の幅は前の段とそろいます。
+       画面用の min-width: 100% が残っていると効かないので、ここで消します */
+    width: var(--sheet-w, 100%); min-width: 0; table-layout: fixed;
+    font-size: 7pt; margin: 0 0 3mm;
     break-inside: avoid; page-break-inside: avoid;
   }
   body.print-shift .shift-sheet th,
   body.print-shift .shift-sheet td {
-    border-color: #888; padding: 0.6mm 0.4mm; min-width: 0;
+    border-color: #888; padding: 0.4mm 0.3mm; min-width: 0;
     /* 名前を折り返させません。1行に収まる大きさにしてあります */
     white-space: nowrap; overflow: hidden;
   }
-  /* 左の枠名。できるだけ細くします */
+  /* 左の枠名。できるだけ細くします（js の SHIFT_SHEET_LABEL_MM と同じ数です） */
   body.print-shift .shift-sheet tr > th:first-child {
     width: 7mm; font-size: 6.5pt; padding: 0 0.3mm;
     line-height: 1.05; white-space: normal;
   }
-  body.print-shift .shift-sheet__lane { font-size: 6pt !important; padding: 0.3mm 0 !important; }
+  body.print-shift .shift-sheet__lane { font-size: 5.5pt !important; padding: 0.2mm 0 !important; }
 
-  /* 1行ぶんの高さ。立ち上げは1人、ランチとディナーは3人まで入ります */
-  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6mm; }
+  /* 1行ぶんの高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
+  body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 8pt; }
   body.print-shift .shift-sheet tr:nth-child(2) th { height: 4mm; }
-  body.print-shift .shift-sheet tr:nth-child(3) td { height: 7mm; }
+  body.print-shift .shift-sheet tr:nth-child(3) td { height: 10mm; }
   body.print-shift .shift-sheet tr:nth-child(4) td,
-  body.print-shift .shift-sheet tr:nth-child(5) td { height: 16mm; }
+  body.print-shift .shift-sheet tr:nth-child(5) td { height: 31mm; }
   /* メモは長くなることがあるので、ここだけ折り返させます（高さは下に伸びます） */
-  body.print-shift .shift-sheet tr:last-child td { height: 5mm; white-space: normal; }
-  body.print-shift .shift-sheet__name { line-height: 1.35; }
+  body.print-shift .shift-sheet tr:last-child td { height: 5.5mm; white-space: normal; }
+  /* 名前の大きさは js が決めます（マスの幅に1行で収まる大きさ） */
+  body.print-shift .shift-sheet__name { line-height: 1.5; font-size: var(--name-pt, 7pt); }
+  /* 時刻の数字は名前より小さく。そのぶん名前を大きくできます */
+  body.print-shift .shift-sheet__at {
+    font-style: normal; font-size: .72em; margin-right: .22em;
+  }
   body.print-shift .shift-sheet__name.is-full {
     background: #dcdcdc;
     outline: 1px solid #b4b4b4;
