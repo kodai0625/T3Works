@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=dcf09c9a">
-<meta name="app-version" content="36297d39">
+<link rel="stylesheet" href="../css/style.css?v=120ce436">
+<meta name="app-version" content="40b7c9a0">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -939,6 +939,9 @@
         <button type="button" class="btn" id="shiftWishBtn">提出を見る</button>
         <button type="button" class="btn" id="shiftTakeBtn">希望を取り込む</button>
         <button type="button" class="btn" id="shiftPastBtn">これまでのシフト表</button>
+        <!-- ★一時的なボタン。PDFのシフトを入れ終わったら、この行と
+             js の SHIFT_SEED まわりをまとめて外します -->
+        <button type="button" class="btn is-hidden" id="shiftSeedBtn">PDFのシフトを入れる</button>
       </div>
     </div>
 
@@ -1080,7 +1083,7 @@
       </div>
     </div>
 
-    <!-- 人が足りないマス。書いた人数のぶんだけ赤いあきが出ます -->
+    <!-- 人が足りないマス。書いた人数の分だけ赤いあきが出ます -->
     <div class="field is-hidden" id="shiftPickShortField">
       <span class="field__label">あと何人ほしいか（その人数だけ赤く出ます）</span>
       <div class="free-time">
@@ -1273,12 +1276,12 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=66f60b3f"></script>
+<script src="../js/config.js?v=7755846d"></script>
 <script src="../js/storage.js?v=14e77bf4"></script>
-<script src="../js/sync.js?v=63c286e4"></script>
+<script src="../js/sync.js?v=c2dd0df8"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=78ed94da"></script>
-<script src="../js/app.js?v=226451d8"></script>
+<script src="../js/app.js?v=4345d2f7"></script>
 </body>
 </html>

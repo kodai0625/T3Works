@@ -3018,7 +3018,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   border-radius: var(--radius); box-shadow: var(--shadow);
 }
 .shift-grid {
-  /* 1日ぶんの幅は js（SHIFT_DAY_W）と合わせています。
+  /* 1日分の幅は js（SHIFT_DAY_W）と合わせています。
      日数を増やしても、1日の幅がつぶれないようにするためです */
   border-collapse: collapse; width: 100%; min-width: 330px;
   table-layout: fixed;
@@ -3067,7 +3067,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 .shift-chip:active { background: var(--line-2); }
 
-/* 足りない1人ぶんのあき。名前の札と同じ大きさの、赤い空きマスです。
+/* 足りない1人分のあき。名前の札と同じ大きさの、赤い空きマスです。
    押すとそのままここに人を入れられます */
 .shift-short {
   display: block; width: 100%; margin-bottom: 3px; min-height: 30px;
@@ -3216,7 +3216,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 }
 /* 枠名とメモの見出しは、マスの真ん中（たても よこも）にそろえます */
 .shift-sheet th.shift-sheet__label { vertical-align: middle; text-align: center; }
-/* 人が足りないぶんの、赤いあき。1人につき1つ、名前と同じ大きさで出します
+/* 人が足りない分の、赤いあき。1人につき1つ、名前と同じ大きさで出します
    （元のシフト表で、足りないところのマスを赤く塗っているのと同じ意味です） */
 .shift-sheet__name.is-short {
   background: color-mix(in srgb, var(--ng) 20%, transparent);
@@ -3252,7 +3252,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 
   /* ★高さをミリで決め打ちします。
      ブラウザまかせにすると、端末ごとに縮め方が違って
-     iPhoneでは2枚になっていました。2段ぶんで198mm。
+     iPhoneでは2枚になっていました。2段分で198mm。
      A4横（余白を引いて204mm）に必ず収まります */
   body.print-shift .shift-sheet {
     /* 日数の少ない段は --sheet-w で短くします。列の幅は前の段とそろいます。
@@ -3272,12 +3272,12 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
     width: 5mm; font-size: 6.5pt; padding: 0 0.3mm;
     line-height: 1.05; white-space: normal;
   }
-  /* ★枠名は縦書き。1文字ぶんの幅で足りるので、日付の列を広くできます。
+  /* ★枠名は縦書き。1文字分の幅で足りるので、日付の列を広くできます。
      メモの見出しはこの span を使っていないので、横書きのままです */
   body.print-shift .shift-sheet__vlabel { font-size: 6pt; }
   body.print-shift .shift-sheet__lane { font-size: 5.5pt !important; padding: 0.2mm 0 !important; }
 
-  /* 1行ぶんの高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
+  /* 1行分の高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
   body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 11pt; }
   body.print-shift .shift-sheet tr:nth-child(2) th { height: 4mm; }
   /* ★行の高さは js が中身から決めます（shiftSheetMetrics）。
@@ -3345,7 +3345,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   body.print-shift .shift-sheet__name.is-early {
     outline: 1px solid #d98324; outline-offset: -1px; border-radius: 0;
   }
-  /* 人が足りないぶんの赤いあき。紙でも同じ色で出します */
+  /* 人が足りない分の赤いあき。紙でも同じ色で出します */
   body.print-shift .shift-sheet__name.is-short { background: #f2c4c4; }
 }
 

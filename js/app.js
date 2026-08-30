@@ -151,7 +151,8 @@ const el = {
   shiftWishModal: $('shiftWishModal'), shiftWishWhen: $('shiftWishWhen'),
   shiftWishList: $('shiftWishList'),
   shiftSheetModal: $('shiftSheetModal'), shiftSheetTitle: $('shiftSheetTitle'),
-  shiftPastBtn: $('shiftPastBtn'), shiftPastModal: $('shiftPastModal'),
+  shiftPastBtn: $('shiftPastBtn'), shiftSeedBtn: $('shiftSeedBtn'),
+  shiftPastModal: $('shiftPastModal'),
   shiftPastList: $('shiftPastList'),
   shiftSheet: $('shiftSheet'), shiftPrintBtn: $('shiftPrintBtn'),
   shiftPrintNote: $('shiftPrintNote'),
@@ -4966,7 +4967,7 @@ function shiftSetPhase(y, m, half, v, due) {
   });
 }
 
-/** いま募集中の、ほかの半月（前後4つぶんを見ます） */
+/** いま募集中の、ほかの半月（前後4つ分を見ます） */
 function shiftOtherOpen() {
   const here = shiftKey(state.storeId, state.y, state.m, shiftHalf);
   for (let i = -4; i <= 4; i += 1) {
@@ -5003,6 +5004,10 @@ function renderShift() {
     ? 'このシフトは確定ずみです'
     : 'シフトを確定する';
 
+  // ★一時的：PDFのシフトを入れるボタン。9月前半のバグるのときだけ出します
+  el.shiftSeedBtn.classList.toggle('is-hidden',
+    !(state.storeId === 'baguru' && state.y === 2026 && state.m === 9 && shiftHalf === 1));
+
   el.shiftWishCount.textContent = names.length ? `提出 ${sent} / ${names.length}人` : '名簿が未登録';
   if (!names.length) {
     el.shiftWishNote.textContent = 'マネージの「シフトに入る人」で登録してください';
@@ -5032,7 +5037,7 @@ function renderShift() {
 /**
  * 日を横に並べた表（今のスプレッドシートと同じ作り）
  *
- *  ・横に SHIFT_COLS 日ぶん
+ *  ・横に SHIFT_COLS 日分
  *  ・1日は持ち場（キッチン／ホール）で2列に分かれます
  *  ・縦は 立ち上げ／ランチ／ディナー、いちばん下が連絡
  *
@@ -5183,9 +5188,9 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     td.appendChild(chip);
   });
 
-  // ★あと何人ほしいか。人数のぶんだけ、赤いあきを名前の下に出します
+  // ★あと何人ほしいか。人数の分だけ、赤いあきを名前の下に出します
   //   （元のシフト表で、足りないところのマスを赤く塗っているのと同じ意味です）。
-  //   押すとそのままここに人を入れられて、入れたぶんだけ赤が消えます
+  //   押すとそのままここに人を入れられて、入れた分だけ赤が消えます
   const short = shiftShortOf(day, slot.id, lane.id);
   for (let k = 0; k < short; k += 1) {
     const gap = document.createElement('button');
@@ -5748,7 +5753,7 @@ function openShiftWishes() {
  *
  *  画面と印刷で作りがずれないよう、いったん「表の中身」だけを作って、
  *  それを HTML と 画像（canvas）の両方から使います。
- *  1つのかたまりは8日ぶん。今のスプレッドシートと同じ区切りです。
+ *  1つのかたまりは8日分。今のスプレッドシートと同じ区切りです。
  */
 
 /** 印刷やPDFに出す、表の中身 */
@@ -5879,7 +5884,7 @@ function shiftNameSpan(n) {
  * 紙で、いちばん幅のいる1人分（名前の大きさの何倍か）
  *
  * ★字の形から計算するのではなく、見えないところに本物と同じ形で並べて測ります。
- *   計算だと「F」の印やすき間のぶんが合わず、その人だけはみ出していました。
+ *   計算だと「F」の印やすき間の分が合わず、その人だけはみ出していました。
  *   .shift-sheet-measure は、紙とおなじ組み方になるようにしてあります。
  */
 function shiftPrintEm(model) {
@@ -5921,7 +5926,7 @@ function shiftPrintEm(model) {
 /**
  * その表で、いちばん人が入っているマスの人数（枠ごと）
  *
- * ★足りない印の赤いあきも、1人ぶんの場所を取るので数に入れます。
+ * ★足りない印の赤いあきも、1人分の場所を取るので数に入れます。
  */
 function shiftSlotNeed(model) {
   return SHIFT_SLOTS.map((slot, si) => {
@@ -5942,7 +5947,7 @@ function shiftSlotNeed(model) {
  */
 const SHIFT_ROW_EM = 1.1 + SHIFT_TIME_SCALE * 1.0 + 0.35;
 
-/** 1人ぶんの高さ（ミリ）。名前の大きさ（ポイント）から出します */
+/** 1人分の高さ（ミリ）。名前の大きさ（ポイント）から出します */
 function shiftPersonMm(pt) {
   return (pt * SHIFT_ROW_EM) / 2.8346;
 }
@@ -5969,11 +5974,11 @@ function shiftCellPt(pt, count, roomMm) {
  */
 function shiftSheetMetrics(model, perDay) {
   // 1マスの、字が入るところの幅（ミリ）。紙297mm − 余白3mm×2 − 枠名の列。
-  // 1.05mm 引いているのは、マスの内よ白（0.3mm×2）とけい線（1px）のぶんです
+  // 1.05mm 引いているのは、マスの内よ白（0.3mm×2）とけい線（1px）の分です
   const cellMm = (297 - 3 * 2 - SHIFT_SHEET_LABEL_MM) / (perDay * SHIFT_LANES.length) - 1.05;
 
   // ★使える高さ。A4横204mmのうち196mmまでにして、
-  //   メモが2行に伸びるぶんを残します
+  //   メモが2行に伸びる分を残します
   const blocks = model.blocks.length || 1;
   const fixed = 6.5 + 4 + 5.5;              // 日付・持ち場・メモ
   const rowsMm = Math.max(30, (196 - 8.5 - 3 * blocks) / blocks - fixed);
@@ -5991,7 +5996,7 @@ function shiftSheetMetrics(model, perDay) {
     (em > 0 ? Math.min(12, (cellMm * 2.8346 / em) * 0.97) : 12) * 10,
   ) / 10);
 
-  // 立ち上げの行は「入っている人数ぶん」だけ取り、残りをランチとディナーで
+  // 立ち上げの行は「入っている人数分」だけ取り、残りをランチとディナーで
   // 半分ずつ分けます（この2つは必ず同じ高さです）
   const openMm = Math.min(rowsMm * 0.3, Math.max(9, openNeed * shiftPersonMm(pt) + 1.4));
   const slotMm = (rowsMm - openMm) / 2;
@@ -6008,7 +6013,7 @@ function shiftSheetMetrics(model, perDay) {
 function shiftSheetTable(block, perDay, size) {
   const table = document.createElement('table');
   table.className = 'shift-sheet';
-  // 日数の少ない段は、そのぶん短くします（右はしが空くだけで、列の幅は同じ）
+  // 日数の少ない段は、その分短くします（右はしが空くだけで、列の幅は同じ）
   if (perDay && block.head.length < perDay) {
     table.style.setProperty('--sheet-w', `${(block.head.length / perDay) * 100}%`);
   }
@@ -6043,8 +6048,8 @@ function shiftSheetTable(block, perDay, size) {
     const tr = document.createElement('tr');
     const th = document.createElement('th');
     th.className = 'shift-sheet__label';
-    // ★枠名だけ縦書きにします。1文字ぶんの幅で足りるので、
-    //   そのぶん日付の列を広くできます（メモは横書きのままです）。
+    // ★枠名だけ縦書きにします。1文字分の幅で足りるので、
+    //   その分日付の列を広くできます（メモは横書きのままです）。
     //   縦書きは中の span に付けます。マスに直に付けると、
     //   字が右のはしに寄って真ん中に来ません
     const vlab = document.createElement('span');
@@ -6087,7 +6092,7 @@ function shiftSheetTable(block, perDay, size) {
         //   ランチのセルを塗りつぶしているのと同じ意味です。
         //   早上がりの人は、そのうえに橙のふちを付けます
         cell.names.forEach((n) => td.appendChild(shiftNameSpan(n)));
-        // 足りない人数のぶんだけ、赤いあきを名前の下に出します
+        // 足りない人数の分だけ、赤いあきを名前の下に出します
         for (let k = 0; k < cell.short; k += 1) {
           const gap = document.createElement('span');
           gap.className = 'shift-sheet__name is-short';
@@ -6117,13 +6122,125 @@ function shiftSheetTable(block, perDay, size) {
   return table;
 }
 
+/* ============================================================
+ *  ★一時的なもの：PDFのシフトを入れる
+ *
+ *  「2026＿バグるシフト表 - 09.01~09.15.pdf」の中身をそのまま
+ *  9/1〜9/15 に入れるためのものです。1回押したら役目は終わりなので、
+ *  そのあとの公開で、この かたまり と index.html のボタンを外します。
+ *
+ *  読み方： [名前, 持ち場, 時刻, 'F'なら通し]
+ *    持ち場 … k＝キッチン、h＝ホール
+ *    時刻   … 立ち上げは書かなければ10:00。11.5＝11:30、18.5＝18:30
+ * ============================================================ */
+const SHIFT_SEED = {
+  '2026-09-02': {
+    o: [['もっちゃん', 'k'], ['大前さん', 'h']],
+    l: [['塩崎さん', 'k', '11'], ['ほのか', 'h', '11.5']],
+    d: [['てる', 'k', '18.5'], ['ゆめ', 'k', '19'], ['わかな', 'h', '18'], ['りの', 'h', '18.5']],
+  },
+  '2026-09-03': {
+    o: [['もっちゃん', 'k'], ['塩崎さん', 'h']],
+    l: [['大前さん', 'k', '11'], ['さなこ', 'h', '11.5']],
+    d: [['はるき', 'k', '18.5'], ['さや', 'h', '17.5'], ['あやね', 'h', '18.5']],
+  },
+  '2026-09-04': {
+    o: [['もっちゃん', 'k'], ['大前さん', 'h']],
+    l: [['塩崎さん', 'k', '11'], ['ほのか', 'h', '11.5']],
+    d: [['わかな', 'k', '18.5'], ['ゆめ', 'k', '19'], ['さや', 'h', '17.5'], ['みゆ', 'h', '18.5']],
+  },
+  '2026-09-05': {
+    o: [['なおや', 'k', '', 'F'], ['りの', 'h']],
+    l: [['じゅの', 'h', '11'], ['いな', 'h', '11.5']],
+    d: [['てる', 'k', '19'], ['ゆめ', 'h', '17'], ['わかな', 'h', '18.5']],
+  },
+  '2026-09-06': {
+    o: [['ごうき', 'k', '', 'F'], ['ほのか', 'h', '', 'F']],
+    l: [['かれん', 'k', '11', 'F'], ['ゆめ', 'k', '11.5'], ['いな', 'h', '11.5']],
+    d: [['ゆいか', 'h', '18.5'], ['りの', 'h', '18.5']],
+  },
+  '2026-09-07': {
+    o: [['もっちゃん', 'k'], ['塩崎さん', 'h']],
+    l: [['大前さん', 'k', '11'], ['みづき', 'h', '11.5']],
+    d: [['てる', 'k', '17.5'], ['なおや', 'k', '19'], ['あやね', 'h', '18.5']],
+    memo: 'まさ休み',
+  },
+  '2026-09-09': {
+    o: [['もっちゃん', 'k'], ['塩崎さん', 'h']],
+    l: [['大前さん', 'k', '11'], ['かれん', 'h', '11', 'F']],
+    d: [['そう', 'k', '17.5'], ['わかな', 'h', '18.5'], ['みゆ', 'h', '18.5']],
+  },
+  '2026-09-10': {
+    o: [['もっちゃん', 'k'], ['大前さん', 'h']],
+    l: [['塩崎さん', 'k', '11'], ['さなこ', 'h', '11.5']],
+    d: [['そう', 'k', '17.5'], ['なおや', 'k', '18.5'], ['ゆいか', 'h', '18.5']],
+  },
+  '2026-09-11': {
+    o: [['もっちゃん', 'k'], ['塩崎さん', 'h']],
+    l: [['大前さん', 'k', '11'], ['さなこ', 'h', '11.5']],
+    d: [['そう', 'k', '17.5'], ['ゆめ', 'k', '19'], ['あやね', 'h', '18.5'], ['さや', 'h', '18.5']],
+  },
+  '2026-09-12': {
+    o: [['ほのか', 'k'], ['りの', 'h']],
+    l: [['ごうき', 'k', '11'], ['ゆま', 'h', '11'], ['じゅの', 'h', '11.5']],
+    d: [['なおや', 'k', '17'], ['てる', 'k', '19'], ['あやね', 'h', '17'], ['ゆいか', 'h', '18.5']],
+  },
+  '2026-09-13': {
+    o: [['なおや', 'k'], ['かれん', 'h', '', 'F']],
+    l: [['そう', 'k', '11'], ['いな', 'h', '11.5'], ['みゆ', 'h', '11.5']],
+    d: [['ごうき', 'k', '17'], ['ゆいか', 'h', '18.5'], ['みづき', 'h', '18.5']],
+  },
+  '2026-09-14': {
+    o: [['もっちゃん', 'k'], ['大前さん', 'h']],
+    l: [['なおや', 'k', '11.5'], ['塩崎さん', 'h', '11']],
+    d: [['てる', 'k', '18'], ['みづき', 'h', '18.5'], ['ゆめ', 'h', '19']],
+  },
+};
+
+async function loadShiftSeed() {
+  const days = Object.keys(SHIFT_SEED);
+  const n = days.reduce((sum, k) => {
+    const v = SHIFT_SEED[k];
+    return sum + v.o.length + v.l.length + v.d.length;
+  }, 0);
+  const ok = await askConfirm({
+    item: 'PDFのシフトを 9/1〜9/15 に入れます',
+    message: `のべ${n}人分を入れます。\n`
+      + 'いま 9/1〜9/15 に入っている内容は、すべて消えて入れ替わります。',
+    okLabel: '入れる',
+    danger: true,
+  });
+  if (!ok) return;
+
+  const one = (a, slot) => ({
+    n: a[0],
+    t: a[2] || shiftDefaultTime(slot),
+    p: a[1],
+    ...(a[3] === 'F' ? { f: true } : {}),
+  });
+  days.forEach((dateStr) => {
+    const v = SHIFT_SEED[dateStr];
+    const now = shiftDayOf(shiftRec(), dateStr);
+    saveShiftDay(dateStr, {
+      open: shiftSort(v.o.map((a) => one(a, 'open'))),
+      lunch: shiftSort(v.l.map((a) => one(a, 'lunch'))),
+      dinner: shiftSort(v.d.map((a) => one(a, 'dinner'))),
+      memo: v.memo || '',
+      patty: '',
+      short: now.short,
+    });
+  });
+  render();
+  el.shiftWishNote.textContent = `PDFのシフトを入れました（のべ${n}人分）`;
+}
+
 /* -------- これまでのシフト表 -------- */
 
 /**
  * 確定ずみの半月を、新しい順に返します
  *
  * ★キーは '_shift/baguru-2026-09-1' の形なので、
- *   店舗のぶんだけ拾って、年・月・前後半に読み直します。
+ *   店舗の分だけ拾って、年・月・前後半に読み直します。
  */
 function shiftBuiltPeriods() {
   const all = Store.adapter.dump() || {};
@@ -6277,8 +6394,8 @@ function drawShiftSheet(canvas, scale) {
   // 前と同じ幅にそろえたほうが、続きの表として読めるからです
   const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
   const cols = perDay * SHIFT_LANES.length;
-  // 左の枠名は、紙と同じく縦書きにします。1文字ぶんの幅で足りるので、
-  // そのぶん日付の列を広くできます
+  // 左の枠名は、紙と同じく縦書きにします。1文字分の幅で足りるので、
+  // その分日付の列を広くできます
   const labelW = 28;
   const gridW = W - pad * 2 - labelW;
   const colW = gridW / cols;
@@ -6300,7 +6417,7 @@ function drawShiftSheet(canvas, scale) {
    * 1人分（時刻の段＋名前の段）
    *
    * ★1行に並べると名前が小さくなりすぎるので、時刻を上の段に小さく置きます。
-   *   そのぶん名前を大きくできて、どの時刻が誰のものかも上下で分かります。
+   *   その分名前を大きくできて、どの時刻が誰のものかも上下で分かります。
    * ★左よせ。名前の長さがそろっていないので、真ん中ぞろえだと
    *   1日ごとに出だしがずれて、表がガタガタに見えます。
    */
@@ -6380,7 +6497,7 @@ function drawShiftSheet(canvas, scale) {
   const blocks = model.blocks.length || 1;
   const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
   // ★元のスプレッドシートと同じ配分です。立ち上げは1人、
-  //   ランチとディナーは3人ぶん入る高さにします。
+  //   ランチとディナーは3人分入る高さにします。
   //   それより多く入っている日（足りない人数の赤いあきも数に入れます）は、
   //   その日に合わせて広げます（そうしないと下が切れます）
   const need = shiftSlotNeed(model);
@@ -6388,7 +6505,7 @@ function drawShiftSheet(canvas, scale) {
   //   （どちらにも同じ人数を入れられるように）
   const share = Math.max(3, need[1] || 0, need[2] || 0);
   const weight = SHIFT_SLOTS.map((slot, si) => (slot.id === 'open'
-    // 立ち上げは1人ぶんで足りますが、低すぎると縦書きの枠名が入らないので
+    // 立ち上げは1人分で足りますが、低すぎると縦書きの枠名が入らないので
     // 少しだけ多めに取ります
     ? Math.max(need[si] || 0, 1.6)
     : share));
@@ -6471,7 +6588,7 @@ function drawShiftSheet(canvas, scale) {
             }
             drawName(n.parts, x, colW, top + 2, cellSize);
           });
-          // 足りない人数のぶんだけ、名前の下に赤いあきを描きます
+          // 足りない人数の分だけ、名前の下に赤いあきを描きます
           for (let k = 0; k < cell.short; k += 1) {
             const top = y + 3 + (cell.names.length + k) * cellLh;
             if (top + cellLh > y + rowH + 1) break;
@@ -6511,7 +6628,7 @@ function drawShiftSheet(canvas, scale) {
     });
     y += memoH;
 
-    // けい線。★その かたまり に入っている日数ぶんだけ引きます
+    // けい線。★その かたまり に入っている日数分だけ引きます
     //   （後半が7日のとき、8日目の空っぽの列を出さないため）
     const used = block.head.length * SHIFT_LANES.length;
     const right = x0 + colW * used;
@@ -7144,6 +7261,7 @@ function bindEvents() {
   bindHalfWidthInput(el.shiftPickShort, 'code');
   el.shiftPrintBtn.addEventListener('click', printShiftSheet);
   el.shiftPastBtn.addEventListener('click', openShiftPast);
+  el.shiftSeedBtn.addEventListener('click', loadShiftSeed);
   // ★画面の幅が変わったら、並べる日数を決め直します。
   //   iPadを横にしたときや、窓の大きさを変えたときのためです。
   //   日数が変わったときだけ組み直します（毎回だと入力中に消えます）
