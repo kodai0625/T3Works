@@ -5941,7 +5941,15 @@ function shiftSlotNeed(model) {
  * ★two＝時刻を名前の上の段に出す（名前を大きくできる）
  *   one＝時刻と名前を1行に並べる（背が低いので、人の多い日に強い）
  */
-const SHIFT_ROW_EM = { two: 1.15 + SHIFT_TIME_SCALE * 1.05 + 0.22, one: 1.15 + 0.2 };
+const SHIFT_ROW_EM = { two: 1.1 + SHIFT_TIME_SCALE * 1.0 + 0.35, one: 1.15 + 0.2 };
+
+/**
+ * 2段が小さくなりすぎたときに、1行へ逃げる目安（ポイント）
+ *
+ * ★ふだんは必ず2段です。1つのマスに7人など、よほど多い日だけ
+ *   2段では読めない大きさになるので、そのときだけ1行にします。
+ */
+const SHIFT_TWO_FLOOR = 7;
 
 /**
  * 印刷したときの、名前の大きさ（ポイント）と行の高さ（ミリ）
@@ -5965,35 +5973,47 @@ function shiftSheetMetrics(model, perDay) {
   const openNeed = Math.max(1, need[0] || 0);
   // ランチとディナーは、多いほうに合わせてそろえます
   const share = Math.max(3, need[1] || 0, need[2] || 0);
-  const unit = Math.max(1.6, openNeed) + share * 2;
-  const openMm = Math.max(9, (rowsMm * Math.max(1.6, openNeed)) / unit);
-  const slotMm = (rowsMm - openMm) / 2;
-
   /**
-   * その並べ方でいける、名前の大きさ
+   * その並べ方でいける、名前の大きさと行の高さ
    *
-   * ★幅と高さの、きびしいほうで決まります。
-   *   2段は名前を大きくできますが背が高いので、人の多い日は
-   *   かえって小さくなります。だから両方はかって、大きいほうを選びます。
+   * ★立ち上げの行は「入っている人数ぶん」だけ取ります。前は割合で
+   *   分けていたので、1人しか入らない日でも背が高く、そのぶん
+   *   ランチとディナーが狭くなって名前が小さくなっていました。
+   * ★2回まわしているのは、立ち上げの高さが名前の大きさで決まり、
+   *   名前の大きさが残りの高さで決まる、という堂々めぐりのためです。
    */
   const pick = (mode) => {
     const em = shiftPrintEm(model, mode);
     // 1mm = 2.8346ポイント。0.97 は念のための余裕（けい線の太さと端末の丸め）
-    // 大きくても9.5pt（日付の見出しより目立たせないため）
     // 大きくても12pt。マスの幅がゆるすかぎり大きくします
     const byWidth = em > 0 ? Math.min(12, (cellMm * 2.8346 / em) * 0.97) : 12;
-    const byHeight = ((slotMm - 1.4) * 2.8346) / (share * SHIFT_ROW_EM[mode]);
-    return Math.min(byWidth, byHeight);
+    const oneMm = SHIFT_ROW_EM[mode] / 2.8346;    // 1人ぶんのミリ／1ポイント
+    let pt = byWidth;
+    let openMm = 9;
+    let slotMm = 0;
+    for (let i = 0; i < 2; i += 1) {
+      openMm = Math.min(rowsMm * 0.3, Math.max(9, openNeed * pt * oneMm + 1.4));
+      slotMm = (rowsMm - openMm) / 2;
+      pt = Math.min(byWidth, (slotMm - 1.4) / (share * oneMm));
+    }
+    return { pt, openMm, slotMm };
   };
+
+  // ★ふだんは必ず2段です。1つのマスに人が多すぎて、2段では読めない
+  //   大きさになるときだけ、1行に逃げます
   const two = pick('two');
-  const one = pick('one');
-  const mode = two >= one ? 'two' : 'one';
+  let mode = 'two';
+  let box = two;
+  if (two.pt < SHIFT_TWO_FLOOR) {
+    const one = pick('one');
+    if (one.pt > two.pt + 0.5) { mode = 'one'; box = one; }
+  }
 
   return {
     mode,
-    pt: Math.max(5, Math.floor(Math.max(two, one) * 10) / 10),
-    openMm: Math.round(openMm * 10) / 10,
-    slotMm: Math.round(slotMm * 10) / 10,
+    pt: Math.max(5, Math.floor(box.pt * 10) / 10),
+    openMm: Math.round(box.openMm * 10) / 10,
+    slotMm: Math.round(box.slotMm * 10) / 10,
   };
 }
 
@@ -6277,8 +6297,8 @@ function drawShiftSheet(canvas, scale) {
   const timeSize = Math.max(8, nameSize * SHIFT_TIME_SCALE);
   // 1人分の高さ
   const lh = Math.round(mode === 'one'
-    ? nameSize * 1.25 + 6
-    : timeSize * 1.15 + nameSize * 1.2 + 6);
+    ? nameSize * 1.35 + 4
+    : timeSize * 1.0 + nameSize * 1.1 + nameSize * 0.35);
 
   const center = (text, x, w, yy, size, bold, color) => {
     cx.fillStyle = color || '#111418';
@@ -6316,7 +6336,7 @@ function drawShiftSheet(canvas, scale) {
         cx.fillStyle = '#5b6169';
         cx.font = font(small, false);
         cx.fillText(parts.time, tx, top + small * 0.7, room);
-        base = top + small * 1.15 + size * 0.62;
+        base = top + small * 1.0 + size * 0.6;
       }
     }
     cx.fillStyle = '#111418';

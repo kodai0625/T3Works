@@ -3160,19 +3160,22 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
    日付・持ち場・定休日・メモは、今までどおり真ん中ぞろえです。
    ★1人分は「時刻の段」と「名前の段」の2段です。1行に並べると
      1マス17.9mmでは名前が6ptほどになって読めませんでした。 */
+/* ★人と人のあいだをはっきりあけます。時刻と名前は近づけ、
+   次の人との間はあける。これでどの時刻が誰のものか、ひと目で分かります
+   （js の SHIFT_ROW_EM.two と同じ配分にすること） */
 .shift-sheet__name {
   display: block; white-space: nowrap; text-align: left;
-  margin-bottom: .22em;
+  margin-bottom: .35em;
 }
 .shift-sheet__name:last-child { margin-bottom: 0; }
 /* ★時刻は名前と同じ大きさ。色だけ少しうすくして見分けます
    （js の SHIFT_TIME_SCALE と同じ 1 です） */
 .shift-sheet__at {
   display: block; font-style: normal;
-  font-size: 1em; line-height: 1.05;
+  font-size: 1em; line-height: 1;
   color: color-mix(in srgb, var(--text) 62%, transparent);
 }
-.shift-sheet__who { display: block; font-weight: 600; line-height: 1.15; }
+.shift-sheet__who { display: block; font-weight: 600; line-height: 1.1; }
 
 /* ★人の多い日は、2段だとかえって名前が小さくなります。
    そのときは時刻と名前を1行に並べます（js が中身を見て決めます）。
