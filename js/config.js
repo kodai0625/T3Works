@@ -1237,9 +1237,10 @@ function shiftWishSlots() {
     id: SHIFT_FULL_ID,
     name: 'F',
     hint: 'ランチからディナーまで通し（時間はお店が決めます）',
-    // ★時刻はえらばせません。通しで入る人の開始時刻は、
-    //   その日の人の入りぐあいを見てこちらで決めるためです（組む画面で直せます）
-    times: [],
+    // 時刻はランチと同じものから。ふだんはランチの始まりに入ります。
+    // ★askTime: false … 提出ページではえらばせません。通しで入る人の
+    //   開始時刻は、その日の人の入りぐあいを見てこちらで決めるためです
+    times: lunch.times, pick: lunch.pick, askTime: false,
   };
   return [SHIFT_SLOTS[0], full, SHIFT_SLOTS[1], SHIFT_SLOTS[2]];
 }
@@ -1290,7 +1291,12 @@ function shiftClashes(slotId) {
   return [];
 }
 
-/** その枠で最初にえらばれている時刻 */
+/**
+ * その枠で最初にえらばれている時刻
+ *
+ * ★どの枠にも必ず時刻があります。時刻なしでシフトに入れられると、
+ *   表を見たときに「何時から来るのか分からない人」ができてしまうためです。
+ */
 function shiftDefaultTime(slotId) {
   const slot = getShiftSlot(slotId);
   if (!slot || !slot.times.length) return '';

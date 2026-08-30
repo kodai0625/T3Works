@@ -430,6 +430,9 @@ function renderDone() {
     const marks = (picked[s] || []).map((e) => {
       const slot = getShiftSlot(e.s);
       if (!slot) return '';
+      // ★F は時刻を出しません。何時からになるかはお店が決めるので、
+      //   ここに時刻を出すと「その時間で決まった」と読めてしまいます
+      if (slot.askTime === false && e.s === SHIFT_FULL_ID) return slot.name;
       const t = String(e.t || '');
       return slot.name + (t && slot.times.length ? ` ${shiftTimeText(t)}〜` : '');
     }).filter(Boolean);

@@ -4642,8 +4642,19 @@ function shiftRec() {
  */
 function shiftDayOf(rec, dateStr) {
   const v = (rec.items || {})[shiftDayKey(dateStr)] || {};
-  const arr = (x) => shiftSort(Array.isArray(x) ? x : []);
-  return { open: arr(v.open), lunch: arr(v.lunch), dinner: arr(v.dinner), memo: v.memo || '' };
+  // 時刻の入っていない人は、その枠のふだんの時刻として読みます
+  // （時刻なしで入れていたころの分が残っていても、表が空白になりません）
+  const arr = (id, x) => shiftSort((Array.isArray(x) ? x : []).map((e) => (
+    e && (e.t === '' || e.t === undefined || e.t === null)
+      ? { ...e, t: shiftDefaultTime(id) }
+      : e
+  )));
+  return {
+    open: arr('open', v.open),
+    lunch: arr('lunch', v.lunch),
+    dinner: arr('dinner', v.dinner),
+    memo: v.memo || '',
+  };
 }
 
 /**
@@ -5333,11 +5344,13 @@ function applyShiftFreeTime() {
   // ★入れた時刻に合う枠へ、自動で移します。
   //   立ち上げの欄に「18:00」と書いてあるより、ディナーの欄に
   //   入っていたほうが、表を見たときに読みまちがえません。
-  //   ただし次の2つは動かしません。
-  //     ・立ち上げへ戻すこと（2人までの決まりを、思わぬ形で超えてしまうため）
-  //     ・F（通し）の人（ランチの枠に置くと決めてあるため）
+  //   立ち上げへは戻しません（立ち上げに入れたいときは、立ち上げの ＋ から）。
   let to = shiftSlotByTime(t);
-  if (to === 'open' || entry.f) to = slotId;
+  if (to === 'open') to = slotId;
+  // ★F（通し）の人を17時以降にずらしたら、それはもう通しではありません。
+  //   通しの印（灰色の塗り）を外して、ディナーの枠へ移します
+  if (entry.f && to === 'dinner') delete entry.f;
+  else if (entry.f) to = slotId;
   if (to && to !== slotId) {
     now[slotId].splice(index, 1);
     now[to].push(entry);
@@ -5463,10 +5476,12 @@ function openShiftWishes() {
       mine.forEach((e) => {
         const slot = getShiftSlot(e.slot);
         const chip = document.createElement('span');
+        // F（通し）は、ランチの枠にいても F の色で出します
+        const kind = e.f ? SHIFT_FULL_ID : e.slot;
         // 希望を出していない日に入れた人は、印を付けます
-        chip.className = `wish-chip wish-chip--${e.slot}` + (list.length ? '' : ' is-extra');
-        chip.textContent = e.t ? shiftTimeText(e.t) : (e.f ? 'F' : slot.name);
-        chip.title = `${slot.name}${e.t ? ' ' + shiftTimeText(e.t) : ''}`
+        chip.className = `wish-chip wish-chip--${kind}` + (list.length ? '' : ' is-extra');
+        chip.textContent = e.t ? shiftTimeText(e.t) : slot.name;
+        chip.title = `${e.f ? 'F（通し）' : slot.name}${e.t ? ' ' + shiftTimeText(e.t) : ''}`
           + (list.length ? '（入れました）' : '（希望なしで入れました）');
         td.appendChild(chip);
       });
