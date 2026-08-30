@@ -152,6 +152,7 @@ const el = {
   shiftWishList: $('shiftWishList'),
   shiftSheetModal: $('shiftSheetModal'), shiftSheetTitle: $('shiftSheetTitle'),
   shiftSheet: $('shiftSheet'), shiftPrintBtn: $('shiftPrintBtn'),
+  shiftPrintNote: $('shiftPrintNote'),
   shiftPdfBtn: $('shiftPdfBtn'), shiftJpegBtn: $('shiftJpegBtn'),
   doerModal: $('doerModal'), doerItem: $('doerItem'), doerWeek: $('doerWeek'),
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
@@ -6007,8 +6008,36 @@ function shiftSheetTable(block, perDay, namePt) {
   return table;
 }
 
+/**
+ * iPhone や iPad か
+ *
+ * ★iPadOS は「Macintosh」と名乗るので、指で触れるかどうかも見ます
+ *   （指で触れる Mac はありません）。
+ */
+function isTouchApple() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPod|iPad/.test(ua)) return true;
+  return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+/**
+ * 印刷する
+ *
+ * ★iPhone・iPad で画面をそのまま刷ると、3つ困ったことが起きます。
+ *   ・「このWebサイトから自動的に印刷することは禁止されています」と聞かれる
+ *   ・向きが縦のままで始まる
+ *   ・横にしても、幅の合わせ方がパソコンと違うので2枚に分かれる
+ *   どれもこちらでは直せない（ブラウザが決めている）ので、
+ *   A4横1枚のPDFを作って渡します。出てきた画面で「プリント」を選べば刷れます。
+ */
+function printShiftSheet() {
+  if (isTouchApple()) return saveShiftFile('pdf');
+  return window.print();
+}
+
 function openShiftSheet() {
   renderShiftSheet();
+  el.shiftPrintNote.classList.toggle('is-hidden', !isTouchApple());
   // 印刷したときに、この表だけが紙に出るようにするための目印（css の @media print）
   document.body.classList.add('print-shift');
   el.shiftSheetModal.classList.remove('is-hidden');
@@ -6862,7 +6891,7 @@ function bindEvents() {
   el.shiftPickShortGo.addEventListener('click', applyShiftShort);
   el.shiftPickShort.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) applyShiftShort(); });
   bindHalfWidthInput(el.shiftPickShort, 'code');
-  el.shiftPrintBtn.addEventListener('click', () => window.print());
+  el.shiftPrintBtn.addEventListener('click', printShiftSheet);
   document.querySelectorAll('[data-shift-pick-close]')
     .forEach((b) => b.addEventListener('click', closeShiftPick));
   document.querySelectorAll('[data-shift-wish-close]')

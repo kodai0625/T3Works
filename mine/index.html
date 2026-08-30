@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=e04e5012">
-<meta name="app-version" content="df8d7c90">
+<meta name="app-version" content="6666c3bd">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -1142,6 +1142,10 @@
   <div class="modal__panel modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="shiftSheetTitle">
     <h2 class="modal__title" id="shiftSheetTitle">シフト表</h2>
     <div class="shift-sheet-wrap" id="shiftSheet"></div>
+    <!-- iPhone・iPad のときだけ出します（js が出し入れします） -->
+    <p class="modal__note is-hidden" id="shiftPrintNote">
+      共有の画面が出ます。<b>「プリント」</b>を選んでください。A4の横1枚になっています。
+    </p>
     <div class="modal__actions modal__actions--confirm">
       <button type="button" class="btn" data-shift-sheet-close>閉じる</button>
       <button type="button" class="btn btn--primary" id="shiftPrintBtn">印刷する</button>
@@ -1261,6 +1265,6 @@
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=78ed94da"></script>
-<script src="../js/app.js?v=48f1e5c5"></script>
+<script src="../js/app.js?v=ff187e22"></script>
 </body>
 </html>
