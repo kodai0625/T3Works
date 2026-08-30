@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=08960d67">
-<meta name="app-version" content="ca7b99f4">
+<link rel="stylesheet" href="../css/style.css?v=9c5994db">
+<meta name="app-version" content="384f03cf">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -66,7 +66,7 @@
     <ul class="store-grid" id="storeGrid"></ul>
 
     <!-- ===== T3Dining =====
-         店舗ごとの設定がいらない、会社ぜんぶの画面はここにまとめます。
+         店舗ごとの設定がいらない、会社全部の画面はここにまとめます。
          左の線とアイコンの色で、何の仲間かが分かるようにしてあります。
            ・お金のこと       … 緑（--money）  .stores-big-btn--money
            ・バグるのこと     … バグるの色     .stores-big-btn--baguru
@@ -135,14 +135,14 @@
     <!-- ストーリーズ作成は T3 Owner（owner/）に移しました -->
   </section>
 
-  <!-- ===== 業務選択（店舗をえらんだあとの画面） ===== -->
+  <!-- ===== 業務選択（店舗を選んだあとの画面） ===== -->
   <section class="view view--tasks is-hidden" id="viewTasks">
     <div class="stores-head">
-      <h1 class="stores-head__title" id="tasksTitle">業務をえらんでください</h1>
+      <h1 class="stores-head__title" id="tasksTitle">業務を選んでください</h1>
       <p class="stores-head__date" id="tasksDate"></p>
     </div>
     <ul class="task-grid" id="taskGrid"></ul>
-    <button type="button" class="stores-report-btn" id="tasksBackBtn">← 店舗をえらび直す</button>
+    <button type="button" class="stores-report-btn" id="tasksBackBtn">← 店舗を選び直す</button>
   </section>
 
   <!-- ===== 店舗見出し＋月タブ ===== -->
@@ -162,7 +162,7 @@
         <span class="task-bar__arrow" aria-hidden="true">‹</span>
         <span class="task-bar__label">
           <span class="task-bar__name" id="taskBarName">クローズ</span>
-          <span class="task-bar__hint">タップで業務をえらぶ</span>
+          <span class="task-bar__hint">タップで業務を選ぶ</span>
         </span>
       </button>
       <!-- 店舗選択まで一気に戻ります。ここは店舗ページ共通の場所なので、
@@ -291,7 +291,7 @@
       <p class="report-summary" id="reportMonthSummary"></p>
     </div>
 
-    <!-- えらんだ日の中身 -->
+    <!-- 選んだ日の中身 -->
     <div class="report-day">
       <div class="report-day__head">
         <h3 class="report-day__title" id="reportDate">2026年8月9日（日）</h3>
@@ -479,7 +479,7 @@
     </div>
 
     <p class="expense-note">
-      現金支払い管理表で<b>「キャッチ」</b>をえらんで入れた分が、ここに集まります。
+      現金支払い管理表で<b>「キャッチ」</b>を選んで入れた分が、ここに集まります。
     </p>
 
    <!-- ===== キャッチのランキング（誰が何人つれてきたか） =====
@@ -493,7 +493,7 @@
         <button type="button" class="seg__btn" data-range="all">すべて</button>
       </div>
     </div>
-    <!-- 店舗でしぼる。全店舗のままなら会社ぜんぶの順位です -->
+    <!-- 店舗でしぼる。全店舗のままなら会社全部の順位です -->
     <div class="exp-chips miss-filter" id="rankFilter"></div>
     <!-- 表の下に円グラフ。表がのびすぎて名前の右があくのを、割合の帯でうめます -->
     <div class="rank-body">
@@ -512,7 +512,7 @@
       </figure>
     </div>
     <p class="expense-note" id="rankNote">
-      現金支払い管理表で<b>「キャッチ」</b>をえらんだときの<b>渡した相手</b>で数えています。<br>
+      現金支払い管理表で<b>「キャッチ」</b>を選んだときの<b>渡した相手</b>で数えています。<br>
       相手を入れていない記録は<b>（相手なし）</b>にまとまります。
     </p>
    </div>
@@ -659,7 +659,7 @@
         <b>ほかの端末にも同期されます</b>。<br>
         1つの議題の中で改行してかまいません。
         いちばん下の<b>空いている枠</b>に書くと、議題が1つ増えます。
-        中身をぜんぶ消して枠から出ると、その議題は消えます。
+        中身を全部消して枠から出ると、その議題は消えます。
       </p>
     </aside>
 
@@ -982,7 +982,7 @@
       <p class="report-summary" id="weekAllYearSummary"></p>
     </div>
 
-    <!-- えらんだ期の中身 -->
+    <!-- 選んだ期の中身 -->
     <div class="report-day">
       <div class="report-day__head">
         <h3 class="report-day__title" id="weekAllRange">8/9（日）〜8/22（土）</h3>
@@ -1037,11 +1037,11 @@
 </div>
 
 <!-- ===== 週間掃除：やった人を選ぶ ===== -->
-<!-- ===== シフト：人をえらぶ・直す ===== -->
+<!-- ===== シフト：人を選ぶ・直す ===== -->
 <div class="modal is-hidden" id="shiftPickModal">
   <div class="modal__backdrop" data-shift-pick-close></div>
   <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="shiftPickTitle">
-    <h2 class="modal__title" id="shiftPickTitle">入る人をえらぶ</h2>
+    <h2 class="modal__title" id="shiftPickTitle">入る人を選ぶ</h2>
     <p class="doer__item" id="shiftPickWhen"></p>
 
     <div class="field">
@@ -1292,14 +1292,14 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=7755846d"></script>
-<script src="../js/storage.js?v=d83b6ad4"></script>
+<script src="../js/config.js?v=a330d4ce"></script>
+<script src="../js/storage.js?v=aa7da4cb"></script>
 <script src="../js/sync.js?v=c2dd0df8"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
-<script src="../js/shift-sheet.js?v=a35e5f7b"></script>
-<script src="../js/app.js?v=74a7ab5c"></script>
+<script src="../js/shift-sheet.js?v=5a67359a"></script>
+<script src="../js/app.js?v=8e31611b"></script>
 </body>
 </html>

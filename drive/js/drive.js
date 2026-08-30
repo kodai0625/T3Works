@@ -503,7 +503,7 @@ function legValues() {
     .filter((t) => t.legs.length && t.legs.every((v) => v > 0));
 }
 
-/** えらんだ名前と、それぞれの回が何kmになるかを出します */
+/** 選んだ名前と、それぞれの回が何kmになるかを出します */
 function renderForm() {
   [...el.drvNames.children].forEach((b) => b.classList.toggle('is-current', b.dataset.name === drvName));
 
@@ -551,7 +551,7 @@ async function saveEntry() {
   const list = legValues();
 
   if (!d) { el.driveError.textContent = '走った日を入れてください。'; return; }
-  if (!drvName) { el.driveError.textContent = '名前をえらんでください。'; return; }
+  if (!drvName) { el.driveError.textContent = '名前を選んでください。'; return; }
   if (!list.length) { el.driveError.textContent = '走った距離を入れてください。'; return; }
   if (list.some((t) => t.legs.some((v) => v > 200))) {
     el.driveError.textContent = '200kmを超えています。入れ間違いではありませんか？';

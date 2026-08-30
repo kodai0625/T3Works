@@ -216,7 +216,7 @@ function renderPeriod() {
   el('periodState').className = 'period__state' + (sentAt ? ' is-sent' : '');
   el('periodState').textContent = sentAt
     ? `提出済み（${on}日）。直したら、もう一度出してください`
-    : `${days.length}日のうち ${on}日 えらんでいます`;
+    : `${days.length}日のうち ${on}日 選んでいます`;
 
   el('slotHint').innerHTML = shiftWishSlots()
     .map((s) => `<b>${s.name}</b>＝${s.hint}`).join('<br>')
@@ -495,7 +495,7 @@ function dayCard(dateStr) {
     card.appendChild(row);
   }
 
-  // えらんだ枠だけ、開始時刻を出します。
+  // 選んだ枠だけ、開始時刻を出します。
   // F と立ち上げは、こちらで決めるので出しません（askTime: false）
   mine.forEach((entry) => {
     const slot = getShiftSlot(entry.s);
@@ -542,11 +542,11 @@ function dayCard(dateStr) {
 }
 
 /**
- * その日の枠をえらぶ
+ * その日の枠を選ぶ
  *
- * ★1日にえらべるのは1つだけです。押すと前のえらびは消えます。
+ * ★1日に選べるのは1つだけです。押すと前の選びは消えます。
  *   立ち上げ・F・ランチ・ディナーは、どれも「その日の入り方」なので、
- *   重ねてえらぶ意味がありません。
+ *   重ねて選ぶ意味がありません。
  * ★立ち上げだけは、そのあとのランチ／Fと対で持ちます
  *   （立ち上げただけで帰る人はいないため）。
  */

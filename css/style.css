@@ -297,12 +297,12 @@ body.is-shift-wide .page { max-width: 1900px; }
 .task-bar__name { font-size: 15px; font-weight: 700; line-height: 1.2; }
 .task-bar__hint { font-size: 10.5px; font-weight: 600; color: var(--text-weak); line-height: 1.2; }
 
-/* ---- 業務選択（店舗をえらんだあとの画面） ---- */
+/* ---- 業務選択（店舗を選んだあとの画面） ---- */
 .stores-sub {
   margin: 22px 2px 8px; font-size: 13px; font-weight: 700; color: var(--text-sub);
 }
 /* 店舗選択と同じ「横2つ×縦」の並べ方にそろえてあります（.store-grid と同じ形）。
-   店舗をえらぶ手つきのまま、業務もえらべるようにするためです */
+   店舗を選ぶ手つきのまま、業務も選べるようにするためです */
 .task-grid {
   list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
@@ -1501,7 +1501,7 @@ body:has(.day-tabs.is-hidden) { padding-bottom: 16px; }
   padding: 5px 12px; cursor: pointer;
 }
 .exp-chip:active { background: var(--line-2); }
-/* えらんだもの */
+/* 選んだもの */
 .exp-chip.is-on {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
@@ -1547,7 +1547,7 @@ body.is-money .seg__btn.is-on,
 body.is-money .exp-chip.is-on {
   background: var(--money); border-color: var(--money); color: var(--money-on);
 }
-/* 店舗をえらぶボタンだけは、その店舗の色にします。
+/* 店舗を選ぶボタンだけは、その店舗の色にします。
    店舗の色は濃い赤〜橙なので、文字は白のままで読めます
    （--pick-color は openExpenseForm が入れます） */
 body.is-money .exp-chip.is-on[data-store] {
@@ -1783,7 +1783,7 @@ body.is-money .btn--primary.btn--danger {
   white-space: nowrap;
 }
 
-/* -------- えらんだ日の中身 -------- */
+/* -------- 選んだ日の中身 -------- */
 .report-day {
   background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); box-shadow: var(--shadow);
@@ -1897,7 +1897,7 @@ body.is-money .btn--primary.btn--danger {
 .rank-table tr.is-top3 .rank-no { color: #a9713f; }
 .rank-table tr.is-top .exp-total__name { font-weight: 800; }
 .rank-table tr.is-top1 .exp-total__yen { color: var(--money); }
-/* 「その他」をえらんだときだけ出る、名前を書く欄 */
+/* 「その他」を選んだときだけ出る、名前を書く欄 */
 .exp-who-free { margin-top: 8px; }
 .exp-who-free.is-hidden { display: none; }
 
@@ -1938,7 +1938,7 @@ body.is-money .btn--primary.btn--danger {
 .miss-item__text { flex: 1 1 auto; min-width: 0; font-size: 13.5px; line-height: 1.6; }
 .miss-item__by { flex: 0 0 auto; font-size: 11.5px; color: var(--text-weak); }
 .miss-text { min-height: 90px; line-height: 1.6; resize: vertical; font-family: inherit; }
-/* 「その他」をえらんだときだけ出る、名前を書く欄 */
+/* 「その他」を選んだときだけ出る、名前を書く欄 */
 .miss-who-free { margin-top: 8px; }
 .miss-who-free.is-hidden { display: none; }
 
@@ -1992,7 +1992,7 @@ body.is-wide .page { max-width: 1700px; }
   .meeting-layout { grid-template-columns: minmax(0, 1fr) 360px; column-gap: 20px; }
 }
 
-/* -------- 上の帯：月をえらぶところ --------
+/* -------- 上の帯：月を選ぶところ --------
    ‹ 2026年6月 › のとなりに1〜12月を並べ、右の余白を埋めます */
 .meeting-nav { flex-wrap: wrap; }
 .meeting-months {
@@ -2986,7 +2986,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
   color: var(--text-sub);
 }
 
-/* -------- T3Dining のボタン（会社ぜんぶの画面） --------
+/* -------- T3Dining のボタン（会社全部の画面） --------
    仲間ごとに色を分けます。増やすときは、その仲間の色を1つ決めて
    .stores-big-btn--◯◯ を足してください（--pick を変えるだけです） */
 .stores-big-btn { border-left-color: var(--pick, var(--accent)); }
@@ -3142,7 +3142,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
      書き忘れると display:flex が勝って、隠したつもりが出たままになります */
 .shift-foot.is-hidden { display: none; }
 
-/* -------- 人をえらぶ画面 -------- */
+/* -------- 人を選ぶ画面 -------- */
 .seg--wrap { flex-wrap: wrap; }
 .seg--wrap .seg__btn { flex: 1 1 72px; }
 .shift-pick__group {
@@ -3600,7 +3600,7 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 /* -------- シフト：早上がりと、パティ --------
      早上がり … F で入れているが、早めに上がる人。橙のふちで囲みます
      パティ   … その日のパティを作る枠。ランチかディナーのどちらか一方に付き、
-                その枠ぜんぶを桃色のふちで囲みます */
+                その枠全部を桃色のふちで囲みます */
 .shift-chip.is-early {
   border-color: #d98324;
   box-shadow: inset 0 0 0 1px #d98324;

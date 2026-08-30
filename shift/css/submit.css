@@ -143,7 +143,7 @@ body {
   color: color-mix(in srgb, var(--ok) 85%, var(--text));
 }
 
-/* -------- 名前えらび -------- */
+/* -------- 名前選び -------- */
 .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
 .names .btn { padding: 14px 6px; font-size: 16px; }
 
@@ -205,7 +205,7 @@ body {
 .slot--lunch.is-on  { background: var(--lunch);  border-color: var(--lunch); }
 .slot--dinner.is-on { background: var(--dinner); border-color: var(--dinner); }
 
-/* えらんだ枠の開始時刻。
+/* 選んだ枠の開始時刻。
    「Lunch は何時から？」を1行使って書き、時刻のボタンは幅いっぱいに並べます
    （84pxの見出し欄に押し込むと、iPhoneでは文字が2行に折れて読みにくいため） */
 .times { margin-top: 9px; }
@@ -358,7 +358,7 @@ body {
 .help__panel {
   position: relative; z-index: 1;
   width: 100%; max-width: 560px;
-  /* 上は時計の帯のぶんだけ空けます */
+  /* 上は時計の帯の分だけ空けます */
   max-height: calc(100% - env(safe-area-inset-top) - 18px);
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); color: var(--text);
@@ -397,7 +397,7 @@ body {
   display: grid; gap: 10px;
 }
 
-/* -------- 入り方ひとつぶん -------- */
+/* -------- 入り方ひとつ分 -------- */
 .way {
   border: 1px solid var(--line); border-left-width: 4px;
   border-radius: 11px; background: var(--surface-2);

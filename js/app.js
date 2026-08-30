@@ -169,8 +169,8 @@ const el = {
  *  URL（ハッシュ）の読み書き
  * ============================================================ */
 /* URLの形
- *   #/                          店舗をえらぶ
- *   #/{店舗}                    業務をえらぶ
+ *   #/                          店舗を選ぶ
+ *   #/{店舗}                    業務を選ぶ
  *   #/{店舗}/{業務}             その業務の画面（日付は今日）
  *   #/{店舗}/{業務}/{YYYY-MM-DD} 日付つき
  *   #/report/{YYYY-MM-DD}       全店舗の提出記録（店舗に属さない）
@@ -218,7 +218,7 @@ function readHash() {
   setDate(third);
   const task = getTask(second);
   if (!task || (typeof task.when === 'function' && !task.when(state.storeId))) {
-    // 業務が指定されていない／使えない業務なら、業務をえらぶ画面
+    // 業務が指定されていない／使えない業務なら、業務を選ぶ画面
     state.view = 'tasks';
     return;
   }
@@ -638,7 +638,7 @@ function renderStorePicker() {
     b.appendChild(status);
     b.addEventListener('click', () => {
       state.storeId = s.id;
-      // 店舗をえらんだら、その店舗の業務一覧へ。
+      // 店舗を選んだら、その店舗の業務一覧へ。
       // 人によって入る店舗が変わるので、前回の続きには飛ばしません
       state.view = 'tasks';
       writeHash();
@@ -659,7 +659,7 @@ function goHome() {
   window.scrollTo(0, 0);
 }
 
-/** 業務をえらぶ画面へ */
+/** 業務を選ぶ画面へ */
 function goTasks() {
   state.view = 'tasks';
   writeHash();
@@ -668,7 +668,7 @@ function goTasks() {
 }
 
 /* ------------------------------------------------------------
- *  業務選択（店舗をえらんだあとの画面）
+ *  業務選択（店舗を選んだあとの画面）
  *
  *  ただの入口ではなく、その店舗の「いまの状況」を並べています。
  *  ここを見れば、どの業務が残っているかが分かります。
@@ -720,7 +720,7 @@ function renderTaskPicker() {
   const dow = new Date(TODAY.y, TODAY.m - 1, TODAY.d).getDay();
 
   el.tasksTitle.textContent = store.name;
-  el.tasksDate.textContent = `${TODAY.m}月${TODAY.d}日（${DOW[dow]}）　業務をえらんでください`;
+  el.tasksDate.textContent = `${TODAY.m}月${TODAY.d}日（${DOW[dow]}）　業務を選んでください`;
 
   el.taskGrid.innerHTML = '';
   taskList(store.id).forEach((task) => {
@@ -890,7 +890,7 @@ function catchGroups(list) {
 
 /**
  * まとめた行の領収書のしるし
- *   ぜんぶ有り → ◯ ／ ぜんぶ無し → × ／ まざっている → △
+ *   全部有り → ◯ ／ 全部無し → × ／ まざっている → △
  */
 function groupReceipt(g) {
   const yes = g.list.filter((e) => e.receipt).length;
@@ -1127,7 +1127,7 @@ let expStore = '';    // 買い出し・キャッチのときの店舗
 let expEditing = null; // 直しているとき、その1件
 
 /**
- * 「渡した相手」のえらび方。店舗ごとにまとめて出します。
+ * 「渡した相手」の選び方。店舗ごとにまとめて出します。
  * いま選んでいる店舗の人がいちばん上、そのあとに他店舗の人が続きます
  * （他店舗の子に渡すこともあるので、消さずに残しています）。
  */
@@ -1215,7 +1215,7 @@ function openExpenseForm(entry) {
     b.className = 'exp-chip';
     b.dataset.store = s.id;
     if (CATCH_ONLY_STORES.some((x) => x.id === s.id)) b.dataset.catchOnly = '1';
-    // えらんだときは、その店舗の色にします（一覧の店舗カードと同じ色）
+    // 選んだときは、その店舗の色にします（一覧の店舗カードと同じ色）
     b.style.setProperty('--pick-color', s.color);
     // 略さない名前を出します（「おいでん」ではなく「おいでんテラス」）
     b.textContent = s.name;
@@ -1231,14 +1231,14 @@ function openExpenseForm(entry) {
   el.expenseModal.classList.remove('is-hidden');
 }
 
-/** えらんだ項目に合わせて、下の入力欄を出し入れします */
+/** 選んだ項目に合わせて、下の入力欄を出し入れします */
 function renderExpenseForm() {
   const kind = getExpenseKind(expKind);
   const isCatch = !!(kind && kind.who);
   [...el.expChips.children].forEach((b) => b.classList.toggle('is-on', b.dataset.kind === expKind));
 
   // まいとはキャッチのときだけ出します。買い出しに切り替えたら、
-  // えらんだままにならないよう外します（見えないものが選ばれている状態を作らない）
+  // 選んだままにならないよう外します（見えないものが選ばれている状態を作らない）
   [...el.expStores.children].forEach((b) => {
     const only = b.dataset.catchOnly === '1';
     b.classList.toggle('is-hidden', only && !isCatch);
@@ -1275,12 +1275,12 @@ function saveExpense() {
 
   if (!d) { el.expenseError.textContent = '支払った日を入れてください。'; return; }
   if (!by) { el.expenseError.textContent = '立て替えた人を選んでください。'; return; }
-  if (!kind) { el.expenseError.textContent = '支払い項目をえらんでください。'; return; }
-  if (kind.store && !expStore) { el.expenseError.textContent = 'どの店舗かをえらんでください。'; return; }
+  if (!kind) { el.expenseError.textContent = '支払い項目を選んでください。'; return; }
+  if (kind.store && !expStore) { el.expenseError.textContent = 'どの店舗かを選んでください。'; return; }
   if (kind.people && (!people || people <= 0)) { el.expenseError.textContent = '人数を入れてください。'; return; }
   // 渡した相手は9月分から。8月までは人数と金額だけで記録できます
   if (kind.who && catchWhoNeeded(d) && !who) {
-    el.expenseError.textContent = '渡した相手をえらんでください。';
+    el.expenseError.textContent = '渡した相手を選んでください。';
     return;
   }
   if (!label) { el.expenseError.textContent = '内容を入れてください。'; return; }
@@ -1300,7 +1300,7 @@ function saveExpense() {
 
   Store.setItem(EXPENSE_STORE, key, id, {
     done: true, d, by, label, yen: y, receipt: expReceipt,
-    // あとから店舗ごとに集計できるよう、えらんだ内容もそのまま残します
+    // あとから店舗ごとに集計できるよう、選んだ内容もそのまま残します
     kind: expKind, store: expStore || '', people: kind.people ? people : 0,
     who: kind.who ? who : '',
   });
@@ -1348,7 +1348,7 @@ function catchByStore() {
 
 /** ランキングを「この月」で見るか「すべて」で見るか */
 let rankRange = 'near';
-/** 店舗でしぼる（空なら全店舗＝会社ぜんぶ） */
+/** 店舗でしぼる（空なら全店舗＝会社全部） */
 let rankFilter = '';
 
 /** キャッチの記録を集めます（すべてのときは、入っている月を全部読みます） */
@@ -1729,7 +1729,7 @@ function catchDetailDate(str) {
  * 中身を出す
  *
  * 開いたまま直したり消したりできるので、そのつど数えなおします。
- * ぜんぶ消して空になったら、この画面は閉じます。
+ * 全部消して空になったら、この画面は閉じます。
  */
 function renderCatchDetail() {
   if (!catchDetail) return;
@@ -2130,7 +2130,7 @@ function meetingSum(rows) {
 
 /**
  * その月のキャッチ（店舗id → { yen, people }）
- * 現金支払い管理表で「キャッチ」をえらんで入れた分を、店舗ごとに足します
+ * 現金支払い管理表で「キャッチ」を選んで入れた分を、店舗ごとに足します
  * （キャッチ集計のページと同じ数字になります）
  */
 function meetingCatchOf(y, m) {
@@ -2961,7 +2961,7 @@ function growNoteBox(box) {
  *  全店舗提出記録
  *
  *    上 … その月のカレンダー。1日分の升目に6店舗の印が並びます
- *    中 … えらんだ日の中身（今までどおりの一覧）
+ *    中 … 選んだ日の中身（今までどおりの一覧）
  *    下 … その月のミスの記録
  * ---------------------------------------------------------- */
 
@@ -3082,7 +3082,7 @@ function renderReportCalendar() {
   el.reportMonthSummary.classList.toggle('is-all-done', targetAll > 0 && doneAll === targetAll);
 }
 
-/** えらんだ日の中身（店舗ごとの提出状況） */
+/** 選んだ日の中身（店舗ごとの提出状況） */
 function renderReportDay() {
   const dateStr = ymd(state.y, state.m, state.d);
   const dow = new Date(state.y, state.m - 1, state.d).getDay();
@@ -3378,7 +3378,7 @@ function renderMissChips() {
   [...el.missStores.children].forEach((b) => b.classList.toggle('is-on', b.dataset.store === missStore));
 }
 
-/** 「その他」をえらんだときだけ、名前を書く欄を出します */
+/** 「その他」を選んだときだけ、名前を書く欄を出します */
 function renderMissWhoField() {
   el.missWhoFree.classList.toggle('is-hidden', el.missWho.value !== MISS_OTHER);
 }
@@ -3392,7 +3392,7 @@ function saveMiss() {
   const text = el.missText.value.replace(/\r/g, '').trim();
 
   if (!d) { el.missError.textContent = '日付を入れてください。'; return; }
-  if (!missStore) { el.missError.textContent = 'どの店舗かをえらんでください。'; return; }
+  if (!missStore) { el.missError.textContent = 'どの店舗かを選んでください。'; return; }
   if (el.missWho.value === MISS_OTHER && !who) {
     el.missError.textContent = 'ミスした人の名前を書いてください。'; return;
   }
@@ -4044,7 +4044,7 @@ function renderSyncWarn() {
   // ★まず「まだ送れていない分」を見ます。
   //   チェックや提出はいったんこの端末に入り、あとからまとめて送られます。
   //   ここが残ったままアプリを閉じると、みんなの画面には出ません。
-  //   実際に、64項目ぜんぶチェックしてあるのに提出だけ届いていない日がありました
+  //   実際に、64項目全部チェックしてあるのに提出だけ届いていない日がありました
   const waiting = Sync.outbox().length;
   const stale = Sync.lastSyncAt && (Date.now() - Sync.lastSyncAt.getTime() > 5 * 60 * 1000);
   const never = !Sync.lastSyncAt;
@@ -4228,7 +4228,7 @@ function renderWeekAllYear() {
   el.weekAllYearSummary.classList.toggle('is-all-done', targetAll > 0 && doneAll === targetAll);
 }
 
-/** えらんだ期の中身（店舗ごとの達成率） */
+/** 選んだ期の中身（店舗ごとの達成率） */
 function renderWeekAllPeriod() {
   const period = currentPeriod();
   el.weekAllRange.textContent = periodRangeLabel(period);
@@ -4693,14 +4693,14 @@ function saveShiftDay(dateStr, day) {
   });
 }
 
-/** パティのえらび先を開いている日（開いていなければ空） */
+/** パティの選び先を開いている日（開いていなければ空） */
 let pattyOpen = '';
 
 /**
- * 出してもらった希望をぜんぶ。名簿の順に並べます
+ * 出してもらった希望を全部。名簿の順に並べます
  *
  * ★見本（テスト用）の人は、ここで外します。ここを通ってから
- *   「取り込む」「提出を見る」「入る人をえらぶ」に行くので、1か所で足ります。
+ *   「取り込む」「提出を見る」「入る人を選ぶ」に行くので、1か所で足ります。
  */
 function shiftWishes(rec) {
   const order = shiftBuildNames(state.storeId);
@@ -5103,7 +5103,7 @@ function shiftGridBlock(rec, wishes, days) {
       const day = shiftDayOf(rec, dateStr);
       SHIFT_LANES.forEach((lane, li) => {
         const td = shiftCell(rec, wishes, day, dateStr, slot, lane, li === 0);
-        // パティの枠は、その日のその枠ぜんぶを桃色のふちで囲みます
+        // パティの枠は、その日のその枠全部を桃色のふちで囲みます
         if (day.patty === slot.id) {
           td.classList.add('is-patty');
           if (li === 0) td.classList.add('is-patty-first');
@@ -5270,13 +5270,13 @@ function shiftPattyBox(day, dateStr) {
     b.type = 'button';
     b.className = 'shift-patty' + (now ? ' is-on' : '');
     b.textContent = now ? `パティ：${getShiftSlot(now).name}` : 'パティ';
-    b.title = 'この日のパティの枠をえらぶ';
+    b.title = 'この日のパティの枠を選ぶ';
     b.addEventListener('click', () => { pattyOpen = dateStr; render(); });
     box.appendChild(b);
     return box;
   }
 
-  // 押したあと：どの枠にするかをえらびます
+  // 押したあと：どの枠にするかを選びます
   SHIFT_PATTY_SLOTS.concat(['']).forEach((id) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -5294,7 +5294,7 @@ function shiftPattyBox(day, dateStr) {
   return box;
 }
 
-/* -------- 人をえらぶ・直す -------- */
+/* -------- 人を選ぶ・直す -------- */
 
 function openShiftPick(dateStr, slotId, laneId, index) {
   shiftPickAt = { dateStr, slotId, laneId, index, time: '', full: undefined };
@@ -5303,7 +5303,7 @@ function openShiftPick(dateStr, slotId, laneId, index) {
   const [, m, d] = dateStr.split('-').map(Number);
   const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
 
-  el.shiftPickTitle.textContent = index === null ? '入る人をえらぶ' : '直す';
+  el.shiftPickTitle.textContent = index === null ? '入る人を選ぶ' : '直す';
   el.shiftPickWhen.textContent = `${m}/${d}（${DOW[dow]}） ${slot.name} ・ ${lane.name}`;
   renderShiftPick();
   el.shiftPickModal.classList.remove('is-hidden');
@@ -5327,7 +5327,7 @@ function renderShiftPick() {
   el.shiftPickTimeField.classList.toggle('is-hidden', !slot.times.length);
   el.shiftPickTimeLabel.textContent = entry
     ? '開始時刻（押すと変わります）'
-    : '開始時刻（えらばなければ、その人の希望どおりに入ります）';
+    : '開始時刻（選ばなければ、その人の希望どおりに入ります）';
   if (slot.times.length) {
     slot.times.forEach((t) => {
       const b = document.createElement('button');
@@ -6155,12 +6155,12 @@ function saveShiftPdf() {
 /**
  * シフト表をファイルにして渡す
  *
- *  パソコン … 保存先をえらぶ画面が出ます。Finder のどこにでも置けます
+ *  パソコン … 保存先を選ぶ画面が出ます。Finder のどこにでも置けます
  *             （前に保存した場所を覚えているので、2回目からは1回押すだけです）
  *  iPhone   … 共有の画面が出ます。そのままLINEに送るか、ファイルに保存できます
  *  それ以外 … ふだんのダウンロードになります
  *
- *  ★保存先をえらぶ画面は、押したその場で開きます。
+ *  ★保存先を選ぶ画面は、押したその場で開きます。
  *    先に絵を作ってから開くと、ブラウザが「押した流れ」と見なさなくなり、
  *    画面が出ないことがあるためです。
  */
@@ -6216,7 +6216,7 @@ function shiftFileName(ext) {
 }
 
 /**
- * できたファイルを渡す（保存先をえらぶ画面が使えない端末むけ）
+ * できたファイルを渡す（保存先を選ぶ画面が使えない端末むけ）
  *
  * iPhone では「共有」から、そのままLINEに送れます。
  * 共有が使えない端末では、ふだんのダウンロードにします。
@@ -6732,7 +6732,7 @@ function bindEvents() {
     [...$('rankRange').children].forEach((n) => n.classList.toggle('is-on', n === b));
     renderCatchRank();
   });
-  /* 渡した相手で「その他」をえらんだら、名前を書く欄を出す */
+  /* 渡した相手で「その他」を選んだら、名前を書く欄を出す */
   el.expWho.addEventListener('change', renderExpenseForm);
   /* 日付を動かすと「渡した相手」の要る・要らないが変わります（9月分から） */
   el.expDate.addEventListener('change', renderExpenseForm);

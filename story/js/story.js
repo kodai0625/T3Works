@@ -86,7 +86,7 @@ function 小さい画像(店舗id, ファイル) {
   return `できあがり/${encodeURIComponent(店舗id)}/%E5%B0%8F/${encodeURIComponent(ファイル)}`;
 }
 
-// ------------------------------------------------------------ 店舗をえらぶ
+// ------------------------------------------------------------ 店舗を選ぶ
 
 function 店舗を並べる() {
   const 箱 = el('storeList');
@@ -109,14 +109,14 @@ function 店舗を並べる() {
       `<span class="story-store__name">${エスケープ(店['名前'])}${印}</span>` +
       `<span class="story-store__sub">${エスケープ(店['説明'] || '')}｜${並び.length}枚</span>` +
       `</span><span class="story-store__arrow">›</span>`;
-    btn.addEventListener('click', () => 店舗をえらぶ(店));
+    btn.addEventListener('click', () => 店舗を選ぶ(店));
     箱.appendChild(btn);
   }
 
   el('madeOn').textContent = 一覧['作った日'] ? `${一覧['作った日']} に作った分` : '';
 }
 
-function 店舗をえらぶ(店舗) {
+function 店舗を選ぶ(店舗) {
   いまの店舗 = 店舗;
   el('storeName').textContent = 店舗['名前'] || '';
   画像を並べる();

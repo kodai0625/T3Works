@@ -100,7 +100,7 @@ function shiftPrintEm(model) {
   })));
   if (!spans.length) return 0;
   // ★body に置きます。表の中に置くと、まだ隠れているモーダルの中なので
-  //   幅がぜんぶ0で返ってきます（前にそれで名前が大きくなりすぎました）
+  //   幅が全部0で返ってきます（前にそれで名前が大きくなりすぎました）
   box.style.fontFamily = getComputedStyle(document.body).fontFamily;
   document.body.appendChild(box);
   let w = 0;
@@ -150,7 +150,7 @@ function shiftPersonMm(pt) {
  * そのマスの名前の大きさ
  *
  * ★人がたくさん入っているマスだけ、そのマスの中で小さくします。
- *   前は「いちばん多いマス」に表ぜんぶを合わせていたので、
+ *   前は「いちばん多いマス」に表全部を合わせていたので、
  *   7人入る日が1つあるだけで、ほかの日まで小さくなっていました。
  */
 function shiftCellPt(pt, count, roomMm) {

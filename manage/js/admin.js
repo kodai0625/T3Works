@@ -1068,7 +1068,7 @@ function saveCatchStaff() {
 
 /* -------- シフトに入る人 --------
  *
- *  提出ページ（…/shift/）の名前えらびに出る人です。
+ *  提出ページ（…/shift/）の名前選びに出る人です。
  *  シフトを組む店舗（config.js の SHIFT_STORES）だけを並べます。
  */
 function renderShiftStaff() {
@@ -1467,8 +1467,8 @@ function goHome() {
 
 /* -------- URLと画面を合わせる（端末の「戻る」で一覧へ戻れます） --------
  *
- *   #/stores            店舗をえらぶ
- *   #/{店舗}            設定をえらぶ
+ *   #/stores            店舗を選ぶ
+ *   #/{店舗}            設定を選ぶ
  *   #/{店舗}/{設定}     その設定の画面
  *
  * 現場アプリと同じ3段の作りです。設定を増やすときは ADMIN_PAGES に足します。
@@ -1591,7 +1591,7 @@ function renderMenu() {
     b.className = 'task-card';
     b.style.setProperty('--card-color', store.color);
 
-    // 現場アプリの業務えらびと同じ見た目にそろえます
+    // 現場アプリの業務選びと同じ見た目にそろえます
     const icon = document.createElement('span');
     icon.className = 'task-card__icon';
     icon.setAttribute('aria-hidden', 'true');

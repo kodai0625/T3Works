@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=08960d67">
+<link rel="stylesheet" href="../css/style.css?v=9c5994db">
 <link rel="stylesheet" href="css/admin.css?v=bf1370ff">
-<meta name="app-version" content="ca7b99f4">
+<meta name="app-version" content="384f03cf">
 </head>
 <body class="no-daytabs">
 
@@ -76,7 +76,7 @@
       <span class="admin-count" id="catchStaffCount"></span>
     </div>
     <p class="admin-note">
-      1行に1人。現金支払い管理表で<b>「キャッチ」</b>をえらんだときの、
+      1行に1人。現金支払い管理表で<b>「キャッチ」</b>を選んだときの、
       <b>「渡した相手」</b>のプルダウンに <b>店舗ごとにまとまって</b>並びます
       （そのとき選んでいる店舗の人が、いちばん上に出ます）。<br>
       クローズの担当者とは別のリストです（あちらは社員、こちらはアルバイト）。<br>
@@ -135,7 +135,7 @@
       </p>
       <div class="admin-actions">
         <button type="button" class="btn btn--primary" id="expImportLast">8月だけ取り込む</button>
-        <button type="button" class="btn" id="expImport">1〜8月ぜんぶ取り込む</button>
+        <button type="button" class="btn" id="expImport">1〜8月全部取り込む</button>
       </div>
       <p class="admin-note" id="expImportNote"></p>
     </details>
@@ -154,14 +154,14 @@
   </section>
 </section>
 
-<!-- ===== 設定メニュー（店舗をえらんだあとの画面） ===== -->
+<!-- ===== 設定メニュー（店舗を選んだあとの画面） ===== -->
 <section class="view is-hidden" id="viewMenu">
   <div class="stores-head">
     <h1 class="stores-head__title" id="menuTitle">店舗名</h1>
-    <p class="stores-head__date">設定する内容をえらんでください</p>
+    <p class="stores-head__date">設定する内容を選んでください</p>
   </div>
   <ul class="task-grid" id="menuGrid"></ul>
-  <button type="button" class="stores-report-btn" id="menuBackBtn">← 店舗をえらび直す</button>
+  <button type="button" class="stores-report-btn" id="menuBackBtn">← 店舗を選び直す</button>
 </section>
 
 <!-- ===== いま開いている設定（タップでメニューに戻る） ===== -->
@@ -170,7 +170,7 @@
     <span class="task-bar__arrow" aria-hidden="true">‹</span>
     <span class="task-bar__label">
       <span class="task-bar__name" id="pageBarName">クローズ</span>
-      <span class="task-bar__hint">タップで設定をえらぶ</span>
+      <span class="task-bar__hint">タップで設定を選ぶ</span>
     </span>
   </button>
   <!-- 店舗選択まで一気に戻ります（現場アプリと同じ場所・同じ見た目） -->
@@ -304,7 +304,7 @@
       </p>
       <div class="admin-actions">
         <button type="button" class="btn btn--primary" id="driveImportLast">8月だけ取り込む</button>
-        <button type="button" class="btn" id="driveImport">1〜8月ぜんぶ取り込む</button>
+        <button type="button" class="btn" id="driveImport">1〜8月全部取り込む</button>
       </div>
       <p class="admin-note" id="driveImportNote"></p>
     </details>
@@ -407,14 +407,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=7755846d"></script>
-<script src="../js/storage.js?v=d83b6ad4"></script>
+<script src="../js/config.js?v=a330d4ce"></script>
+<script src="../js/storage.js?v=aa7da4cb"></script>
 <script src="../js/sync.js?v=c2dd0df8"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=e9e22ab0"></script>
+<script src="js/admin.js?v=ce290149"></script>
 </body>
 </html>
