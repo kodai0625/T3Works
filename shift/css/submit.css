@@ -310,3 +310,6 @@ body {
 .boot__text { margin: 0; font-size: 13px; color: var(--text-sub); }
 @keyframes boot-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .boot__spin { animation-duration: 2.4s; } }
+
+/* つながらなかったときは、ぐるぐるを止めてやり直しボタンを出します */
+.boot__spin.is-hidden { display: none; }

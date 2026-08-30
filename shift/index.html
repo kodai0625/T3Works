@@ -16,8 +16,8 @@
 <link rel="apple-touch-icon" href="../img/shift-icon-180.png?v=68ba81bc">
 <link rel="icon" href="../img/shift-icon-64.png?v=0937bb3b">
 
-<link rel="stylesheet" href="css/submit.css?v=732f07f2">
-<meta name="app-version" content="b6118447">
+<link rel="stylesheet" href="css/submit.css?v=24423db2">
+<meta name="app-version" content="878f7c12">
 </head>
 <body>
 
@@ -33,8 +33,9 @@
        ★はじめはこれを出します。番号を覚えている人にまで
          「番号を入れてください」が一瞬見えてしまうのを防ぐためです -->
   <section class="boot" id="boot">
-    <span class="boot__spin" aria-hidden="true"></span>
-    <p class="boot__text">読み込んでいます…</p>
+    <span class="boot__spin" id="bootSpin" aria-hidden="true"></span>
+    <p class="boot__text" id="bootText">読み込んでいます…</p>
+    <button type="button" class="btn is-hidden" id="bootRetry">もう一度ためす</button>
   </section>
 
   <!-- ===== 1. 自分の番号 =====
@@ -112,6 +113,6 @@
 </main>
 
 <script src="../js/config.js?v=121706c7"></script>
-<script src="js/submit.js?v=b95933c8"></script>
+<script src="js/submit.js?v=c5cb9060"></script>
 </body>
 </html>

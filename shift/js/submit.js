@@ -529,6 +529,12 @@ async function boot() {
   bindHalfWidthInput(el('gatePin'), 'code');
   el('send').addEventListener('click', send);
   el('signOut').addEventListener('click', signOut);
+  el('bootRetry').addEventListener('click', () => {
+    el('bootText').textContent = '読み込んでいます…';
+    el('bootSpin').classList.remove('is-hidden');
+    el('bootRetry').classList.add('is-hidden');
+    boot();
+  });
 
   // 番号を覚えていない人には、待たせずにすぐ聞きます
   if (!me.code) return show('gate');
@@ -538,13 +544,29 @@ async function boot() {
   //   「また入れるのか」と思わせてしまいます
   show('boot');
   const res = await call({ mode: 'open' });
-  if (!res.ok) {
+  if (res.ok) { applyOpen(res); return; }
+
+  // ★番号そのものが違うと言われたときだけ、覚えているものを忘れます。
+  //   電波が届かなかっただけで忘れてしまうと、外で開くたびに
+  //   番号を入れ直すことになります（それが起きていました）
+  if (res.bad) {
     me.code = '';
     localStorage.removeItem(`${SAVE}:code`);
     show('gate');
-    return setErr('gateErr', res.error || 'もう一度、番号を入れてください');
+    setErr('gateErr', res.error || 'もう一度、番号を入れてください');
+    return;
   }
-  applyOpen(res);
+
+  // つながらなかっただけ。番号はそのままにして、やり直せるようにします
+  showRetry(res.error || 'つながりませんでした');
+}
+
+/** つながらなかったときの画面（番号は覚えたままです） */
+function showRetry(message) {
+  show('boot');
+  el('bootText').textContent = message;
+  el('bootSpin').classList.add('is-hidden');
+  el('bootRetry').classList.remove('is-hidden');
 }
 
 boot();
