@@ -6152,6 +6152,8 @@ function canDrawBigSheet() {
   return bigSheetOk;
 }
 const SHEET_FONT = '-apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
+/** 縦書きのときに、90度まわして書く字（のばす棒やかっこ） */
+const VERT_TURN = 'ー－‐−–—〜~（）()［］[]｛｝{}「」『』〔〕【】＜＞<>';
 
 function drawShiftSheet(canvas, scale) {
   const model = shiftSheetModel();
@@ -6235,7 +6237,20 @@ function drawShiftSheet(canvas, scale) {
     cx.font = font(s, bold);
     cx.textAlign = 'center';
     let yy = top + h / 2 - ((chars.length - 1) * step) / 2;
-    chars.forEach((ch) => { cx.fillText(ch, x + w / 2, yy); yy += step; });
+    chars.forEach((ch) => {
+      // ★のばす棒やかっこは、縦書きでは向きが変わります。
+      //   そのまま書くと「ディナー」の棒だけ横になってしまいます
+      if (VERT_TURN.indexOf(ch) >= 0) {
+        cx.save();
+        cx.translate(x + w / 2, yy);
+        cx.rotate(Math.PI / 2);
+        cx.fillText(ch, 0, 0);
+        cx.restore();
+      } else {
+        cx.fillText(ch, x + w / 2, yy);
+      }
+      yy += step;
+    });
     cx.textAlign = 'left';
   };
   const line = (x1, y1, x2, y2, strong) => {
@@ -6393,7 +6408,17 @@ function drawShiftSheet(canvas, scale) {
     const bottom = y;
     for (let c = 0; c <= used; c += 1) {
       const x = x0 + colW * c;
-      line(x, top, x, bottom, c % SHIFT_LANES.length === 0);
+      if (c % SHIFT_LANES.length === 0) {
+        // 日と日のあいだ。上から下までまっすぐ引きます
+        line(x, top, x, bottom, true);
+      } else {
+        // ★キッチンとホールのあいだ。日付の見出しとメモの行には引きません
+        //   （どちらも2つの持ち場をまとめた1つのマスなので）。
+        //   定休日の日も、まとめて1つのマスなので引きません
+        const di = Math.floor(c / SHIFT_LANES.length);
+        if (block.head[di] && block.head[di].closed) continue;
+        line(x, top + dateH, x, bottom - memoH, false);
+      }
     }
     line(pad, top, pad, bottom, true);
     let ry = top;
