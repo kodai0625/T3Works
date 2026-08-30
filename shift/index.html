@@ -16,8 +16,8 @@
 <link rel="apple-touch-icon" href="../img/shift-icon-180.png?v=68ba81bc">
 <link rel="icon" href="../img/shift-icon-64.png?v=0937bb3b">
 
-<link rel="stylesheet" href="css/submit.css?v=f65f6a7b">
-<meta name="app-version" content="98753f8c">
+<link rel="stylesheet" href="css/submit.css?v=732f07f2">
+<meta name="app-version" content="b6118447">
 </head>
 <body>
 
@@ -29,10 +29,18 @@
 
 <main class="page">
 
+  <!-- ===== 0. 読み込み中 =====
+       ★はじめはこれを出します。番号を覚えている人にまで
+         「番号を入れてください」が一瞬見えてしまうのを防ぐためです -->
+  <section class="boot" id="boot">
+    <span class="boot__spin" aria-hidden="true"></span>
+    <p class="boot__text">読み込んでいます…</p>
+  </section>
+
   <!-- ===== 1. 自分の番号 =====
        番号で誰なのかが決まります。名前をえらばせないので、
        ほかの人の名前で出すことはできません -->
-  <section class="card" id="gate">
+  <section class="card is-hidden" id="gate">
     <h1 class="card__title">あなたの番号を入れてください</h1>
     <p class="card__note">
       お店からLINEで送られた、<b>あなただけの番号</b>です。<br>
@@ -104,6 +112,6 @@
 </main>
 
 <script src="../js/config.js?v=121706c7"></script>
-<script src="js/submit.js?v=a86a1239"></script>
+<script src="js/submit.js?v=b95933c8"></script>
 </body>
 </html>

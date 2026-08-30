@@ -82,7 +82,7 @@ function isClosedOn(dateStr) {
  *  画面
  * ============================================================ */
 function show(which) {
-  ['gate', 'form'].forEach((id) => el(id).classList.toggle('is-hidden', id !== which));
+  ['boot', 'gate', 'form'].forEach((id) => el(id).classList.toggle('is-hidden', id !== which));
 }
 
 function setErr(id, msg) {
@@ -530,9 +530,13 @@ async function boot() {
   el('send').addEventListener('click', send);
   el('signOut').addEventListener('click', signOut);
 
+  // 番号を覚えていない人には、待たせずにすぐ聞きます
   if (!me.code) return show('gate');
 
-  // 番号を覚えているときは、そのまま自分のことを聞きに行きます
+  // 覚えているときは、返事が返るまで「読み込んでいます」のままにします。
+  // ★ここで番号の画面を出してしまうと、毎回それが一瞬見えて
+  //   「また入れるのか」と思わせてしまいます
+  show('boot');
   const res = await call({ mode: 'open' });
   if (!res.ok) {
     me.code = '';
