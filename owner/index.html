@@ -85,7 +85,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 </style>
-<meta name="app-version" content="d7b2d5e5">
+<meta name="app-version" content="e48f510c">
 </head>
 <body class="no-daytabs">
 
@@ -141,7 +141,19 @@ body {
         <span class="hub-card__arrow" aria-hidden="true">›</span>
       </a>
     </li>
-    <!-- 5つ目はアプリではなく近道。T3 Works Mine の中の画面を直接ひらきます -->
+    <li>
+      <!-- アルバイトが希望を出すページ。ko-dai は「どう見えているか」を
+           確かめるために開きます（番号を入れないと中には入れません） -->
+      <a class="hub-card" href="../shift/" style="--card-color:#bf5480">
+        <span class="hub-card__icon"><img src="../img/shift-icon-180.png?v=68ba81bc" alt=""></span>
+        <span class="hub-card__text">
+          <span class="hub-card__name">バグる シフト提出</span>
+          <span class="hub-card__sub">アルバイトに配るページ（番号が要ります）</span>
+        </span>
+        <span class="hub-card__arrow" aria-hidden="true">›</span>
+      </a>
+    </li>
+    <!-- 6つ目はアプリではなく近道。T3 Works Mine の中の画面を直接ひらきます -->
     <li>
       <a class="hub-card hub-card--shortcut" href="../mine/#/report" style="--card-color:#55606e">
         <span class="hub-card__icon hub-card__icon--mark" aria-hidden="true">📋</span>
@@ -160,7 +172,9 @@ body {
     （Manage からは <b>⇄</b> でマインに移ってから）。<br>
     現場スタッフには <b>T3 Works</b>（末尾に何も付かないURL）を渡してください。<br>
     バグるのタブレットには <b>配達記録</b>（末尾が <b>/drive/</b> のURL）を
-    直接ホーム画面に追加してください。
+    直接ホーム画面に追加してください。<br>
+    アルバイトには <b>バグる シフト提出</b>（末尾が <b>/shift/</b> のURL）と、
+    マネージの「配る番号」を1人ずつ送ってください。
   </p>
   <p class="hub__foot" id="hubFoot"></p>
 </main>
