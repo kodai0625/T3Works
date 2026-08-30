@@ -3177,17 +3177,6 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 }
 .shift-sheet__who { display: block; font-weight: 600; line-height: 1.1; }
 
-/* ★人の多い日は、2段だとかえって名前が小さくなります。
-   そのときは時刻と名前を1行に並べます（js が中身を見て決めます）。
-   「測り場」と同じ指定を並べて書くこと（片方だけ直すと幅がずれます） */
-.shift-sheet-measure--one .shift-sheet__at,
-.shift-sheet--one .shift-sheet__at {
-  /* js の SHIFT_TIME_SCALE_ONE と同じ数にすること */
-  display: inline; margin-right: .22em; font-size: .85em;
-}
-.shift-sheet-measure--one .shift-sheet__who,
-.shift-sheet--one .shift-sheet__who { display: inline; }
-.shift-sheet--one .shift-sheet__name { margin-bottom: .2em; }
 
 /* -------- 紙に出すときの、1人分の組み方 --------
    ★「測り場」と「紙」で同じ指定にしてあります。

@@ -5835,24 +5835,22 @@ const shiftMeasureText = (() => {
   };
 })();
 
-function shiftNameEmAt(parts, family, mode) {
+function shiftNameEmAt(parts, family) {
   const R = 100;
   const name = shiftMeasureText(parts.name, family, R, false);
   if (!name) return shiftNameEm(parts);
   // F の印は太字で、名前の0.8倍の大きさで出します
   const full = parts.full ? shiftMeasureText(' F', family, R, true) * 0.8 : 0;
   const time = parts.time ? shiftMeasureText(parts.time, family, R, false) : 0;
-  // 1行のときは時刻と名前がならぶので、幅は足し算になります
-  if (mode === 'one') return (time * SHIFT_TIME_SCALE_ONE + R * 0.22 + name + full) / R;
-  // 2段のときは、広いほうの段で決まります
+  // 時刻は名前の上の段なので、広いほうの段で決まります
   return Math.max(name + full, time * SHIFT_TIME_SCALE) / R;
 }
 
 /** 絵（JPEG・PDF）で、いちばん幅のいる1人分 */
-function shiftCanvasEm(model, family, mode) {
+function shiftCanvasEm(model, family) {
   let em = 0;
   model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
-    c.names.forEach((n) => { em = Math.max(em, shiftNameEmAt(n.parts, family, mode)); });
+    c.names.forEach((n) => { em = Math.max(em, shiftNameEmAt(n.parts, family)); });
   })));
   return em;
 }
@@ -5882,10 +5880,9 @@ function shiftNameSpan(n) {
  *   計算だと「F」の印やすき間のぶんが合わず、その人だけはみ出していました。
  *   .shift-sheet-measure は、紙とおなじ組み方になるようにしてあります。
  */
-function shiftPrintEm(model, mode) {
+function shiftPrintEm(model) {
   const box = document.createElement('div');
-  box.className = 'shift-sheet-measure'
-    + (mode === 'one' ? ' shift-sheet-measure--one' : '');
+  box.className = 'shift-sheet-measure';
   const spans = [];
   const seen = {};
   model.blocks.forEach((b) => b.rows.forEach((r) => r.cells.forEach((c) => {
@@ -5941,15 +5938,25 @@ function shiftSlotNeed(model) {
  * ★two＝時刻を名前の上の段に出す（名前を大きくできる）
  *   one＝時刻と名前を1行に並べる（背が低いので、人の多い日に強い）
  */
-const SHIFT_ROW_EM = { two: 1.1 + SHIFT_TIME_SCALE * 1.0 + 0.35, one: 1.15 + 0.2 };
+const SHIFT_ROW_EM = 1.1 + SHIFT_TIME_SCALE * 1.0 + 0.35;
+
+/** 1人ぶんの高さ（ミリ）。名前の大きさ（ポイント）から出します */
+function shiftPersonMm(pt) {
+  return (pt * SHIFT_ROW_EM) / 2.8346;
+}
 
 /**
- * 2段が小さくなりすぎたときに、1行へ逃げる目安（ポイント）
+ * そのマスの名前の大きさ
  *
- * ★ふだんは必ず2段です。1つのマスに7人など、よほど多い日だけ
- *   2段では読めない大きさになるので、そのときだけ1行にします。
+ * ★人がたくさん入っているマスだけ、そのマスの中で小さくします。
+ *   前は「いちばん多いマス」に表ぜんぶを合わせていたので、
+ *   7人入る日が1つあるだけで、ほかの日まで小さくなっていました。
  */
-const SHIFT_TWO_FLOOR = 7;
+function shiftCellPt(pt, count, roomMm) {
+  if (count <= 0) return pt;
+  const fit = ((roomMm - 1.4) / count) * 2.8346 / SHIFT_ROW_EM;
+  return Math.max(4.5, Math.min(pt, fit));
+}
 
 /**
  * 印刷したときの、名前の大きさ（ポイント）と行の高さ（ミリ）
@@ -5973,47 +5980,26 @@ function shiftSheetMetrics(model, perDay) {
   const openNeed = Math.max(1, need[0] || 0);
   // ランチとディナーは、多いほうに合わせてそろえます
   const share = Math.max(3, need[1] || 0, need[2] || 0);
-  /**
-   * その並べ方でいける、名前の大きさと行の高さ
-   *
-   * ★立ち上げの行は「入っている人数ぶん」だけ取ります。前は割合で
-   *   分けていたので、1人しか入らない日でも背が高く、そのぶん
-   *   ランチとディナーが狭くなって名前が小さくなっていました。
-   * ★2回まわしているのは、立ち上げの高さが名前の大きさで決まり、
-   *   名前の大きさが残りの高さで決まる、という堂々めぐりのためです。
-   */
-  const pick = (mode) => {
-    const em = shiftPrintEm(model, mode);
-    // 1mm = 2.8346ポイント。0.97 は念のための余裕（けい線の太さと端末の丸め）
-    // 大きくても12pt。マスの幅がゆるすかぎり大きくします
-    const byWidth = em > 0 ? Math.min(12, (cellMm * 2.8346 / em) * 0.97) : 12;
-    const oneMm = SHIFT_ROW_EM[mode] / 2.8346;    // 1人ぶんのミリ／1ポイント
-    let pt = byWidth;
-    let openMm = 9;
-    let slotMm = 0;
-    for (let i = 0; i < 2; i += 1) {
-      openMm = Math.min(rowsMm * 0.3, Math.max(9, openNeed * pt * oneMm + 1.4));
-      slotMm = (rowsMm - openMm) / 2;
-      pt = Math.min(byWidth, (slotMm - 1.4) / (share * oneMm));
-    }
-    return { pt, openMm, slotMm };
-  };
+  // ★名前の大きさは「マスの幅」だけで決めます。高さでは減らしません。
+  //   高さが足りないマスは、そのマスの中だけ小さくします（shiftCellPt）。
+  const em = shiftPrintEm(model);
+  // 1mm = 2.8346ポイント。0.97 は念のための余裕（けい線の太さと端末の丸め）
+  // 大きくても12pt。マスの幅がゆるすかぎり大きくします
+  const pt = Math.max(5, Math.floor(
+    (em > 0 ? Math.min(12, (cellMm * 2.8346 / em) * 0.97) : 12) * 10,
+  ) / 10);
 
-  // ★ふだんは必ず2段です。1つのマスに人が多すぎて、2段では読めない
-  //   大きさになるときだけ、1行に逃げます
-  const two = pick('two');
-  let mode = 'two';
-  let box = two;
-  if (two.pt < SHIFT_TWO_FLOOR) {
-    const one = pick('one');
-    if (one.pt > two.pt + 0.5) { mode = 'one'; box = one; }
-  }
+  // 立ち上げの行は「入っている人数ぶん」だけ取り、残りをランチとディナーで
+  // 半分ずつ分けます（この2つは必ず同じ高さです）
+  const openMm = Math.min(rowsMm * 0.3, Math.max(9, openNeed * shiftPersonMm(pt) + 1.4));
+  const slotMm = (rowsMm - openMm) / 2;
 
   return {
-    mode,
-    pt: Math.max(5, Math.floor(box.pt * 10) / 10),
-    openMm: Math.round(box.openMm * 10) / 10,
-    slotMm: Math.round(box.slotMm * 10) / 10,
+    pt,
+    // その半月でいちばん多いマスの人数（何人まで入るかの目安に使います）
+    share,
+    openMm: Math.round(openMm * 10) / 10,
+    slotMm: Math.round(slotMm * 10) / 10,
   };
 }
 
@@ -6025,7 +6011,6 @@ function shiftSheetTable(block, perDay, size) {
     table.style.setProperty('--sheet-w', `${(block.head.length / perDay) * 100}%`);
   }
   if (size) {
-    if (size.mode === 'one') table.classList.add('shift-sheet--one');
     table.style.setProperty('--name-pt', `${size.pt}pt`);
     table.style.setProperty('--row-open', `${size.openMm}mm`);
     table.style.setProperty('--row-slot', `${size.slotMm}mm`);
@@ -6084,6 +6069,12 @@ function shiftSheetTable(block, perDay, size) {
         const cell = row.cells[i];
         i += 1;
         const td = document.createElement('td');
+        // ★人がたくさん入っているマスだけ、そのマスの中で小さくします
+        if (size) {
+          const room = ri === 0 ? size.openMm : size.slotMm;
+          const one = shiftCellPt(size.pt, cell.names.length + cell.short, room);
+          if (one < size.pt) td.style.setProperty('--name-pt', `${Math.floor(one * 10) / 10}pt`);
+        }
         // パティの枠は、キッチンとホールをまとめて桃色のふちで囲みます
         if (cell.patty) {
           td.classList.add('is-patty');
@@ -6290,15 +6281,11 @@ function drawShiftSheet(canvas, scale) {
   const gridW = W - pad * 2 - labelW;
   const colW = gridW / cols;
   // 名前が1行に収まる大きさ。紙と同じ考え方です（shiftSheetNamePt）
-  // ★並べ方は紙と同じにします（人の多い日は1行、ふだんは2段）
-  const mode = shiftSheetMetrics(model, perDay).mode;
-  const nameEm = shiftCanvasEm(model, SHEET_FONT, mode);
+  const nameEm = shiftCanvasEm(model, SHEET_FONT);
   const nameSize = Math.max(10, Math.min(21, nameEm ? ((colW - 12) / nameEm) * 0.98 : 21));
-  const timeSize = Math.max(8, nameSize * SHIFT_TIME_SCALE);
-  // 1人分の高さ
-  const lh = Math.round(mode === 'one'
-    ? nameSize * 1.35 + 4
-    : timeSize * 1.0 + nameSize * 1.1 + nameSize * 0.35);
+  // 1人分の高さ（時刻の段＋名前の段＋すきま）。紙と同じ配分です
+  const person = (size) => size * (1.0 + 1.1 + 0.35);
+  const lh = Math.round(person(nameSize));
 
   const center = (text, x, w, yy, size, bold, color) => {
     cx.fillStyle = color || '#111418';
@@ -6316,28 +6303,16 @@ function drawShiftSheet(canvas, scale) {
    *   1日ごとに出だしがずれて、表がガタガタに見えます。
    */
   const drawName = (parts, x, w, top, size) => {
-    let tx = x + 7;
+    const tx = x + 7;
     const room = w - 12;
     cx.textAlign = 'left';
     let base = top + size * 0.7;
-    if (mode === 'one') {
-      // 時刻と名前を1行に。時刻だけ小さくします
-      const small = Math.max(8, size * SHIFT_TIME_SCALE_ONE);
-      if (parts.time) {
-        cx.fillStyle = '#5b6169';
-        cx.font = font(small, false);
-        cx.fillText(parts.time, tx, base);
-        tx += cx.measureText(parts.time).width + size * 0.22;
-      }
-    } else {
-      // 時刻を名前の上の段に
-      const small = Math.max(8, size * SHIFT_TIME_SCALE);
-      if (parts.time) {
-        cx.fillStyle = '#5b6169';
-        cx.font = font(small, false);
-        cx.fillText(parts.time, tx, top + small * 0.7, room);
-        base = top + small * 1.0 + size * 0.6;
-      }
+    // 時刻は名前の上の段に、同じ大きさで（色だけうすく）
+    if (parts.time) {
+      cx.fillStyle = '#5b6169';
+      cx.font = font(size, false);
+      cx.fillText(parts.time, tx, top + size * 0.7, room);
+      base = top + size * 1.0 + size * 0.6;
     }
     cx.fillStyle = '#111418';
     cx.font = font(size, false);
@@ -6472,29 +6447,34 @@ function drawShiftSheet(canvas, scale) {
             cx.lineWidth = 2.5;
             cx.strokeRect(x + 1.5, y + 1.5, w2 - 3, rowH - 3);
           }
+          // ★人がたくさん入っているマスだけ、そのマスの中で小さくします
+          const count = cell.names.length + cell.short;
+          const fit = count > 0 ? (rowH - 6) / count : lh;
+          const cellSize = fit < lh ? Math.max(7, nameSize * (fit / lh)) : nameSize;
+          const cellLh = fit < lh ? fit : lh;
           cell.names.forEach((n, ni) => {
-            const top = y + 3 + ni * lh;
-            if (top + lh > y + rowH) return;    // 入りきらない分は出しません
+            const top = y + 3 + ni * cellLh;
+            if (top + cellLh > y + rowH + 1) return;   // 入りきらない分は出しません
             // ★塗りもふちも、マスの幅いっぱいに引きます。字のまわりだけだと
             //   橙のふちが時刻の数字にかぶります（紙の表と同じ考え方です）
             if (n.full) {
               cx.fillStyle = '#dcdfe3';
-              cx.fillRect(x + 1, top, colW - 2, lh - 4);
+              cx.fillRect(x + 1, top, colW - 2, cellLh - 4);
             }
             // 早上がりは橙のふち。塗りの上から描くので、通しでも分かります
             if (n.early) {
               cx.strokeStyle = '#d98324';
               cx.lineWidth = 2;
-              cx.strokeRect(x + 2, top + 1, colW - 4, lh - 6);
+              cx.strokeRect(x + 2, top + 1, colW - 4, cellLh - 6);
             }
-            drawName(n.parts, x, colW, top + 2, nameSize);
+            drawName(n.parts, x, colW, top + 2, cellSize);
           });
           // 足りない人数のぶんだけ、名前の下に赤いあきを描きます
           for (let k = 0; k < cell.short; k += 1) {
-            const top = y + 3 + (cell.names.length + k) * lh;
-            if (top + lh > y + rowH) break;
+            const top = y + 3 + (cell.names.length + k) * cellLh;
+            if (top + cellLh > y + rowH + 1) break;
             cx.fillStyle = '#f2c4c4';
-            cx.fillRect(x + 1, top, colW - 2, lh - 4);
+            cx.fillRect(x + 1, top, colW - 2, cellLh - 4);
           }
         });
       });

@@ -1542,14 +1542,6 @@ function shiftNameText(slotId, entry) {
  */
 const SHIFT_TIME_SCALE = 1;
 
-/**
- * 1行に並べるとき（人の多い日）の、時刻の大きさ
- *
- * ★こちらは時刻と名前が横にならぶので、同じ大きさにすると
- *   名前がそのぶん小さくなります。少しだけ小さくします。
- *   css の .shift-sheet--one .shift-sheet__at と同じ数にすること。
- */
-const SHIFT_TIME_SCALE_ONE = 0.85;
 
 /** F（通し）の人の名前のうしろに付く「 F」のぶんの幅 */
 const SHIFT_FULL_MARK_EM = 0.9;
