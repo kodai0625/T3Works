@@ -328,6 +328,34 @@ function dayCard(dateStr) {
   });
   card.appendChild(slots);
 
+  // ★立ち上げを押した人には、そのあとを聞きます。
+  //   立ち上げだけ出して帰る人はいないので、ランチだけか通しかを
+  //   ここで決めてもらいます（あとから組むときの聞き直しが減ります）
+  if (mine.some((e) => e.s === 'open')) {
+    const row = document.createElement('div');
+    row.className = 'after';
+    const label = document.createElement('span');
+    label.className = 'after__label';
+    label.textContent = '立ち上げのあとは？';
+    row.appendChild(label);
+
+    const btns = document.createElement('div');
+    btns.className = 'after__btns';
+    [
+      { id: 'lunch', name: 'ランチだけ' },
+      { id: SHIFT_FULL_ID, name: 'F（通し）' },
+    ].forEach((a) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'after__btn' + (mine.some((e) => e.s === a.id) ? ' is-on' : '');
+      b.textContent = a.name;
+      b.addEventListener('click', () => setAfterOpen(dateStr, a.id));
+      btns.appendChild(b);
+    });
+    row.appendChild(btns);
+    card.appendChild(row);
+  }
+
   // えらんだ枠だけ、開始時刻を出します。
   // F と立ち上げは、こちらで決めるので出しません（askTime: false）
   mine.forEach((entry) => {
@@ -376,15 +404,32 @@ function toggleSlot(dateStr, slotId) {
   const i = list.findIndex((e) => e.s === slotId);
   if (i >= 0) {
     list.splice(i, 1);
+    // 立ち上げを消したら、「そのあと」の聞きかけも消えるので、
+    // ランチ／Fはそのまま残します（そこだけで入りたい人もいるため）
   } else {
     // F はランチとディナーの両方に入るという意味なので、一緒にはえらべません
     const clash = shiftClashes(slotId);
     list = list.filter((e) => !clash.includes(e.s));
     list.push({ s: slotId, t: shiftDefaultTime(slotId) });
+    // 立ち上げを押したときは、いちばん多い「そのままランチ」を先に入れておきます。
+    // 通しの人は、下の「F（通し）」を押せば入れかわります
+    if (slotId === 'open' && !list.some((e) => e.s === 'lunch' || e.s === SHIFT_FULL_ID)) {
+      list.push({ s: 'lunch', t: shiftDefaultTime('lunch') });
+    }
   }
 
   if (list.length) picked[dateStr] = list;
   else delete picked[dateStr];
+  renderPeriod();
+}
+
+/** 立ち上げのあと、ランチだけか通しかを決める */
+function setAfterOpen(dateStr, pickId) {
+  let list = (picked[dateStr] || []).slice();
+  // ランチ・ディナー・F をいったん外してから、えらんだほうを入れます
+  list = list.filter((e) => e.s !== 'lunch' && e.s !== 'dinner' && e.s !== SHIFT_FULL_ID);
+  list.push({ s: pickId, t: shiftDefaultTime(pickId) });
+  picked[dateStr] = list;
   renderPeriod();
 }
 
