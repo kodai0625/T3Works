@@ -3162,15 +3162,26 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
      1マス17.9mmでは名前が6ptほどになって読めませんでした。 */
 .shift-sheet__name {
   display: block; white-space: nowrap; text-align: left;
-  margin-bottom: .3em;
+  margin-bottom: .22em;
 }
 .shift-sheet__name:last-child { margin-bottom: 0; }
 .shift-sheet__at {
   display: block; font-style: normal;
-  font-size: .62em; line-height: 1.15;
+  font-size: .62em; line-height: 1.05;
   color: var(--text-sub);
 }
-.shift-sheet__who { display: block; font-weight: 600; line-height: 1.2; }
+.shift-sheet__who { display: block; font-weight: 600; line-height: 1.15; }
+
+/* ★人の多い日は、2段だとかえって名前が小さくなります。
+   そのときは時刻と名前を1行に並べます（js が中身を見て決めます）。
+   「測り場」と同じ指定を並べて書くこと（片方だけ直すと幅がずれます） */
+.shift-sheet-measure--one .shift-sheet__at,
+.shift-sheet--one .shift-sheet__at {
+  display: inline; margin-right: .22em; font-size: .72em;
+}
+.shift-sheet-measure--one .shift-sheet__who,
+.shift-sheet--one .shift-sheet__who { display: inline; }
+.shift-sheet--one .shift-sheet__name { margin-bottom: .2em; }
 
 /* -------- 紙に出すときの、1人分の組み方 --------
    ★「測り場」と「紙」で同じ指定にしてあります。
@@ -3269,9 +3280,11 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   /* 1行ぶんの高さ。元の表と同じで、立ち上げ1に対してランチとディナーが3です */
   body.print-shift .shift-sheet tr:nth-child(1) th { height: 6.5mm; font-size: 10pt; }
   body.print-shift .shift-sheet tr:nth-child(2) th { height: 4mm; }
-  body.print-shift .shift-sheet tr:nth-child(3) td { height: 10mm; }
+  /* ★行の高さは js が中身から決めます（shiftSheetMetrics）。
+     ランチとディナーは同じ高さです */
+  body.print-shift .shift-sheet tr:nth-child(3) td { height: var(--row-open, 10mm); }
   body.print-shift .shift-sheet tr:nth-child(4) td,
-  body.print-shift .shift-sheet tr:nth-child(5) td { height: 28mm; }
+  body.print-shift .shift-sheet tr:nth-child(5) td { height: var(--row-slot, 28mm); }
   /* メモは長くなることがあるので、ここだけ折り返させます（高さは下に伸びます） */
   body.print-shift .shift-sheet tr:last-child td { height: 5.5mm; white-space: normal; }
   /* 「メモ」の見出しは横書きのまま。5mm の列に1行で入る大きさにします */
