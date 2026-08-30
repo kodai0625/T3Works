@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=e04e5012">
-<meta name="app-version" content="57a3a1b7">
+<link rel="stylesheet" href="../css/style.css?v=1790cadb">
+<meta name="app-version" content="aa098164">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -938,6 +938,7 @@
         <button type="button" class="btn btn--primary" id="shiftOpenBtn">シフト募集を始める</button>
         <button type="button" class="btn" id="shiftWishBtn">提出を見る</button>
         <button type="button" class="btn" id="shiftTakeBtn">希望を取り込む</button>
+        <button type="button" class="btn" id="shiftPastBtn">これまでのシフト表</button>
       </div>
     </div>
 
@@ -1153,6 +1154,19 @@
   </div>
 </div>
 
+<!-- ===== シフト：これまでのシフト表 ===== -->
+<div class="modal is-hidden" id="shiftPastModal">
+  <div class="modal__backdrop" data-shift-past-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="shiftPastTitle">
+    <h2 class="modal__title" id="shiftPastTitle">これまでのシフト表</h2>
+    <p class="modal__note">確定したシフトが、新しい順に出ます。押すとその期間を開きます。</p>
+    <div class="past-list" id="shiftPastList"></div>
+    <div class="modal__actions modal__actions--confirm">
+      <button type="button" class="btn" data-shift-past-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal is-hidden" id="doerModal">
   <div class="modal__backdrop" data-doer-close></div>
   <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="doerTitle">
@@ -1265,6 +1279,6 @@
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=78ed94da"></script>
-<script src="../js/app.js?v=4f46881b"></script>
+<script src="../js/app.js?v=c885abc4"></script>
 </body>
 </html>

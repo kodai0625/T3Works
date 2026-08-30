@@ -297,6 +297,159 @@ function renderBuilt() {
   });
 }
 
+/* -------- 決まったシフトを、絵にして持ち帰る --------
+ *
+ *  組む画面の表は横長で、スマホでは字が小さくなりすぎます。
+ *  ここでは日付を縦に並べた形で描きます（画面に出ているのと同じ形）。
+ */
+const BUILT_IMG = { w: 1080, pad: 30, slotW: 150, lh: 46, gap: 14, scale: 2 };
+
+function builtFont(size, bold) {
+  return `${bold ? '700 ' : ''}${size}px -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif`;
+}
+
+/** 描く前に、行の組み方だけ先に決めます（高さを知るため） */
+function builtLayout(measure) {
+  const bodyW = BUILT_IMG.w - BUILT_IMG.pad * 2 - BUILT_IMG.slotW - 14;
+  const blocks = [];
+  shiftDays(period.y, period.m, period.half).forEach((dateStr) => {
+    const [, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
+    const day = built[dateStr];
+    const block = { date: `${m}/${d}（${DOW[dow]}）`, dow, rows: [] };
+
+    if (isClosedOn(dateStr)) {
+      block.rows.push({ slot: '', kind: '', names: [{ t: '定休日', me: false }] });
+    } else {
+      SHIFT_SLOTS.forEach((slot) => {
+        const list = (day && day[slot.id]) || [];
+        if (!list.length) return;
+        measure.font = builtFont(30, false);
+        const people = list.map((e) => ({
+          t: shiftNameText(slot.id, e) + (e.f ? ' F' : ''),
+          me: e.n === me.name,
+        }));
+        // 幅からはみ出す前に、次の行へ折り返します
+        const lines = [];
+        let cur = [];
+        let w = 0;
+        people.forEach((one) => {
+          const ww = measure.measureText(`${one.t}　`).width;
+          if (cur.length && w + ww > bodyW) { lines.push(cur); cur = []; w = 0; }
+          cur.push(one);
+          w += ww;
+        });
+        if (cur.length) lines.push(cur);
+        lines.forEach((ln, i) => block.rows.push({
+          slot: i === 0 ? slot.name : '', kind: slot.id, names: ln,
+        }));
+      });
+      if (!block.rows.length) block.rows.push({ slot: '', kind: '', names: [{ t: '—', me: false }] });
+      if (day && day.memo) block.rows.push({ slot: 'メモ', kind: 'memo', names: [{ t: day.memo, me: false }] });
+    }
+    blocks.push(block);
+  });
+  return blocks;
+}
+
+function drawBuiltImage() {
+  const P = BUILT_IMG;
+  const probe = document.createElement('canvas').getContext('2d');
+  const blocks = builtLayout(probe);
+
+  const headH = 118;
+  let H = P.pad + headH;
+  blocks.forEach((b) => { H += 44 + b.rows.length * P.lh + P.gap; });
+  H += P.pad;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = P.w * P.scale;
+  canvas.height = Math.round(H) * P.scale;
+  const cx = canvas.getContext('2d');
+  cx.setTransform(P.scale, 0, 0, P.scale, 0, 0);
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, P.w, H);
+  cx.textBaseline = 'middle';
+
+  cx.fillStyle = '#111418';
+  cx.font = builtFont(40, true);
+  cx.fillText(`${shiftRangeLabel(period.y, period.m, period.half)} のシフト`, P.pad, P.pad + 28);
+  cx.fillStyle = '#5b6169';
+  cx.font = builtFont(26, false);
+  cx.fillText(`${me.name}さん`, P.pad, P.pad + 76);
+
+  let y = P.pad + headH;
+  blocks.forEach((b) => {
+    cx.fillStyle = b.dow === 0 ? '#c0392b' : b.dow === 6 ? '#33509a' : '#111418';
+    cx.font = builtFont(30, true);
+    cx.fillText(b.date, P.pad, y + 20);
+    y += 44;
+
+    b.rows.forEach((row) => {
+      if (row.slot) {
+        cx.fillStyle = '#5b6169';
+        cx.font = builtFont(25, true);
+        cx.fillText(row.slot, P.pad + 8, y + P.lh / 2);
+      }
+      let x = P.pad + P.slotW;
+      row.names.forEach((one) => {
+        cx.fillStyle = '#111418';
+        cx.font = builtFont(30, one.me);
+        cx.fillText(one.t, x, y + P.lh / 2);
+        x += cx.measureText(`${one.t}　`).width;
+      });
+      y += P.lh;
+    });
+
+    cx.strokeStyle = '#e2e5e9';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(P.pad, y + P.gap / 2);
+    cx.lineTo(P.w - P.pad, y + P.gap / 2);
+    cx.stroke();
+    y += P.gap;
+  });
+
+  return canvas;
+}
+
+/** 絵にして、共有か保存に渡します */
+async function saveBuiltImage() {
+  if (!built || !period) return;
+  const btn = el('builtSave');
+  const before = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '作っています…';
+  try {
+    const canvas = drawBuiltImage();
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.95));
+    if (!blob) throw new Error('絵が作れませんでした');
+    const name = `シフト_${shiftRangeLabel(period.y, period.m, period.half).replace(/[/〜]/g, '-')}.jpg`;
+    const file = new File([blob], name, { type: 'image/jpeg' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name });
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (e) {
+    el('builtSaveNote').textContent = '保存できませんでした。もう一度おためしください。';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = before;
+  }
+}
+
 function renderDays() {
   el('days').innerHTML = '';
   shiftDays(period.y, period.m, period.half).forEach((dateStr) => {
@@ -553,6 +706,7 @@ async function boot() {
   bindHalfWidthInput(el('gatePin'), 'code');
   el('send').addEventListener('click', send);
   el('signOut').addEventListener('click', signOut);
+  el('builtSave').addEventListener('click', saveBuiltImage);
   el('bootRetry').addEventListener('click', () => {
     el('bootText').textContent = '読み込んでいます…';
     el('bootSpin').classList.remove('is-hidden');

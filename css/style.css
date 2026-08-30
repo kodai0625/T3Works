@@ -3155,7 +3155,7 @@ body[data-mode="mine"] .nippou.mine-only { display: block; }
 .shift-sheet th.is-sun { color: var(--ng); }
 .shift-sheet th.is-sat { color: var(--shift-dinner); }
 /* 日付と曜日は1行にまとめたので、別行のスタイルは使いません */
-/* ★名前と時刻だけ左よせ。名前の長さがまちまちなので、真ん中ぞろえだと
+/* ★名前と時刻だけ左よせ。名前の長さがそろっていないので、真ん中ぞろえだと
    1日ごとに出だしがずれて、表がガタガタに見えます。
    日付・持ち場・定休日・メモは、今までどおり真ん中ぞろえです */
 .shift-sheet__name { display: block; white-space: nowrap; text-align: left; }
@@ -3334,6 +3334,23 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
    組んだ表では「ランチ」の枠にだけ名前が出ます。ディナーには出しません。
    今のスプレッドシートでランチのセルをグレーに塗っているのと同じ意味なので、
    こちらも塗りつぶしで見せます（色だけに頼らないよう、印刷の表には F も付けます） */
+/* これまでのシフト表の一覧 */
+.past-list { display: grid; gap: 8px; margin-bottom: 14px; max-height: 52vh; overflow-y: auto; }
+.past-item {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text);
+  font: inherit; text-align: left; padding: 11px 13px; cursor: pointer;
+}
+.past-item b { font-size: 15px; font-weight: 800; }
+.past-item span { font-size: 12.5px; color: var(--text-sub); }
+.past-item:active { background: var(--surface-2); }
+
+/* 通し（F）の印。組む画面の札のうしろに付けます */
+.chip-f {
+  margin-left: 6px; font-weight: 800; font-size: .9em;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+}
 .shift-chip.is-full,
 .doer-btn.is-full {
   background: color-mix(in srgb, var(--text) 14%, var(--surface-2));
@@ -3350,8 +3367,9 @@ body.print-shift .shift-sheet__name.is-full::after { font-size: .85em; }
 .shift-sheet__name.is-full::after {
   content: ' F';
   font-size: 9.5px;
-  font-weight: 700;
-  color: var(--text-sub);
+  font-weight: 800;
+  /* ★灰色の塗りの上に出るので、薄いと紙で読めません。濃い色にします */
+  color: var(--text);
 }
 
 /* 枠の名前が「立ち上げ」「ディナー」と4文字になったので、少し広げます */

@@ -151,6 +151,8 @@ const el = {
   shiftWishModal: $('shiftWishModal'), shiftWishWhen: $('shiftWishWhen'),
   shiftWishList: $('shiftWishList'),
   shiftSheetModal: $('shiftSheetModal'), shiftSheetTitle: $('shiftSheetTitle'),
+  shiftPastBtn: $('shiftPastBtn'), shiftPastModal: $('shiftPastModal'),
+  shiftPastList: $('shiftPastList'),
   shiftSheet: $('shiftSheet'), shiftPrintBtn: $('shiftPrintBtn'),
   shiftPrintNote: $('shiftPrintNote'),
   shiftPdfBtn: $('shiftPdfBtn'), shiftJpegBtn: $('shiftJpegBtn'),
@@ -5157,6 +5159,13 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     chip.type = 'button';
     chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
     chip.textContent = shiftNameText(slot.id, e);
+    // ★通しの人は名前のうしろに F。塗りだけだと、ぱっと見て分かりません
+    if (e.f) {
+      const mark = document.createElement('b');
+      mark.className = 'chip-f';
+      mark.textContent = 'F';
+      chip.appendChild(mark);
+    }
     const note = [e.f ? 'F（ランチからディナーまで通し）' : '', e.early ? '早上がり' : ''].filter(Boolean);
     if (note.length) chip.title = note.join('・');
     chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
@@ -6008,6 +6017,58 @@ function shiftSheetTable(block, perDay, namePt) {
   return table;
 }
 
+/* -------- これまでのシフト表 -------- */
+
+/**
+ * 確定ずみの半月を、新しい順に返します
+ *
+ * ★キーは '_shift/baguru-2026-09-1' の形なので、
+ *   店舗のぶんだけ拾って、年・月・前後半に読み直します。
+ */
+function shiftBuiltPeriods() {
+  const all = Store.adapter.dump() || {};
+  const head = `${SHIFT_STORE}/${state.storeId}-`;
+  const out = [];
+  Object.keys(all).forEach((k) => {
+    if (k.indexOf(head) !== 0) return;
+    const hit = k.slice(head.length).match(/^(\d{4})-(\d{2})-([12])$/);
+    if (!hit) return;
+    if (shiftPhaseOf(all[k] || {}) !== SHIFT_BUILT) return;
+    out.push({ y: Number(hit[1]), m: Number(hit[2]), half: Number(hit[3]) });
+  });
+  out.sort((a, b) => (b.y - a.y) || (b.m - a.m) || (b.half - a.half));
+  return out;
+}
+
+function openShiftPast() {
+  const list = shiftBuiltPeriods();
+  el.shiftPastList.innerHTML = '';
+  if (!list.length) {
+    el.shiftPastList.innerHTML = '<p class="modal__note">確定したシフトは、まだありません。</p>';
+  }
+  list.forEach((p) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'past-item';
+    const main = document.createElement('b');
+    main.textContent = shiftRangeLabel(p.y, p.m, p.half);
+    const sub = document.createElement('span');
+    sub.textContent = `${p.y}年${p.m}月 ${p.half === 1 ? '前半' : '後半'}`;
+    b.append(main, sub);
+    b.addEventListener('click', () => {
+      closeShiftPast();
+      shiftGo(p.y, p.m, p.half);
+      openShiftSheet();
+    });
+    el.shiftPastList.appendChild(b);
+  });
+  el.shiftPastModal.classList.remove('is-hidden');
+}
+
+function closeShiftPast() {
+  el.shiftPastModal.classList.add('is-hidden');
+}
+
 /**
  * iPhone や iPad か
  *
@@ -6140,7 +6201,7 @@ function drawShiftSheet(canvas, scale) {
     const tw = parts.time ? cx.measureText(parts.time).width + size * 0.22 : 0;
     cx.font = font(size, false);
     const nw = cx.measureText(parts.name).width;
-    // ★左よせ。名前の長さがまちまちなので、真ん中ぞろえだと
+    // ★左よせ。名前の長さがそろっていないので、真ん中ぞろえだと
     //   1日ごとに出だしがずれて、表がガタガタに見えます
     const tx0 = x + 7;
     let tx = tx0;
@@ -6153,7 +6214,8 @@ function drawShiftSheet(canvas, scale) {
     cx.fillText(parts.name, tx, yy, x + w - 5 - tx);
     // F（通し）の印。塗りだけでなく字でも分かるようにします（紙の表と同じ）
     if (parts.full) {
-      cx.fillStyle = '#5b6169';
+      // ★灰色の塗りの上に出るので、薄いと読めません。濃い色で書きます
+      cx.fillStyle = '#111418';
       cx.font = font(size * 0.85, true);
       cx.fillText(' F', tx + nw, yy);
     }
@@ -6464,8 +6526,11 @@ function makePdf(jpeg, w, h) {
   const mark = () => { offsets.push(len); };
 
   const PW = 842, PH = 595;   // A4横（ポイント）
-  // 紙いっぱいに、縦横の比を保って入れます
-  const scale = Math.min(PW / w, PH / h);
+  // ★紙のふちまで使うと、プリンタが刷れないところにかかって
+  //   右と下が切れます。18ポイント（約6.4mm）あけます
+  const M = 18;
+  // 残りいっぱいに、縦横の比を保って入れます
+  const scale = Math.min((PW - M * 2) / w, (PH - M * 2) / h);
   const dw = w * scale;
   const dh = h * scale;
   const dx = (PW - dw) / 2;
@@ -6940,6 +7005,9 @@ function bindEvents() {
   el.shiftPickShort.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) applyShiftShort(); });
   bindHalfWidthInput(el.shiftPickShort, 'code');
   el.shiftPrintBtn.addEventListener('click', printShiftSheet);
+  el.shiftPastBtn.addEventListener('click', openShiftPast);
+  document.querySelectorAll('[data-shift-past-close]')
+    .forEach((b) => b.addEventListener('click', closeShiftPast));
   document.querySelectorAll('[data-shift-pick-close]')
     .forEach((b) => b.addEventListener('click', closeShiftPick));
   document.querySelectorAll('[data-shift-wish-close]')
