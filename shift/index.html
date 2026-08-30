@@ -4,20 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>シフト提出</title>
+<title>バグる シフト提出</title>
 
 <!-- ホーム画面に追加したときの名前とアイコン。
-     アイコンの下に出るのは short_name の「シフト」です -->
+     ★iPhoneが「追加」の画面に先に入れてくれる名前は
+       apple-mobile-web-app-title です。ここを「バグる シフト提出」に
+       しておくと、打ち直さなくてもその名前で追加できます。
+       （アイコンの下は幅が狭いので、実際には途中までしか出ません） -->
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="シフト">
+<meta name="apple-mobile-web-app-title" content="バグる シフト提出">
 <meta name="theme-color" content="#bf5480">
 <link rel="apple-touch-icon" href="../img/shift-icon-180.png?v=68ba81bc">
 <link rel="icon" href="../img/shift-icon-64.png?v=0937bb3b">
 
 <link rel="stylesheet" href="css/submit.css?v=1db47e58">
-<meta name="app-version" content="a1a1215d">
+<meta name="app-version" content="f1fb123b">
 </head>
 <body>
 
@@ -89,7 +92,8 @@
       <div class="built" id="builtList"></div>
       <button type="button" class="btn btn--wide" id="builtSave">画像で保存する</button>
       <p class="card__note" id="builtSaveNote">
-        写真やファイルに残しておけます。LINEに送ることもできます。
+        お店が印刷しているのと同じシフト表を、写真やファイルに残せます。
+        LINEに送ることもできます。
       </p>
     </div>
 
@@ -118,6 +122,8 @@
 </main>
 
 <script src="../js/config.js?v=7755846d"></script>
-<script src="js/submit.js?v=33e46105"></script>
+<!-- シフト表を絵に描くところ。ワークスの「JPEGで保存」と同じものです -->
+<script src="../js/shift-sheet.js?v=a35e5f7b"></script>
+<script src="js/submit.js?v=8ed9de6a"></script>
 </body>
 </html>
