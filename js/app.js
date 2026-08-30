@@ -145,7 +145,7 @@ const el = {
   shiftPickEarlyOn: $('shiftPickEarlyOn'), shiftPickEarlyOff: $('shiftPickEarlyOff'),
   shiftPickFullOn: $('shiftPickFullOn'), shiftPickFullOff: $('shiftPickFullOff'),
   shiftPickShortField: $('shiftPickShortField'),
-  shiftPickShortOn: $('shiftPickShortOn'), shiftPickShortOff: $('shiftPickShortOff'),
+  shiftPickShort: $('shiftPickShort'), shiftPickShortGo: $('shiftPickShortGo'),
   shiftPickNameField: $('shiftPickNameField'),
   shiftPickNames: $('shiftPickNames'), shiftPickRemove: $('shiftPickRemove'),
   shiftWishModal: $('shiftWishModal'), shiftWishWhen: $('shiftWishWhen'),
@@ -4663,8 +4663,8 @@ function shiftDayOf(rec, dateStr) {
     memo: v.memo || '',
     // その日のパティの枠（'lunch' か 'dinner'。無ければ空）
     patty: SHIFT_PATTY_SLOTS.includes(v.patty) ? v.patty : '',
-    // 人が足りないマス（'dinner|k' の形。赤く塗ります）
-    short: Array.isArray(v.short) ? v.short.filter((x) => typeof x === 'string') : [],
+    // 人が足りないマス（'dinner|k' → あと何人ほしいか）。その人数だけ赤く出します
+    short: shiftShortMap(v.short),
   };
 }
 
@@ -4682,7 +4682,7 @@ function saveShiftDay(dateStr, day) {
   Store.setItem(SHIFT_STORE, shiftRecKey(), shiftDayKey(dateStr), {
     open: day.open, lunch: day.lunch, dinner: day.dinner,
     memo: day.memo, patty: day.patty || '',
-    short: Array.isArray(day.short) ? day.short : [],
+    short: shiftShortMap(day.short),
   });
 }
 
@@ -5149,8 +5149,6 @@ function shiftGridBlock(rec, wishes, days) {
 function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   const td = document.createElement('td');
   td.className = 'shift-cell';
-  // 人が足りないマスは赤く塗ります（元のシフト表と同じ見せ方です）
-  if (day.short.includes(shiftShortKey(slot.id, lane.id))) td.classList.add('is-short');
 
   day[slot.id].forEach((e, i) => {
     if (shiftLaneOf(e) !== lane.id) return;
@@ -5163,6 +5161,16 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
     td.appendChild(chip);
   });
+
+  // ★あと何人ほしいか。人数のぶんだけ、赤いあきを名前の下に出します
+  //   （元のシフト表で、足りないところのマスを赤く塗っているのと同じ意味です）
+  const short = shiftShortOf(day, slot.id, lane.id);
+  for (let k = 0; k < short; k += 1) {
+    const gap = document.createElement('span');
+    gap.className = 'shift-short';
+    gap.title = `あと${short}人ほしい`;
+    td.appendChild(gap);
+  }
 
   // まだ入れていない希望の数。押す前に「あと何人いる」が分かるように、
   // 左の持ち場にだけ出します（両方に出すと二重に数えたように見えます）。
@@ -5351,12 +5359,11 @@ function renderShiftPick() {
     el.shiftPickEarlyOn.classList.toggle('is-on', !!entry.early);
   }
 
-  /* 人が足りないマス。マスに付く印なので、人を足すときだけ出します */
+  /* 人が足りないマス。マスに付くものなので、人を足すときだけ出します */
   el.shiftPickShortField.classList.toggle('is-hidden', index !== null);
   if (index === null) {
-    const on = day.short.includes(shiftShortKey(slotId, shiftPickAt.laneId));
-    el.shiftPickShortOff.classList.toggle('is-on', !on);
-    el.shiftPickShortOn.classList.toggle('is-on', on);
+    const n = shiftShortOf(day, slotId, shiftPickAt.laneId);
+    el.shiftPickShort.value = n ? String(n) : '';
   }
 
   /* 名前 */
@@ -5514,15 +5521,18 @@ function setShiftEarly(on) {
   render();
 }
 
-/** 「このマスはまだ人がほしい」を切り替える */
-function setShiftShort(on) {
+/** 「あと何人ほしいか」を書き入れる */
+function applyShiftShort() {
   if (!shiftPickAt) return;
   const { dateStr, slotId, laneId } = shiftPickAt;
+  // 全角の数字で打たれても読めるようにします
+  const raw = toHalfWidthNumber(String(el.shiftPickShort.value || '')).trim();
+  // 空っぽや0は「足りている」の意味にします
+  const n = Math.min(SHIFT_SHORT_MAX, Math.max(0, Math.floor(Number(raw)) || 0));
   const now = shiftDayOf(shiftRec(), dateStr);
   const key = shiftShortKey(slotId, laneId);
-  const i = now.short.indexOf(key);
-  if (on && i < 0) now.short.push(key);
-  if (!on && i >= 0) now.short.splice(i, 1);
+  if (n > 0) now.short[key] = n;
+  else delete now.short[key];
   saveShiftDay(dateStr, now);
   closeShiftPick();
   render();
@@ -5732,7 +5742,7 @@ function shiftSheetModel() {
         return SHIFT_LANES.map((lane) => ({
           closed: shiftClosedOn(s),
           patty: day.patty === slot.id,
-          short: day.short.includes(shiftShortKey(slot.id, lane.id)),
+          short: shiftShortOf(day, slot.id, lane.id),
           names: shiftClosedOn(s) ? [] : day[slot.id]
             .filter((e) => shiftLaneOf(e) === lane.id)
             .map((e) => ({
@@ -5933,7 +5943,6 @@ function shiftSheetTable(block, perDay, namePt) {
         const cell = row.cells[i];
         i += 1;
         const td = document.createElement('td');
-        if (cell.short) td.classList.add('is-short');
         // パティの枠は、キッチンとホールをまとめて桃色のふちで囲みます
         if (cell.patty) {
           td.classList.add('is-patty');
@@ -5944,6 +5953,13 @@ function shiftSheetTable(block, perDay, namePt) {
         //   ランチのセルを塗りつぶしているのと同じ意味です。
         //   早上がりの人は、そのうえに橙のふちを付けます
         cell.names.forEach((n) => td.appendChild(shiftNameSpan(n)));
+        // 足りない人数のぶんだけ、赤いあきを名前の下に出します
+        for (let k = 0; k < cell.short; k += 1) {
+          const gap = document.createElement('span');
+          gap.className = 'shift-sheet__name is-short';
+          gap.textContent = '\u00a0';
+          td.appendChild(gap);
+        }
         tr.appendChild(td);
       });
     });
@@ -6081,8 +6097,17 @@ function drawShiftSheet(canvas) {
   const blocks = model.blocks.length || 1;
   const fixed = (dateH + laneH + memoH) * blocks + gapBlocks * (blocks - 1);
   // ★元のスプレッドシートと同じ配分です。立ち上げは1人、
-  //   ランチとディナーは3人ぶん入る高さにします
-  const weight = SHIFT_SLOTS.map((slot) => (slot.id === 'open' ? 1 : 3));
+  //   ランチとディナーは3人ぶん入る高さにします。
+  //   それより多く入っている日（足りない人数の赤いあきも数に入れます）は、
+  //   その日に合わせて広げます（そうしないと下が切れます）
+  const weight = SHIFT_SLOTS.map((slot, si) => {
+    let need = 0;
+    model.blocks.forEach((b) => {
+      const row = b.rows[si];
+      if (row) row.cells.forEach((c) => { need = Math.max(need, c.names.length + c.short); });
+    });
+    return Math.max(need, slot.id === 'open' ? 1 : 3);
+  });
   const unit = weight.reduce((a, b) => a + b, 0);
   const room = Math.max(unit * (lh + 8), H - y - pad - fixed);
   const slotH = SHIFT_SLOTS.map((slot, i) => (room / blocks) * (weight[i] / unit));
@@ -6132,11 +6157,6 @@ function drawShiftSheet(canvas) {
           const cell = row.cells[i];
           i += 1;
           const x = x0 + colW * (SHIFT_LANES.length * di + li);
-          // 人が足りないマス。元のシフト表と同じ、うすい赤で塗ります
-          if (cell.short) {
-            cx.fillStyle = '#f6d3d3';
-            cx.fillRect(x, y, colW, rowH);
-          }
           // パティの枠は、キッチンとホールをまたいで1つの四角で囲みます
           // （持ち場ごとに描くと、あいだに縦線が入ってしまいます）
           if (cell.patty && li === 0) {
@@ -6160,6 +6180,13 @@ function drawShiftSheet(canvas) {
             }
             drawName(n.parts, x, colW, ty, nameSize);
           });
+          // 足りない人数のぶんだけ、名前の下に赤いあきを描きます
+          for (let k = 0; k < cell.short; k += 1) {
+            const ty = y + lh / 2 + 4 + (cell.names.length + k) * lh;
+            if (ty > y + rowH - 4) break;
+            cx.fillStyle = '#f2c4c4';
+            cx.fillRect(x + 3, ty - lh / 2, colW - 6, lh - 3);
+          }
         });
       });
       y += rowH;
@@ -6804,8 +6831,9 @@ function bindEvents() {
   el.shiftPickEarlyOff.addEventListener('click', () => setShiftEarly(false));
   el.shiftPickFullOn.addEventListener('click', () => setShiftFull(true));
   el.shiftPickFullOff.addEventListener('click', () => setShiftFull(false));
-  el.shiftPickShortOn.addEventListener('click', () => setShiftShort(true));
-  el.shiftPickShortOff.addEventListener('click', () => setShiftShort(false));
+  el.shiftPickShortGo.addEventListener('click', applyShiftShort);
+  el.shiftPickShort.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) applyShiftShort(); });
+  bindHalfWidthInput(el.shiftPickShort, 'code');
   el.shiftPrintBtn.addEventListener('click', () => window.print());
   document.querySelectorAll('[data-shift-pick-close]')
     .forEach((b) => b.addEventListener('click', closeShiftPick));

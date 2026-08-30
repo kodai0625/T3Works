@@ -1364,6 +1364,35 @@ function shiftShortKey(slotId, laneId) {
   return `${slotId}|${laneId}`;
 }
 
+/** 1つのマスで足りないと書ける、いちばん多い人数 */
+const SHIFT_SHORT_MAX = 9;
+
+/**
+ * 足りない人数の一覧を読みます
+ *
+ * ★はじめは「足りる・足りない」の2つだけで、['dinner|k'] のような
+ *   一覧で持っていました。その形で保存されたものは「1人」として読みます。
+ */
+function shiftShortMap(v) {
+  const out = {};
+  if (Array.isArray(v)) {
+    v.forEach((k) => { if (typeof k === 'string' && k) out[k] = 1; });
+    return out;
+  }
+  if (v && typeof v === 'object') {
+    Object.keys(v).forEach((k) => {
+      const n = Math.floor(Number(v[k]));
+      if (n > 0) out[k] = Math.min(n, SHIFT_SHORT_MAX);
+    });
+  }
+  return out;
+}
+
+/** そのマスで、あと何人ほしいか */
+function shiftShortOf(day, slotId, laneId) {
+  return (day.short || {})[shiftShortKey(slotId, laneId)] || 0;
+}
+
 /** その希望が、組んだ表のどの枠に入るか（F はランチへ） */
 function shiftSlotFor(wishSlotId) {
   return wishSlotId === SHIFT_FULL_ID ? 'lunch' : wishSlotId;
