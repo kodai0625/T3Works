@@ -5318,9 +5318,27 @@ function applyShiftFreeTime() {
     renderShiftPick();
     return;
   }
+
   const now = shiftDayOf(shiftRec(), dateStr);
-  now[slotId][index] = { ...now[slotId][index], t };
-  now[slotId] = shiftSort(now[slotId]);
+  const entry = { ...now[slotId][index], t };
+
+  // ★入れた時刻に合う枠へ、自動で移します。
+  //   立ち上げの欄に「18:00」と書いてあるより、ディナーの欄に
+  //   入っていたほうが、表を見たときに読みまちがえません。
+  //   ただし次の2つは動かしません。
+  //     ・立ち上げへ戻すこと（2人までの決まりを、思わぬ形で超えてしまうため）
+  //     ・F（通し）の人（ランチの枠に置くと決めてあるため）
+  let to = shiftSlotByTime(t);
+  if (to === 'open' || entry.f) to = slotId;
+  if (to && to !== slotId) {
+    now[slotId].splice(index, 1);
+    now[to].push(entry);
+    now[to] = shiftSort(now[to]);
+  } else {
+    now[slotId][index] = entry;
+    now[slotId] = shiftSort(now[slotId]);
+  }
+
   saveShiftDay(dateStr, now);
   closeShiftPick();
   render();

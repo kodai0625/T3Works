@@ -328,10 +328,11 @@ function dayCard(dateStr) {
   });
   card.appendChild(slots);
 
-  // えらんだ枠だけ、開始時刻を出します（F は時刻をえらばせません）
+  // えらんだ枠だけ、開始時刻を出します。
+  // F と立ち上げは、こちらで決めるので出しません（askTime: false）
   mine.forEach((entry) => {
     const slot = getShiftSlot(entry.s);
-    if (!slot || !slot.times.length) return;
+    if (!slot || !slot.times.length || slot.askTime === false) return;
     const row = document.createElement('div');
     row.className = 'times';
     const label = document.createElement('span');

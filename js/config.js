@@ -1180,9 +1180,12 @@ const SHIFT_STORES = ['baguru'];
  */
 const SHIFT_SLOTS = [
   {
-    id: 'open', name: '立ち上げ', hint: '開店の準備から',
-    // 9:00〜10:30 を15分ごと。ふだんは10:00です
+    id: 'open', name: '立ち上げ', hint: '開店の準備から（10:00）',
+    // 9:00〜10:30 を15分ごと。ふだんは10:00です。
+    // ★askTime: false … 提出ページでは時刻をえらばせません。
+    //   立ち上げはいつも10:00で、前後にずらすのはこちらの都合だからです
     times: ['9', '9.25', '9.5', '9.75', '10', '10.25', '10.5'], pick: '10',
+    askTime: false,
   },
   { id: 'lunch',  name: 'ランチ',   hint: 'お昼の営業',
     times: ['11', '11.5', '12'], pick: '11' },
@@ -1198,6 +1201,25 @@ const SHIFT_SLOTS = [
  *   「11時から入れる」か「その日は入れない」かのどちらかになります。
  */
 const SHIFT_OPEN_MAX = 2;
+
+/**
+ * その時刻なら、どの枠に入るか
+ *
+ *   11:00 より前  … 立ち上げ
+ *   11:00〜16:59 … ランチ
+ *   17:00 以降    … ディナー
+ *
+ * ★立ち上げに入れた人の時刻を手で書き換えたとき、これを見て
+ *   自動で枠を移します。10:00の欄に「18:00」と書いてあるより、
+ *   ディナーの欄に入っていたほうが読みまちがえません。
+ */
+function shiftSlotByTime(t) {
+  const n = Number(t);
+  if (!isFinite(n)) return null;
+  if (n >= 17) return 'dinner';
+  if (n >= 11) return 'lunch';
+  return 'open';
+}
 
 /** 立ち上げからあふれた人を回す先（ランチの、いちばん早い時刻） */
 function shiftSpillTo() {
