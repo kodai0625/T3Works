@@ -214,7 +214,11 @@ function renderPeriod() {
 
   el('slotHint').innerHTML = shiftWishSlots()
     .map((s) => `<b>${s.name}</b>＝${s.hint}`).join('<br>')
-    + '<br>入れる日の枠を押してください。押していない日は「入れない日」です。';
+    + '<br>入れる日の枠を押してください。押していない日は「入れない日」です。'
+    // ★連絡の例は、ここにまとめて出します。マスの中の薄い字（placeholder）に
+    //   入れると、スマホの幅では後ろが切れて読めません
+    + '<br>連絡は日ごとに書けます。'
+    + '例：<b>20時まで出れます</b>／<b>人がいれば削ってください</b>';
 
   renderDays();
   renderDone();
@@ -569,7 +573,7 @@ function dayCard(dateStr) {
   note.type = 'text';
   note.className = 'day__note';
   note.maxLength = 120;
-  note.placeholder = '連絡（あれば）　例：少し遅れます';
+  note.placeholder = '連絡（あれば）';
   note.value = notes[dateStr] || '';
   note.addEventListener('input', () => {
     const v = note.value.trim();
