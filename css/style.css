@@ -542,6 +542,30 @@ body.is-shift-wide .page { max-width: 1900px; }
 
 .submit-card__status { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
 .submit-card__mark   { font-size: 16px; font-weight: 800; color: var(--ok); }
+/* 送っているあいだ。ぐるぐるを1つ出して「まだ終わっていない」ことを示します。
+   ★提出だけは、届いたのを見届けてから「提出済み」に変わります */
+.submit-card__sending {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 16px; font-weight: 800; color: var(--accent);
+}
+.submit-card__spin {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  animation: submit-spin .8s linear infinite;
+}
+@keyframes submit-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .submit-card__spin { animation-duration: 2.4s; } }
+.submit-card.is-sending {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+/* 送れなかったとき。押したその場で分かるように、提出のところに出します */
+.submit-card__failed {
+  display: block; margin-top: 7px; font-size: 12.5px; line-height: 1.6;
+  color: color-mix(in srgb, var(--ng) 88%, var(--text));
+  font-weight: 700;
+}
 .submit-card__ready  { font-size: 13.5px; font-weight: 700; color: var(--ok); }
 .submit-card__remain { font-size: 14px; font-weight: 700; color: var(--ng); }
 .submit-card__meta   { font-size: 12px; color: var(--text-sub); font-variant-numeric: tabular-nums; }

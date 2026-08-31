@@ -23,6 +23,18 @@ const state = {
   m: TODAY.m,
   d: TODAY.d,
   view: 'stores',
+  /**
+   * いま送っている提出の記録キー（送り終わるまで「送信中…」と出します）
+   *
+   * ★提出だけは、届いたのを見届けてから「提出済み」にします。
+   *   押した直後に閉じてしまい、ほかの店舗の画面に出ていない、
+   *   ということが起きていたためです。
+   */
+  sending: '',
+  /** 送れなかったときの理由（提出のところに赤で出します） */
+  sendError: '',
+  /** その理由がどの提出のものか。別の日を開いたときに出しっぱなしにしないため */
+  sendErrorKey: '',
 };
 
 /* ---------- 要素 ---------- */
@@ -540,10 +552,21 @@ function renderSubmit(closed, showList, dateStr, rec, items, done) {
   // 全項目チェック済み、かつ担当者を選んでいることが提出の条件です
   const canSubmit = items.length > 0 && remain === 0 && hasStaff;
 
-  el.submitCard.classList.toggle('is-submitted', submitted);
-  el.submitBtn.classList.toggle('is-hidden', submitted);
-  el.unsubmitBtn.classList.toggle('is-hidden', !submitted);
+  // 送っているあいだは、ボタンを引っこめて「送信中…」だけにします
+  const sending = state.sending === `${state.storeId}/${dateStr}`;
+
+  el.submitCard.classList.toggle('is-submitted', submitted && !sending);
+  el.submitCard.classList.toggle('is-sending', sending);
+  el.submitBtn.classList.toggle('is-hidden', submitted || sending);
+  el.unsubmitBtn.classList.toggle('is-hidden', !submitted || sending);
   el.submitBtn.disabled = !canSubmit;
+
+  if (sending) {
+    el.submitStatus.innerHTML =
+      '<span class="submit-card__sending"><span class="submit-card__spin"></span>送信中…</span>'
+      + '<span class="submit-card__meta">みんなの端末に届くまで、この画面のままお待ちください</span>';
+    return;
+  }
 
   if (submitted) {
     const t = new Date(rec.submittedAt);
@@ -563,6 +586,14 @@ function renderSubmit(closed, showList, dateStr, rec, items, done) {
       '<span class="submit-card__remain">担当者が選ばれていません</span>' +
       '<span class="submit-card__meta">上の「担当者」から選ぶと提出できます</span>';
   }
+
+  // 送れなかったときは、押したその場で分かるようにします
+  // （上の帯にも出ますが、目は提出ボタンのあたりにあるためです）
+  if (submitted && state.sendError && state.sendErrorKey === `${state.storeId}/${dateStr}`) {
+    el.submitStatus.innerHTML +=
+      `<span class="submit-card__failed">まだ送れていません：${state.sendError}<br>`
+      + 'この端末には残っています。電波の届くところでアプリを開いておくと、自動で送られます。</span>';
+  }
 }
 
 function submitDay() {
@@ -577,11 +608,30 @@ function submitDay() {
     item: `${state.m}月${state.d}日の確認作業`,
     message: `${items.length}項目すべてのチェックが終わりました。担当者は ${rec.staff} さんです。提出しますか？`,
     okLabel: '提出する',
-  }).then((ok) => {
+  }).then(async (ok) => {
     if (!ok) return;
     Store.submit(state.storeId, dateStr);
-    render();
+    await sendSubmit(`${state.storeId}/${dateStr}`);
   });
+}
+
+/**
+ * 提出を送り切るまで「送信中…」を出す
+ *
+ * ★ふだんのチェックは待たせません（裏で送ります）。提出だけは、
+ *   みんなの画面に出たことを見届けてから終わりにします。
+ */
+async function sendSubmit(key) {
+  state.sending = key;
+  state.sendError = '';
+  render();
+
+  const res = await Sync.waitSent();
+
+  state.sending = '';
+  state.sendError = res.ok ? '' : (res.error || '送れませんでした');
+  state.sendErrorKey = res.ok ? '' : key;
+  render();
 }
 
 function unsubmitDay() {
@@ -4012,9 +4062,17 @@ function renderWeekSubmit(dateStr) {
   el.weekSubmitRate.textContent = `達成率 ${st.rate}%（${st.done} / ${st.total} マス）`;
   el.weekSubmitRate.classList.toggle('is-full', st.rate === 100);
 
-  el.weekSubmitCard.classList.toggle('is-submitted', submitted);
-  el.periodSubmit.classList.toggle('is-hidden', submitted);
-  el.periodDone.classList.toggle('is-hidden', !submitted);
+  const sending = state.sending === `${state.storeId}/${weekRecKey(period)}`;
+  el.weekSubmitCard.classList.toggle('is-submitted', submitted && !sending);
+  el.weekSubmitCard.classList.toggle('is-sending', sending);
+  el.periodSubmit.classList.toggle('is-hidden', submitted || sending);
+  el.periodDone.classList.toggle('is-hidden', !submitted || sending);
+
+  if (sending) {
+    el.weekSubmitRate.innerHTML =
+      '<span class="submit-card__sending"><span class="submit-card__spin"></span>送信中…</span>';
+    return;
+  }
 
   if (submitted) {
     const d = new Date(st.submittedAt);
@@ -4109,11 +4167,11 @@ function submitPeriod() {
         + `未実施が ${remain} マスありますが、このまま提出しますか？`)
       + `\n提出する人は ${name} さんです。`,
     okLabel: '提出する',
-  }).then((ok) => {
+  }).then(async (ok) => {
     if (!ok) return;
     Store.setStaff(storeId, weekRecKey(period), name);
     Store.submit(storeId, weekRecKey(period));
-    render();
+    await sendSubmit(`${storeId}/${weekRecKey(period)}`);
   });
 }
 
@@ -6579,9 +6637,9 @@ function bindEvents() {
   };
   el.note.addEventListener('input', () => {
     clearTimeout(noteTimer);
-    noteTimer = setTimeout(saveNote, 600);
+    noteTimer = setTimeout(() => { noteTimer = null; saveNote(); }, 600);
   });
-  el.note.addEventListener('blur', () => { clearTimeout(noteTimer); saveNote(); });
+  el.note.addEventListener('blur', () => { clearTimeout(noteTimer); noteTimer = null; saveNote(); });
 
   /* 週間掃除の備考（2週間ごと。入力が止まったら保存） */
   let weekNoteTimer = null;
@@ -6591,9 +6649,26 @@ function bindEvents() {
   };
   el.weekNote.addEventListener('input', () => {
     clearTimeout(weekNoteTimer);
-    weekNoteTimer = setTimeout(saveWeekNote, 600);
+    weekNoteTimer = setTimeout(() => { weekNoteTimer = null; saveWeekNote(); }, 600);
   });
-  el.weekNote.addEventListener('blur', () => { clearTimeout(weekNoteTimer); saveWeekNote(); });
+  el.weekNote.addEventListener('blur', () => { clearTimeout(weekNoteTimer); weekNoteTimer = null; saveWeekNote(); });
+
+  /* ------------------------------------------------------------
+   *  アプリを閉じる・裏に回すとき
+   *
+   *  ★申し送りは「打ち終わって0.6秒」で保存しています。打った直後に
+   *    閉じられると、その端末にすら残りません。ここで先に保存してから、
+   *    ためている分をまとめて送り出します。
+   *  ★打ちかけが無いときは何もしません（別の画面を見ているときに
+   *    空の申し送りで上書きしてしまわないため）。
+   * ---------------------------------------------------------- */
+  const flushEdits = () => {
+    if (noteTimer) { clearTimeout(noteTimer); noteTimer = null; saveNote(); }
+    if (weekNoteTimer) { clearTimeout(weekNoteTimer); weekNoteTimer = null; saveWeekNote(); }
+    if (typeof Sync !== 'undefined') Sync.flushNow();
+  };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushEdits(); });
+  window.addEventListener('pagehide', flushEdits);
 
   /* 週間掃除：やった人を選ぶ */
   el.doerModal.querySelectorAll('[data-doer-close]').forEach((n) =>

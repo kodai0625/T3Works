@@ -18,6 +18,16 @@ const Sync = {
   _loopTimer: null,
   /** いま「今日のクローズ」を見ているか。true のあいだは早く取りに行きます */
   hot: false,
+  /**
+   * 「ほかの端末が動いている」と分かっているあいだの終わり時刻
+   *
+   * ★ほかの端末の変更を受け取ったら、しばらく速く取りに行きます。
+   *   2人以上で同じ日を見ているときだけ速くなるので、
+   *   Apps Script の使える時間はほとんど増えません。
+   */
+  _busyUntil: 0,
+  /** 動いていると見なす長さ（この間は速く取りに行きます） */
+  busyMs: 40000,
   running: false,
   /** いま動いている送受信が始まった時刻。固まったのを見つけるために持ちます */
   runningSince: 0,
@@ -71,7 +81,14 @@ const Sync = {
     list.push(op);
     this._saveOutbox(list);
     this._notify();
-    this.scheduleFlush(atOnce ? 0 : 1500);
+    // ★ここでは「速く取りに行く」を始めません。入れた人は、送るたびに
+    //   その返事で最新をもらっているので、別に取りに行く必要がないためです。
+    //   速くするのは「ほかの端末の変更が届いた」ときだけにしています
+    //   （Apps Script の使える時間を、要るときにだけ使うため）。
+    // ★以前は1.5秒ためていました。連打を1回の通信にまとめるためですが、
+    //   1つ入れて画面を閉じるまでが1.5秒より短いことがあり、届かないことが
+    //   ありました。0.6秒でも連打はまとまるので、こちらを短くしています。
+    this.scheduleFlush(atOnce ? 0 : 600);
   },
 
   scheduleFlush(delay) {
@@ -107,18 +124,26 @@ const Sync = {
       // iPhone はアプリを裏に回した拍子に、通信が返ってこないことがあります
       const stop = new AbortController();
       const timer = setTimeout(() => stop.abort(), this.hangMs);
+      const body = JSON.stringify({
+        pin: this.pin(),
+        action: 'sync',
+        since: localStorage.getItem(this._sinceKey) || '',
+        settingsAll: !this._settingsPulled,
+        ops,
+      });
       const res = await fetch(APP.syncUrl, {
         method: 'POST',
         signal: stop.signal,
+        // ★アプリを閉じても、送りかけたものを最後まで送り切ってもらいます。
+        //   これが無いと「チェックしてすぐ閉じた」ときに届きませんでした。
+        //   64KBまでという決まりがあるので、大きいときは付けません
+        //   （設定をまるごと送るときだけ大きくなります）
+        //   ★文字数ではなく中身の大きさで見ます。日本語は1文字3バイトあるので、
+        //     文字数で見ると64KBを超えていても通してしまいます
+        keepalive: new Blob([body]).size < 60000,
         // text/plain にしないと CORS の事前確認が入り、Apps Script が応答できません
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          pin: this.pin(),
-          action: 'sync',
-          since: localStorage.getItem(this._sinceKey) || '',
-          settingsAll: !this._settingsPulled,
-          ops,
-        }),
+        body,
       });
       clearTimeout(timer);
       const json = await res.json();
@@ -137,6 +162,13 @@ const Sync = {
       const rest = this.outbox().slice(sending.length);
       this._saveOutbox(rest);
 
+      // ほかの端末の変更が届いたなら、しばらく速く取りに行きます。
+      // ★間隔を取り直さないと、次に取りに行くのが60秒後のままになります
+      if ((json.records || []).length) {
+        this._busyUntil = Date.now() + this.busyMs;
+        this._loop();
+      }
+
       this._applyPulled(json.records || [], json.settings);
       localStorage.setItem(this._sinceKey, json.now || '');
       this._settingsPulled = true;
@@ -149,8 +181,49 @@ const Sync = {
       this.running = false;
       this.runningSince = 0;
       this._notify();
-      if (this.outbox().length) this.scheduleFlush(15000); // 残っていれば後で再送
+      // ★送っているあいだに増えた分は、すぐ続けて送ります。
+      //   前は成功していても15秒待っていたので、連続でチェックを入れると
+      //   最後の何件かが15秒遅れて届いていました。
+      //   送れなかったとき（エラー）だけ、間を空けて送り直します。
+      if (this.outbox().length) this.scheduleFlush(this.lastError ? 15000 : 700);
     }
+  },
+
+  /**
+   * いますぐ送る（待ち時間なし）
+   *
+   * アプリを裏に回したときと閉じるときに呼びます。
+   * ためている分をその場で送り出すためのものです。
+   */
+  flushNow() {
+    clearTimeout(this.timer);
+    if (this.outbox().length) this.flush();
+  },
+
+  /**
+   * 送信箱が空になるまで待つ
+   *
+   * ★提出のように「みんなに届いたことを見せたい」ものだけで使います。
+   *   ふだんのチェックは、待たせずに裏で送ります。
+   * 返り値 { ok, error }
+   */
+  async waitSent(ms = 15000) {
+    if (!this.enabled()) return { ok: true, error: '' };
+    if (!this.pin()) return { ok: false, error: 'PINが入っていません' };
+
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      if (!this.outbox().length) return { ok: true, error: '' };
+      if (this.running) {
+        await new Promise((r) => setTimeout(r, 200));
+      } else {
+        clearTimeout(this.timer);
+        await this.flush();
+      }
+      if (!this.outbox().length) return { ok: true, error: '' };
+      if (this.lastError) return { ok: false, error: this.lastError };
+    }
+    return { ok: false, error: this.lastError || '送るのに時間がかかっています' };
   },
 
   /** 管理用PINが要る操作を送信箱から取り除く（現場アプリが詰まらないように） */
@@ -302,9 +375,15 @@ const Sync = {
     this._started = true;
     window.addEventListener('online', () => this.scheduleFlush(500));
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) this.scheduleFlush(300);
+      // ★裏に回るとき（ホームに戻る・別のアプリに移る）に、ためている分を
+      //   その場で送り出します。ここが無いと、チェックしてすぐ閉じた分が
+      //   次にアプリを開くまで誰にも見えませんでした。
+      if (document.hidden) this.flushNow();
+      else this.scheduleFlush(300);
       this._loop();   // 表に戻ったら、間隔を取り直します
     });
+    // 閉じるとき。iPhone では visibilitychange が来ないこともあるので両方見ます
+    window.addEventListener('pagehide', () => this.flushNow());
     this._loop();
     this.scheduleFlush(300);
   },
@@ -312,18 +391,22 @@ const Sync = {
   /**
    * 取りに行く間隔を、見ている画面に合わせて変える
    *
-   *   今日のクローズを開いている … 10秒おき（誰かの提出がすぐ出ます）
+   *   ほかの端末が動いている     … 3秒おき（最後に届いてから40秒だけ）
+   *   今日のクローズを開いている … 8秒おき（誰かの提出がすぐ出ます）
    *   ほかの画面              … 60秒おき
    *   アプリが裏にいる         … 取りに行かない
    *
-   * ★ずっと10秒おきにはしません。Apps Script には1日に動かせる
+   * ★ずっと3秒おきにはしません。Apps Script には1日に動かせる
    *   時間の上限があり、6店舗分の端末が始終聞きに行くと、
    *   夕方には上限に達して**誰も同期できなくなります**。
-   *   「今そこを見ている画面」だけ早くする、という配り方にしています。
+   *   「ほかの端末がいま入力している」あいだだけ速くする、という配り方です。
+   *   1つの端末で closing をしているだけなら速くならないので、
+   *   使う時間はほとんど増えません。
    */
   _loop() {
     clearTimeout(this._loopTimer);
-    const wait = document.hidden ? 30000 : (this.hot ? 10000 : 60000);
+    const busy = Date.now() < this._busyUntil;
+    const wait = document.hidden ? 30000 : busy ? 3000 : (this.hot ? 8000 : 60000);
     this._loopTimer = setTimeout(() => {
       if (!document.hidden) this.flush();
       this._loop();
