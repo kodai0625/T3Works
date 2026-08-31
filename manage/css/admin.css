@@ -288,7 +288,7 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 .item-row__grip:active { cursor: grabbing; color: var(--text-sub); }
 .item-row.is-drag .item-row__grip { color: var(--accent); }
 
-/* 出す曜日をえらぶところ。
+/* 出す曜日を選ぶところ。
    定休日の曜日選びと同じ形ですが、あちらは「休む日」、こちらは「出す日」なので、
    押した曜日を灰色ではなく青（強調の色）にして、意味を取りちがえないようにします */
 .dow-toggles--pick .dow-toggle.is-on {
