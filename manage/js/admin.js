@@ -49,6 +49,7 @@ const el = {};
   'closedStoreName', 'dowToggles', 'exFrom', 'exKind', 'exAdd', 'exHint', 'exList',
   'exportBtn', 'importFile',
   'pauseModal', 'pauseItem', 'pauseFrom', 'pauseTo', 'pauseAdd', 'pauseHint', 'pauseList',
+  'dowModal', 'dowItem', 'dowPick', 'dowHint', 'dowEveryday',
   'confirmDialog', 'confirmItem', 'confirmMessage', 'confirmOk',
   'pinModal', 'pinInput', 'pinReveal', 'pinError', 'pinOk',
 ].forEach((id) => { el[id] = document.getElementById(id); });
@@ -242,6 +243,14 @@ function buildItemRow(sec, item, index, count) {
     span.textContent = text;
     row.appendChild(span);
   });
+
+  const dow = document.createElement('button');
+  dow.type = 'button';
+  dow.className = 'icon-btn' + (item.onlyDows ? ' icon-btn--on' : '');
+  dow.textContent = '曜';
+  dow.title = '出す曜日の設定';
+  dow.addEventListener('click', () => openDow(sec.id, item.id));
+  row.appendChild(dow);
 
   const pause = document.createElement('button');
   pause.type = 'button';
@@ -897,10 +906,14 @@ function buildImported() {
       const ci = leftover[di.id];
       delete leftover[di.id];
       if (!ci) return { ...di, addedAt: today }; // 新しく増えた項目は今日から
-      const next = { ...di };                    // 名前・曜日は用意された内容
+      const next = { ...di };                    // 名前は用意された内容
       if (ci.addedAt) next.addedAt = ci.addedAt; // いつからか・いつまでかは今の設定を残す
       if (ci.retiredAt) next.retiredAt = ci.retiredAt;
       if (ci.pauses) next.pauses = ci.pauses;
+      // ★出す曜日も、この画面で決めたものを残します。
+      //   取り込みで毎日に戻ってしまうと、決めたことが黙って消えるためです
+      if (ci.onlyDows) next.onlyDows = ci.onlyDows;
+      else delete next.onlyDows;
       return next;
     });
     Object.keys(leftover).forEach((id) => items.push(leftover[id]));
@@ -1000,6 +1013,68 @@ function addPause() {
   el.pauseHint.textContent = `${days}日分を休止にしました。`;
   el.pauseFrom.value = '';
   el.pauseTo.value = '';
+}
+
+/* ============================================================
+ *  出す曜日（この曜日だけ出す）
+ *
+ *  ★「休止」と違って、期間ではなく毎週くり返す決まりです。
+ *    まな板漂白のように「月曜だけやる」ものに使います。
+ *  ★1つも押していない状態＝毎日出す（onlyDows を持たせません）。
+ *    7つ全部を押したときも同じなので、毎日に戻します。
+ * ============================================================ */
+const dowTarget = { secId: null, itemId: null };
+
+function dowItemOf() {
+  return currentSections()
+    .find((s) => s.id === dowTarget.secId)
+    .items.find((i) => i.id === dowTarget.itemId);
+}
+
+function openDow(secId, itemId) {
+  dowTarget.secId = secId;
+  dowTarget.itemId = itemId;
+  el.dowItem.textContent = dowItemOf().label;
+  renderDowPick();
+  el.dowModal.classList.remove('is-hidden');
+}
+
+function renderDowPick() {
+  const item = dowItemOf();
+  const on = item.onlyDows || [];
+  el.dowPick.innerHTML = '';
+
+  DOW.forEach((name, d) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    // 定休日の曜日選びと同じ見た目を使い回します（覚えることを増やさない）
+    b.className = 'dow-toggle' + (on.includes(d) ? ' is-on' : '')
+      + (d === 0 ? ' is-sun' : d === 6 ? ' is-sat' : '');
+    b.textContent = name;
+    b.setAttribute('aria-pressed', on.includes(d) ? 'true' : 'false');
+    b.addEventListener('click', () => toggleDow(d));
+    el.dowPick.appendChild(b);
+  });
+
+  el.dowHint.textContent = on.length
+    ? `いまは ${on.map((d) => DOW[d]).join('・')}曜だけ出ます`
+    : 'いまは毎日出ます';
+}
+
+/** 出す曜日を書き換えて保存する */
+function updateDows(fn) {
+  const next = currentSections();
+  const item = next.find((s) => s.id === dowTarget.secId).items.find((i) => i.id === dowTarget.itemId);
+  const list = fn((item.onlyDows || []).slice()).sort((a, b) => a - b);
+  // 1つも無い／7つ全部＝毎日。どちらも「決まりなし」にそろえます
+  if (list.length && list.length < DOW.length) item.onlyDows = list;
+  else delete item.onlyDows;
+  saveSections(next);
+  renderDowPick();
+}
+
+function toggleDow(d) {
+  updateDows((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : cur.concat([d])));
 }
 
 /* ============================================================
@@ -1836,6 +1911,10 @@ function bindEvents() {
   el.pauseAdd.addEventListener('click', addPause);
   el.pauseModal.querySelectorAll('[data-pause-close]').forEach((n) =>
     n.addEventListener('click', () => el.pauseModal.classList.add('is-hidden')));
+
+  el.dowEveryday.addEventListener('click', () => updateDows(() => []));
+  el.dowModal.querySelectorAll('[data-dow-close]').forEach((n) =>
+    n.addEventListener('click', () => el.dowModal.classList.add('is-hidden')));
   el.saveStaff.addEventListener('click', saveStaff);
   el.saveDrivers.addEventListener('click', saveDrivers);
   el.saveCatchStaff.addEventListener('click', saveCatchStaff);

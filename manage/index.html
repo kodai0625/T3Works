@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=5b4c413f">
-<link rel="stylesheet" href="css/admin.css?v=bf1370ff">
-<meta name="app-version" content="085f54d8">
+<link rel="stylesheet" href="css/admin.css?v=09e64321">
+<meta name="app-version" content="ee4787d2">
 </head>
 <body class="no-daytabs">
 
@@ -380,6 +380,30 @@
   </div>
 </div>
 
+<!-- ===== 出す曜日 =====
+     項目ごとに「この曜日だけ出す」を決めます。
+     ★1つも押していないときは毎日出ます（onlyDows を持たない状態） -->
+<div class="modal is-hidden" id="dowModal">
+  <div class="modal__backdrop" data-dow-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="dowTitle">
+    <h2 class="modal__title" id="dowTitle">出す曜日</h2>
+    <p class="pause__item" id="dowItem"></p>
+    <p class="admin-note">
+      押した曜日<b>だけ</b>チェックリストに出ます。<br>
+      1つも押していないときは<b>毎日</b>出ます。<br>
+      過去の記録はそのまま残ります（出なくなるのは、これからの日だけです）。
+    </p>
+
+    <div class="dow-toggles dow-toggles--pick" id="dowPick"></div>
+    <p class="ex-hint" id="dowHint"></p>
+
+    <div class="modal__actions">
+      <button type="button" class="btn" id="dowEveryday">毎日にする</button>
+      <button type="button" class="btn btn--primary" data-dow-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 管理用PIN ===== -->
 <div class="modal is-hidden" id="pinModal">
   <div class="modal__backdrop"></div>
@@ -415,6 +439,6 @@
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=ce290149"></script>
+<script src="js/admin.js?v=c939c245"></script>
 </body>
 </html>
