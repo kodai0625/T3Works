@@ -114,6 +114,14 @@ function askConfirm({ item, message, okLabel }) {
  *  チェック項目の編集
  * ============================================================ */
 
+/**
+ * 足したばかりで、まだ名前を入れていない項目に付けておく名前
+ *
+ * ★この名前のあいだは、名前の欄を**空**で開きます。
+ *   「新しい項目」が入ったまま開くと、消してから打つことになるためです。
+ */
+const NEW_ITEM = '新しい項目';
+
 /** いま編集中の店舗の区分一覧（保存されていなければ config.js の初期値を複製） */
 function currentSections() {
   return JSON.parse(JSON.stringify(Checklists.sections(state.storeId)));
@@ -304,11 +312,14 @@ function buildNameCell(sec, item) {
 function startNameEdit(cell) {
   const before = cell.textContent;
   const { secId, itemId } = cell.dataset;
+  // まだ名前を入れていない項目は、空の欄で開きます（消す手間をなくすため）
+  const yet = before === NEW_ITEM;
 
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'item-row__name item-row__name--edit';
-  input.value = before;
+  input.value = yet ? '' : before;
+  if (yet) input.placeholder = '項目名';
   input.setAttribute('aria-label', '項目の名前');
   cell.replaceWith(input);
   input.focus();
@@ -393,7 +404,7 @@ function addItem(secId) {
   const sec = next.find((s) => s.id === secId);
   sec.items.push({
     id: newId('it'),
-    label: '新しい項目',
+    label: NEW_ITEM,
     type: 'check',
     addedAt: todayStr(), // 今日から出す（過去の日にはさかのぼらせない）
   });
@@ -401,7 +412,7 @@ function addItem(secId) {
 
   // 追加した項目にすぐ名前を入れられるようにしておく
   const cells = [...el.checklistEditor.querySelectorAll('.item-row__name')];
-  const last = cells.reverse().find((c) => c.textContent === '新しい項目');
+  const last = cells.reverse().find((c) => c.textContent === NEW_ITEM);
   if (last) startNameEdit(last);
 }
 
@@ -544,7 +555,7 @@ function addWeeklyItem(group) {
   const next = currentWeekly();
   next.push({
     id: newId('wk'),
-    label: '新しい項目',
+    label: NEW_ITEM,
     group: group || WEEKLY_GROUPS[0], // 押したカードの場所に入れる
     addedAt: todayStr(),              // 今週から出す（過ぎた週にはさかのぼらせない）
   });
@@ -552,7 +563,7 @@ function addWeeklyItem(group) {
 
   // 追加した項目にすぐ名前を入れられるようにしておく
   const cells = [...el.weeklyEditor.querySelectorAll('.item-row__name')];
-  const last = cells.reverse().find((c) => c.textContent === '新しい項目');
+  const last = cells.reverse().find((c) => c.textContent === NEW_ITEM);
   if (last) startNameEdit(last);
 }
 
