@@ -757,6 +757,8 @@ async function onCashFile(e) {
     setCashMsg('文字を読み取っています…', 'busy');
     const res = await Sync.ask('journal', {
       store: state.storeId,
+      // フォルダの名前に使うので、店舗の名前も送ります
+      storeName: getStore(state.storeId).name,
       date: dateStr,
       image: dataUrl,
     });
