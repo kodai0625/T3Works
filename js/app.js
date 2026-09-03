@@ -748,6 +748,60 @@ function setCashWait(text) {
 /* -------- 写真 -------- */
 
 /**
+ * 写真の中で「紙が写っている四角」をさがします
+ *
+ * レシートは白い紙で、まわりは机や床です。明るいところだけを拾って、
+ * その外側（机）を落とすための四角を返します。
+ *
+ * ★見つからない・怪しいときは null を返して、切らずにそのまま送ります。
+ *   紙の一部を切ってしまうと、金額の行ごと消えてしまうためです。
+ * ★まわりに少し余白（3%）を残します。ふちで切れないようにするためです。
+ */
+function cashPaperBox(data, w, h) {
+  // 明るさの目安を作ります（一番暗いところと明るいところの真ん中）
+  let lo = 255;
+  let hi = 0;
+  for (let i = 0; i < data.length; i += 4 * 17) {   // 間引いて見ます（速さのため）
+    const v = data[i];
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  if (hi - lo < 40) return null;          // 明暗の差がない＝紙と机が見分けられません
+  const line = lo + (hi - lo) * 0.55;
+
+  const rows = new Int32Array(h);
+  const cols = new Int32Array(w);
+  for (let y = 0; y < h; y++) {
+    const base = y * w * 4;
+    for (let x = 0; x < w; x++) {
+      if (data[base + x * 4] > line) { rows[y] += 1; cols[x] += 1; }
+    }
+  }
+
+  const edge = (arr, len, need) => {
+    let a = -1;
+    let b = -1;
+    for (let i = 0; i < len; i++) if (arr[i] >= need) { a = i; break; }
+    for (let i = len - 1; i >= 0; i--) if (arr[i] >= need) { b = i; break; }
+    return [a, b];
+  };
+  const [y0, y1] = edge(rows, h, w * 0.15);
+  const [x0, x1] = edge(cols, w, h * 0.15);
+  if (y0 < 0 || x0 < 0) return null;
+
+  const pad = Math.round(Math.min(w, h) * 0.03);
+  const x = Math.max(0, x0 - pad);
+  const y = Math.max(0, y0 - pad);
+  const bw = Math.min(w, x1 + pad) - x;
+  const bh = Math.min(h, y1 + pad) - y;
+
+  // 小さすぎる（紙を切ってしまう）／ほとんど変わらない（切る意味がない）ときは、やめます
+  if (bw < w * 0.25 || bh < h * 0.25) return null;
+  if (bw * bh > w * h * 0.92) return null;
+  return { x, y, w: bw, h: bh };
+}
+
+/**
  * 撮った写真を、送れる大きさまで小さくします
  *
  * ★大きさ（ピクセル）は減らしません。字の形が崩れると読み取れなくなるためです。
@@ -770,6 +824,7 @@ function cashShrink(file, quality) {
       ctx.drawImage(img, 0, 0, w, h);
 
       // 白黒にする（色の分だけ小さくなります）
+      let box = null;
       try {
         const px = ctx.getImageData(0, 0, w, h);
         const d = px.data;
@@ -778,8 +833,47 @@ function cashShrink(file, quality) {
           d[i] = g; d[i + 1] = g; d[i + 2] = g;
         }
         ctx.putImageData(px, 0, 0);
+        box = cashPaperBox(d, w, h);
       } catch (e) {
         // 端末によっては読み出せないことがあります。そのときは色のまま送ります
+      }
+
+      // ★紙のまわりの机が写っている分を落とします。
+      //   紙は切りません（上の日付から下まで、そのまま残ります）。
+      //   同じ大きさの中に紙だけが入るので、字が大きくなり、
+      //   読み取りが速く・確かになります。ファイルも小さくなります。
+      if (box) {
+        const cut = document.createElement('canvas');
+        // 元の写真での、紙の大きさ
+        const back = img.width / w;
+        const ow = box.w * back;
+        const oh = box.h * back;
+        // ★元の写真を基準に縮めます。縮めた絵の四角をそのまま使うと、
+        //   せっかく机を落としたのに、字まで小さいままになります
+        // 大きく落とせたときだけ、字に余裕を回します
+        const share = (ow * oh) / (img.width * img.height);
+        const cap = share < CASH_CROP_SHARE ? CASH_PHOTO_MAX_CROP : CASH_PHOTO_MAX;
+        const s2 = Math.min(1, cap / Math.max(ow, oh));
+        cut.width = Math.round(ow * s2);
+        cut.height = Math.round(oh * s2);
+        const c2 = cut.getContext('2d');
+        c2.drawImage(
+          img,
+          box.x * back, box.y * back, box.w * back, box.h * back,
+          0, 0, cut.width, cut.height
+        );
+        // 切り出した方も白黒にします
+        try {
+          const px2 = c2.getImageData(0, 0, cut.width, cut.height);
+          const d2 = px2.data;
+          for (let i = 0; i < d2.length; i += 4) {
+            const g = (d2[i] * 0.299 + d2[i + 1] * 0.587 + d2[i + 2] * 0.114) | 0;
+            d2[i] = g; d2[i + 1] = g; d2[i + 2] = g;
+          }
+          c2.putImageData(px2, 0, 0);
+        } catch (e) { /* そのままでも進めます */ }
+        resolve(cut.toDataURL('image/jpeg', quality || CASH_PHOTO_Q));
+        return;
       }
 
       resolve(canvas.toDataURL('image/jpeg', quality || CASH_PHOTO_Q));
