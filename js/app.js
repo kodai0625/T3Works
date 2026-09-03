@@ -7761,6 +7761,25 @@ async function submitPin() {
 /* ============================================================
  *  設定モーダル
  * ============================================================ */
+/* ------------------------------------------------------------
+ *  端末の保存の使い具合（設定の画面に出します）
+ *
+ *  なぜ出すか … 「保存できません」が起きるまで、誰も残りが分からないためです。
+ *  数字が上限に近づいてきたら、古い月を落とす手当てをします。
+ * ---------------------------------------------------------- */
+function renderStoreUsage() {
+  const box = document.getElementById('storeUsage');
+  if (!box) return;
+  const u = Store.usage();
+  const mb = u.mb < 0.1 ? u.mb.toFixed(2) : u.mb.toFixed(1);
+  const where = u.isOld
+    ? `古い置き場所です。<b>${mb}MB / 目安5MB</b>`
+    : `新しい置き場所（数百MBまで置けます）。<b>${mb}MB</b>`;
+  const warn = u.isOld && u.mb > 3.5
+    ? '<br><b>★上限に近づいています。</b>' : '';
+  box.innerHTML = `${where}　記録 ${u.keys}件${warn}`;
+}
+
 function openModal() {
   renderSyncStatus();
   // ヘッダーのしるしが何を表しているかの一覧（実物と同じ絵を並べます）
@@ -7770,6 +7789,7 @@ function openModal() {
   el.appVersionText.innerHTML = v
     ? `いま入っているのは <b>${v}</b> です。`
     : '（手元で開いているため、版の番号はありません）';
+  renderStoreUsage();
   el.modal.classList.remove('is-hidden');
   // スマホでいきなりキーボードが出ないよう、自動フォーカスはしない
 }
@@ -8204,10 +8224,19 @@ function bindEvents() {
 /* ============================================================
  *  起動
  * ============================================================ */
-function init() {
+async function init() {
   readHash();
   writeHash(true);
   bindEvents();
+
+  // ★一番先に保存先を用意します。
+  //   ここで待たないと、まだ読み込めていない状態で画面を描いてしまい、
+  //   「記録が消えた」ように見えてしまいます。
+  //   失敗しても、いままでの場所でそのまま動きます（storage.js の boot）
+  Store.onError = showStoreError;
+  await Store.boot();
+  window.addEventListener('pagehide', () => Store.flushNow());
+
   render();
 
   // 新しい版が公開されたら画面下で知らせる（PINの有無に関係なく動かす）
@@ -8223,6 +8252,24 @@ function init() {
 
   // 担当者が1人も登録されていなければ、最初に設定を開く
   if (Staff.list().length === 0) openModal();
+}
+
+/* ------------------------------------------------------------
+ *  端末に保存できなかったときの知らせ
+ *
+ *  一番こわいのは「チェックしたのに保存されていない」を
+ *  誰も気づかないまま閉じてしまうことなので、必ず画面に出します。
+ * ---------------------------------------------------------- */
+function showStoreError(message) {
+  let box = document.getElementById('storeError');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'storeError';
+    box.className = 'store-error';
+    document.body.appendChild(box);
+  }
+  box.textContent = `⚠ ${message}`;
+  box.classList.remove('is-hidden');
 }
 
 init();

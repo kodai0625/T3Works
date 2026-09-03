@@ -761,7 +761,11 @@ function bindEvents() {
 /* ============================================================
  *  起動
  * ============================================================ */
-(function init() {
+(async function init() {
+  // ★保存先を先に用意します（失敗しても、いままでの場所で動きます）
+  await Store.boot();
+  window.addEventListener('pagehide', () => Store.flushNow());
+
   /* ヘッダーの絵はホーム画面のアイコンと同じもの */
   const shop = getStore(DRIVE_SHOP);
   const img = document.createElement('img');

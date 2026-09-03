@@ -2067,6 +2067,25 @@ function renderSyncStatus() {
  *  ★アプリが最新の版かどうかを、ここで確かめられます。
  *    「画面が古いまま」というときの切り分けに使います。
  * ============================================================ */
+/* ------------------------------------------------------------
+ *  端末の保存の使い具合（設定の画面に出します）
+ *
+ *  なぜ出すか … 「保存できません」が起きるまで、誰も残りが分からないためです。
+ *  数字が上限に近づいてきたら、古い月を落とす手当てをします。
+ * ---------------------------------------------------------- */
+function renderStoreUsage() {
+  const box = document.getElementById('storeUsage');
+  if (!box) return;
+  const u = Store.usage();
+  const mb = u.mb < 0.1 ? u.mb.toFixed(2) : u.mb.toFixed(1);
+  const where = u.isOld
+    ? `古い置き場所です。<b>${mb}MB / 目安5MB</b>`
+    : `新しい置き場所（数百MBまで置けます）。<b>${mb}MB</b>`;
+  const warn = u.isOld && u.mb > 3.5
+    ? '<br><b>★上限に近づいています。</b>' : '';
+  box.innerHTML = `${where}　記録 ${u.keys}件${warn}`;
+}
+
 function openSettings() {
   // 共有の様子
   const n = Sync.outbox().length;
@@ -2086,6 +2105,7 @@ function openSettings() {
   el.appVersionText.innerHTML = v
     ? `いま入っているのは <b>${v}</b> です。`
     : '（手元で開いているため、版の番号はありません）';
+  renderStoreUsage();
 
   el.modal.classList.remove('is-hidden');
 }
@@ -2286,11 +2306,16 @@ function bindEvents() {
   });
 }
 
-function init() {
+async function init() {
   if (APP.logo) el.appLogo.src = '../' + APP.logo;
   readHash();
   writeHash();
   bindEvents();
+
+  // ★保存先を先に用意します（失敗しても、いままでの場所で動きます）
+  await Store.boot();
+  window.addEventListener('pagehide', () => Store.flushNow());
+
   renderAll();
   Updater.start();
   if (!Sync.enabled()) addLaterItems();

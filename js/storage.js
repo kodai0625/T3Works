@@ -19,7 +19,43 @@
  *    }
  * ============================================================ */
 
+/* ------------------------------------------------------------
+ *  端末の中の保存先
+ *
+ *  いままで … localStorage。全部を1つの文字列にまとめ、書くたびに丸ごと
+ *             書き直していました。iPhone の Safari は1つのサイトにつき
+ *             5MB前後までなので、1年ほどで頭を打ちます。
+ *  これから … IndexedDB（下の IdbAdapter）。端末の空きに応じて数百MB使えます。
+ *
+ *  ★アプリ側の書き方は変えていません。
+ *    起動のときに全部を手元（_mem）へ読み込み、読み書きはその手元に対して行い、
+ *    書いた分だけ、あとから IndexedDB へ流します。
+ *
+ *  ★こわれ方への備え（ここが大事です）
+ *    1. 引っ越しは、元を消さずに行います。書いたあと読み直して1件ずつ照合し、
+ *       さらに「次に開いたときにも正しく読めた」ことを確かめてから、
+ *       はじめて元を消します。途中で閉じられても、元がそのまま残ります。
+ *    2. 「どこまで同期したか」の印を、記録と同じ場所に置きます。
+ *       別々の場所にあると、片方だけ消えたときに
+ *       「記録は無いのに、印は進んだまま」になり、サーバーから戻ってこなくなります。
+ *    3. 記録が0件なのに印だけ残っていたら、印を消します（全部取り直させます）。
+ *       2 をすり抜けた場合の、最後の受け止めです。
+ *    4. IndexedDB が使えない端末では、いままでどおり localStorage を使います。
+ *    5. 書けなかったときは黙って落とさず、画面に知らせます。
+ * ---------------------------------------------------------- */
+
+/** 保存に失敗したときの知らせ先。画面側で Store.onError = fn を入れます */
+function storeFail(message, e) {
+  console.warn('保存の問題:', message, e || '');
+  Store.lastError = message;
+  if (typeof Store.onError === 'function') {
+    try { Store.onError(message); } catch (e2) { /* 知らせ先の失敗は無視します */ }
+  }
+}
+
 const LocalAdapter = {
+  where: 'localStorage',
+
   _all() {
     try {
       return JSON.parse(localStorage.getItem(APP.storageKey) || '{}');
@@ -29,7 +65,15 @@ const LocalAdapter = {
     }
   },
   _save(all) {
-    localStorage.setItem(APP.storageKey, JSON.stringify(all));
+    try {
+      localStorage.setItem(APP.storageKey, JSON.stringify(all));
+      return true;
+    } catch (e) {
+      // いっぱいになると、ここに来ます。黙って落とすと
+      //「チェックしたのに保存されていない」が起きるので、必ず知らせます
+      storeFail('端末の保存がいっぱいです。設定から「端末の保存」を見てください', e);
+      return false;
+    }
   },
   get(key) {
     return this._all()[key] || null;
@@ -55,10 +99,305 @@ const LocalAdapter = {
   load(obj) {
     this._save(obj);
   },
+
+  /* -------- 覚え書き（同期の印など） --------
+     ★印の置き場所は、いままでと同じ名前のままにします。
+        こちらに落ちてきたときに、今までの端末がそのまま動くようにするためです */
+  _metaKey(name) {
+    return name === 'since' ? `${APP.storageKey}:syncSince` : `${APP.storageKey}:${name}`;
+  },
+  meta(name) {
+    return localStorage.getItem(this._metaKey(name));
+  },
+  setMeta(name, value) {
+    try {
+      if (value === null || value === undefined) localStorage.removeItem(this._metaKey(name));
+      else localStorage.setItem(this._metaKey(name), String(value));
+    } catch (e) {
+      storeFail('端末の保存がいっぱいです', e);
+    }
+  },
+  /** いま何文字使っているか */
+  size() {
+    const text = localStorage.getItem(APP.storageKey) || '';
+    return { chars: text.length, keys: Object.keys(this._all()).length };
+  },
+};
+
+/* ------------------------------------------------------------
+ *  IndexedDB の保存先
+ *
+ *  記録は records、覚え書き（同期の印など）は meta に入れます。
+ *  ★2つを同じデータベースに置くのが肝心です。
+ *    端末がデータを捨てるときは、まとめて捨てられます。
+ *    片方だけ残ると「記録は無いのに、印は進んだまま」になり、
+ *    サーバーは「変わったものだけ」しか返さないので、記録が戻ってきません。
+ * ---------------------------------------------------------- */
+const IDB = { name: `${APP.storageKey}-db`, ver: 1, recs: 'records', meta: 'meta' };
+
+const IdbAdapter = {
+  where: 'IndexedDB',
+  _db: null,
+  _mem: {},        // 記録の手元の写し
+  _meta: {},       // 覚え書きの手元の写し
+  _dirty: new Set(),
+  _metaDirty: new Set(),
+  _waiting: false,
+
+  /** 開いて、中身を全部 手元へ読み込みます */
+  async open() {
+    this._db = await new Promise((ok, ng) => {
+      let req;
+      try { req = indexedDB.open(IDB.name, IDB.ver); } catch (e) { ng(e); return; }
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB.recs)) db.createObjectStore(IDB.recs);
+        if (!db.objectStoreNames.contains(IDB.meta)) db.createObjectStore(IDB.meta);
+      };
+      req.onsuccess = () => ok(req.result);
+      req.onerror = () => ng(req.error || new Error('開けません'));
+      req.onblocked = () => ng(new Error('ほかの画面が開いています'));
+    });
+    // 別の画面が作り直そうとしたら、こちらは閉じて譲ります
+    this._db.onversionchange = () => { try { this._db.close(); } catch (e) { /* すでに閉じています */ } };
+
+    this._mem = await this._readAll(IDB.recs);
+    this._meta = await this._readAll(IDB.meta);
+  },
+
+  _readAll(name) {
+    return new Promise((ok, ng) => {
+      const tx = this._db.transaction(name, 'readonly');
+      const st = tx.objectStore(name);
+      const ks = st.getAllKeys();
+      const vs = st.getAll();
+      tx.oncomplete = () => {
+        const out = {};
+        (ks.result || []).forEach((k, i) => { out[k] = (vs.result || [])[i]; });
+        ok(out);
+      };
+      tx.onerror = () => ng(tx.error || new Error('読めません'));
+      tx.onabort = () => ng(tx.error || new Error('読めません'));
+    });
+  },
+
+  /* -------- 読み書き（ここは待ちません。手元の写しを見ます） -------- */
+  get(key) { return this._mem[key] || null; },
+
+  set(key, record) {
+    this._mem[key] = record;
+    this._dirty.add(key);
+    this._later();
+  },
+
+  getMonth(storeId, ym) {
+    const prefix = `${storeId}/${ym}-`;
+    const out = {};
+    Object.keys(this._mem).forEach((k) => {
+      if (k.startsWith(prefix)) out[k.slice(prefix.length)] = this._mem[k];
+    });
+    return out;
+  },
+
+  dump() { return this._mem; },
+
+  load(obj) {
+    this._mem = { ...obj };
+    Object.keys(this._mem).forEach((k) => this._dirty.add(k));
+    this._later();
+  },
+
+  meta(name) {
+    const v = this._meta[name];
+    return v === undefined ? null : v;
+  },
+  setMeta(name, value) {
+    if (value === null || value === undefined) delete this._meta[name];
+    else this._meta[name] = String(value);
+    this._metaDirty.add(name);
+    this._later();
+  },
+
+  /* -------- 書き出し --------
+     まとめて書きます。同じ処理の中で何百件 入れても、書き込みは1回で済みます */
+  _later() {
+    if (this._waiting) return;
+    this._waiting = true;
+    Promise.resolve().then(() => { this._waiting = false; this.flush(); });
+  },
+
+  async flush() {
+    if (!this._db) return;
+    const keys = [...this._dirty];
+    const metas = [...this._metaDirty];
+    if (!keys.length && !metas.length) return;
+    this._dirty.clear();
+    this._metaDirty.clear();
+    try {
+      await new Promise((ok, ng) => {
+        const names = [];
+        if (keys.length) names.push(IDB.recs);
+        if (metas.length) names.push(IDB.meta);
+        const tx = this._db.transaction(names, 'readwrite');
+        if (keys.length) {
+          const st = tx.objectStore(IDB.recs);
+          keys.forEach((k) => {
+            if (this._mem[k] === undefined) st.delete(k); else st.put(this._mem[k], k);
+          });
+        }
+        if (metas.length) {
+          const st2 = tx.objectStore(IDB.meta);
+          metas.forEach((n) => {
+            if (this._meta[n] === undefined) st2.delete(n); else st2.put(this._meta[n], n);
+          });
+        }
+        tx.oncomplete = ok;
+        tx.onerror = () => ng(tx.error || new Error('書けません'));
+        tx.onabort = () => ng(tx.error || new Error('書けません'));
+      });
+      if (Store.lastError) { Store.lastError = ''; }
+    } catch (e) {
+      // 書けなかった分は戻して、次の機会にもう一度ためします
+      keys.forEach((k) => this._dirty.add(k));
+      metas.forEach((n) => this._metaDirty.add(n));
+      storeFail('端末に保存できませんでした。通信が切れていても記録は残るはずの場所です', e);
+    }
+  },
+
+  /** 引っ越し。書いて、読み直して、1件ずつ照合します。合わなければ false */
+  async fill(obj) {
+    const keys = Object.keys(obj);
+    await new Promise((ok, ng) => {
+      const tx = this._db.transaction(IDB.recs, 'readwrite');
+      const st = tx.objectStore(IDB.recs);
+      keys.forEach((k) => st.put(obj[k], k));
+      tx.oncomplete = ok;
+      tx.onerror = () => ng(tx.error || new Error('書けません'));
+      tx.onabort = () => ng(tx.error || new Error('書けません'));
+    });
+    const back = await this._readAll(IDB.recs);
+    if (Object.keys(back).length < keys.length) return false;
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      if (JSON.stringify(back[k]) !== JSON.stringify(obj[k])) return false;
+    }
+    this._mem = back;
+    return true;
+  },
+
+  /** 引っ越しに失敗したときの片づけ。中途半端に入ったものを消します */
+  clearRecs() {
+    return new Promise((ok, ng) => {
+      const tx = this._db.transaction(IDB.recs, 'readwrite');
+      tx.objectStore(IDB.recs).clear();
+      tx.oncomplete = () => { this._mem = {}; ok(); };
+      tx.onerror = () => ng(tx.error || new Error('消せません'));
+    });
+  },
+
+  /** いま何文字使っているか */
+  size() {
+    let chars = 0;
+    const keys = Object.keys(this._mem);
+    keys.forEach((k) => { chars += k.length + JSON.stringify(this._mem[k]).length; });
+    return { chars, keys: keys.length };
+  },
 };
 
 const Store = {
   adapter: LocalAdapter,
+
+  /* ============================================================
+   *  保存先の用意（起動のときに1回だけ）
+   *
+   *  ★途中で失敗しても、いままでの場所（localStorage）で
+   *    そのまま動き続けます。アプリが使えなくなることはありません。
+   * ============================================================ */
+  lastError: '',
+  onError: null,
+  movedThisTime: false,
+
+  async boot() {
+    this.movedThisTime = false;
+    // 使えない端末（プライベートブラウズなど）は、いままでどおり
+    if (typeof indexedDB === 'undefined' || !indexedDB) return this.usage();
+
+    try {
+      await IdbAdapter.open();
+    } catch (e) {
+      console.warn('新しい保存先を開けませんでした。いままでの場所を使います', e);
+      return this.usage();
+    }
+
+    const already = Object.keys(IdbAdapter._mem).length;
+    const old = LocalAdapter.dump();
+    const oldN = Object.keys(old).length;
+
+    // ---- 引っ越し（元は消しません）----
+    if (!already && oldN) {
+      let done = false;
+      try { done = await IdbAdapter.fill(old); } catch (e) { done = false; }
+      if (!done) {
+        // 中途半端に入ったものを片づけて、いままでの場所を使い続けます
+        try { await IdbAdapter.clearRecs(); } catch (e2) { /* 片づけの失敗は無視します */ }
+        storeFail('保存先の引っ越しに失敗しました。いままでの場所を使い続けます');
+        return this.usage();
+      }
+      this.movedThisTime = true;
+      IdbAdapter.setMeta('movedAt', new Date().toISOString());
+      IdbAdapter.setMeta('oldKept', '1');      // 元をまだ残しています
+    }
+
+    // ---- 同期の印を、記録と同じ場所へ ----
+    if (IdbAdapter.meta('since') === null) {
+      IdbAdapter.setMeta('since', localStorage.getItem(`${APP.storageKey}:syncSince`) || '');
+    }
+
+    this.adapter = IdbAdapter;
+
+    // ---- 前回 引っ越して、今回も正しく読めた。ここではじめて元を消します ----
+    if (!this.movedThisTime && IdbAdapter.meta('oldKept') === '1' && already) {
+      try { localStorage.removeItem(APP.storageKey); } catch (e) { /* 消せなくても困りません */ }
+      IdbAdapter.setMeta('oldKept', '0');
+    }
+
+    // ---- 最後の受け止め ----
+    // 記録が1件も無いのに印だけ進んでいたら、サーバーは何も返してくれません。
+    // 印を消して、次の同期で全部取り直させます
+    if (!Object.keys(IdbAdapter._mem).length && IdbAdapter.meta('since')) {
+      IdbAdapter.setMeta('since', '');
+      console.warn('記録が空だったので、次の同期で全部取り直します');
+    }
+
+    await IdbAdapter.flush();
+    return this.usage();
+  },
+
+  /* -------- 覚え書き（同期の印など） -------- */
+  meta(name) { return this.adapter.meta(name); },
+  setMeta(name, value) { return this.adapter.setMeta(name, value); },
+
+  /** 書きかけを、いますぐ書き切ります（閉じるとき用） */
+  flushNow() {
+    if (this.adapter.flush) return this.adapter.flush();
+    return Promise.resolve();
+  },
+
+  /** いまどれくらい使っているか（設定の画面に出します） */
+  usage() {
+    const s = this.adapter.size();
+    // ★中身の一致ではなく名前で見ます。差し替えても正しく判定できるようにするためです
+    const local = this.adapter.where === 'localStorage';
+    return {
+      where: this.adapter.where,
+      isOld: local,
+      keys: s.keys,
+      mb: s.chars / 1024 / 1024,
+      // localStorage は5MB前後で頭を打ちます。IndexedDB は端末の空き次第です
+      limitMb: local ? 5 : 0,
+      moved: !!(this.adapter.meta && this.adapter.meta('movedAt')),
+    };
+  },
 
   key(storeId, dateStr) {
     return `${storeId}/${dateStr}`;

@@ -11,6 +11,10 @@
 
 const Sync = {
   _outboxKey: APP.storageKey + ':outbox',
+  // ★「どこまで同期したか」の印は Store（記録と同じ場所）に置きます。
+  //   記録とバラバラの場所にあると、片方だけ端末から消えたときに
+  //   「記録は無いのに印は進んだまま」になり、サーバーが何も返さなくなります。
+  //   この名前は、古い端末から印を引き継ぐときだけ使います（storage.js の boot）
   _sinceKey: APP.storageKey + ':syncSince',
   _pinKey: APP.storageKey + ':pin',
 
@@ -127,7 +131,7 @@ const Sync = {
       const body = JSON.stringify({
         pin: this.pin(),
         action: 'sync',
-        since: localStorage.getItem(this._sinceKey) || '',
+        since: Store.meta('since') || '',
         settingsAll: !this._settingsPulled,
         ops,
       });
@@ -170,7 +174,7 @@ const Sync = {
       }
 
       this._applyPulled(json.records || [], json.settings);
-      localStorage.setItem(this._sinceKey, json.now || '');
+      Store.setMeta('since', json.now || '');
       this._settingsPulled = true;
       this.lastSyncAt = new Date();
       this.lastError = '';
