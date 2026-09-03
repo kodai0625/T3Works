@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="../img/manage-icon-180.png?v=ac18efea">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=bd50ed80">
+<link rel="stylesheet" href="../css/style.css?v=36493144">
 <link rel="stylesheet" href="css/admin.css?v=d4729fc6">
-<meta name="app-version" content="7b32e635">
+<meta name="app-version" content="129f7a95">
 </head>
 <body class="no-daytabs">
 
@@ -338,6 +338,28 @@
   </section>
 </section>
 
+<!-- ===== 教育の名前 ===== -->
+<section class="view is-hidden" id="viewTrain">
+  <div class="admin-card">
+    <div class="admin-card__head">
+      <h2 class="admin-card__title">教育を受ける人 ― <span id="trainStoreName"></span></h2>
+      <span class="admin-count" id="trainCount"></span>
+    </div>
+    <p class="admin-note">
+      1行に1人。教育マニュアルの一覧に出る名前です。<br>
+      <b>ワークス（現場のアプリ）からも足せます。</b>ここは、まとめて直したいとき用です。<br>
+      名前を直しても、<b>それまでの進み具合はそのまま続きます</b>（行を入れかえないでください）。<br>
+      名前を消すと一覧から消えますが、<b>記録そのものは残ります</b>。
+    </p>
+    <textarea id="trainInput" class="field__input field__input--area" rows="12"
+      placeholder="ほのか&#10;りの&#10;わかな"></textarea>
+    <div class="admin-actions">
+      <button type="button" class="btn btn--primary" id="saveTrain">名前を保存</button>
+      <span class="admin-saved is-hidden" id="trainSaved">保存しました</span>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <!-- ===== 確認ダイアログ ===== -->
@@ -431,14 +453,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=3bdcb071"></script>
-<script src="../js/storage.js?v=aa7da4cb"></script>
-<script src="../js/sync.js?v=252da6a9"></script>
+<script src="../js/config.js?v=143c51e5"></script>
+<script src="../js/storage.js?v=21d7d09f"></script>
+<script src="../js/sync.js?v=11723ca0"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=5a37748b"></script>
+<script src="js/admin.js?v=9876d145"></script>
 </body>
 </html>

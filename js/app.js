@@ -75,6 +75,13 @@ const el = {
   weekNavMain: $('weekNavMain'), weekNavSub: $('weekNavSub'),
   periodCard: $('periodCard'), periodTitle: $('periodTitle'), periodRate: $('periodRate'),
   periodBar: $('periodBar'), periodCount: $('periodCount'), periodWhen: $('periodWhen'),
+  viewTrain: $('viewTrain'), trainList: $('trainList'), trainPeople: $('trainPeople'),
+  trainCount: $('trainCount'), trainNewName: $('trainNewName'), trainAdd: $('trainAdd'),
+  trainAddMsg: $('trainAddMsg'), trainDoneHead: $('trainDoneHead'),
+  trainDoneLabel: $('trainDoneLabel'), trainDoneMark: $('trainDoneMark'),
+  trainDonePeople: $('trainDonePeople'), trainOne: $('trainOne'), trainBack: $('trainBack'),
+  trainOneName: $('trainOneName'), trainOneBar: $('trainOneBar'),
+  trainOneCount: $('trainOneCount'), trainSections: $('trainSections'),
   viewCash: $('viewCash'), cashDate: $('cashDate'), cashShot: $('cashShot'),
   cashShotImg: $('cashShotImg'), cashShotEmpty: $('cashShotEmpty'),
   cashTake: $('cashTake'), cashTakeText: $('cashTakeText'), cashFile: $('cashFile'),
@@ -1121,6 +1128,204 @@ function renderCashList() {
   }
 }
 
+
+/* ============================================================
+ *  アルバイトの教育（教育マニュアル）
+ *
+ *  一覧 … 教育中の人が、進み具合つきで並びます
+ *  中身 … 1人を押すと、大カテゴリーごとの項目が出ます（クローズと同じ形）
+ *
+ *  ★全部にチェックが入った人は、一覧から「終わった人」へ移ります。
+ *    記録は消さないので、あとから見返せます。
+ *  ★名前を足すのに管理用PINは要りません（各店舗で入れるものなので）。
+ * ============================================================ */
+
+/** いま中身を開いている人の id（空なら一覧） */
+let trainPerson = '';
+/** 「終わった人」を開いているか */
+let trainDoneOpen = false;
+
+/** その店舗の教育の記録（1つのレコードに、人ごと・項目ごとに入っています） */
+function trainRec() {
+  return Store.getDay(state.storeId, TRAIN_KEY);
+}
+
+/** その人が終えた項目の数 */
+function trainDoneCount(personId) {
+  const items = trainRec().items || {};
+  return getTraining(state.storeId)
+    .flatMap((sec) => sec.items)
+    .filter((it) => items[trainItemKey(personId, it.id)] && items[trainItemKey(personId, it.id)].done)
+    .length;
+}
+
+function renderTrain() {
+  const people = Trainees.list(state.storeId);
+  const total = trainTotal(state.storeId);
+
+  // 開いていた人が一覧から消えていたら、一覧に戻します
+  if (trainPerson && !people.some((p) => p.id === trainPerson)) trainPerson = '';
+
+  el.trainList.classList.toggle('is-hidden', !!trainPerson);
+  el.trainOne.classList.toggle('is-hidden', !trainPerson);
+
+  if (trainPerson) renderTrainOne(trainPerson, total);
+  else renderTrainList(people, total);
+}
+
+/* -------- 人の一覧 -------- */
+function renderTrainList(people, total) {
+  const going = [];
+  const done = [];
+  people.forEach((p) => {
+    // ★人の名前は p.n です。数を n に入れると名前が消えるので、別の名前で持ちます
+    const count = trainDoneCount(p.id);
+    (total > 0 && count >= total ? done : going).push({ ...p, count });
+  });
+
+  el.trainCount.textContent = going.length ? `${going.length}人` : '';
+  el.trainPeople.innerHTML = '';
+
+  if (!going.length) {
+    const none = document.createElement('p');
+    none.className = 'cash-empty';
+    none.textContent = people.length
+      ? '教育中の人はいません。'
+      : 'まだ誰も登録されていません。下から名前を足してください。';
+    el.trainPeople.appendChild(none);
+  }
+  going.forEach((p) => el.trainPeople.appendChild(trainPersonRow(p, total, false)));
+
+  el.trainDoneLabel.textContent = `終わった人（${done.length}人）`;
+  el.trainDoneMark.textContent = trainDoneOpen ? '−' : '＋';
+  el.trainDonePeople.classList.toggle('is-hidden', !trainDoneOpen);
+  el.trainDonePeople.innerHTML = '';
+  if (trainDoneOpen) {
+    if (!done.length) {
+      const none = document.createElement('p');
+      none.className = 'cash-empty';
+      none.textContent = 'まだいません。';
+      el.trainDonePeople.appendChild(none);
+    }
+    done.forEach((p) => el.trainDonePeople.appendChild(trainPersonRow(p, total, true)));
+  }
+}
+
+function trainPersonRow(p, total, isDone) {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'train-person' + (isDone ? ' is-done' : '');
+  const rate = total ? Math.round((p.count / total) * 100) : 0;
+
+  // ★名前は textContent で入れます（記号が入っても画面が壊れないように）
+  const name = document.createElement('span');
+  name.className = 'train-person__name';
+  name.textContent = p.n;
+  row.appendChild(name);
+
+  const bar = document.createElement('span');
+  bar.className = 'train-person__bar';
+  const fill = document.createElement('span');
+  fill.className = 'train-person__fill';
+  fill.style.width = `${rate}%`;
+  bar.appendChild(fill);
+  row.appendChild(bar);
+
+  const num = document.createElement('span');
+  num.className = 'train-person__num';
+  num.textContent = isDone ? '✓ 終わり' : `${p.count} / ${total}`;
+  row.appendChild(num);
+
+  row.addEventListener('click', () => { trainPerson = p.id; render(); });
+  return row;
+}
+
+/* -------- 1人分の中身 -------- */
+function renderTrainOne(personId, total) {
+  const person = Trainees.list(state.storeId).find((p) => p.id === personId);
+  if (!person) { trainPerson = ''; return; }
+
+  const rec = trainRec();
+  const items = rec.items || {};
+  const done = trainDoneCount(personId);
+
+  el.trainOneName.textContent = person.n;
+  el.trainOneBar.style.width = total ? `${Math.round((done / total) * 100)}%` : '0%';
+  el.trainOneCount.textContent = total
+    ? (done >= total ? `${done} / ${total}　✓ 教育が終わりました` : `${done} / ${total}`)
+    : '項目がまだありません。';
+
+  el.trainSections.innerHTML = '';
+  getTraining(state.storeId).forEach((sec) => {
+    const card = document.createElement('div');
+    card.className = 'cash-box';
+
+    const head = document.createElement('div');
+    head.className = 'cash-box__head';
+    const title = document.createElement('h2');
+    title.className = 'cash-box__title';
+    title.textContent = sec.title;
+    head.appendChild(title);
+    const n = document.createElement('span');
+    n.className = 'cash-box__date';
+    const secDone = sec.items.filter((it) => (items[trainItemKey(personId, it.id)] || {}).done).length;
+    n.textContent = `${secDone} / ${sec.items.length}`;
+    head.appendChild(n);
+    card.appendChild(head);
+
+    sec.items.forEach((it) => card.appendChild(trainItemRow(personId, it, items)));
+    el.trainSections.appendChild(card);
+  });
+}
+
+function trainItemRow(personId, item, items) {
+  const key = trainItemKey(personId, item.id);
+  const on = !!(items[key] && items[key].done);
+
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'train-item' + (on ? ' is-on' : '');
+  row.setAttribute('aria-pressed', on ? 'true' : 'false');
+
+  const box = document.createElement('span');
+  box.className = 'train-item__box';
+  box.textContent = on ? '✓' : '';
+  row.appendChild(box);
+
+  const body = document.createElement('span');
+  body.className = 'train-item__body';
+  const label = document.createElement('span');
+  label.className = 'train-item__label';
+  label.textContent = item.label;
+  body.appendChild(label);
+  if (item.hint) {
+    const hint = document.createElement('span');
+    hint.className = 'train-item__hint';
+    hint.textContent = item.hint;
+    body.appendChild(hint);
+  }
+  row.appendChild(body);
+
+  row.addEventListener('click', () => {
+    Store.setItem(state.storeId, TRAIN_KEY, key, { done: !on });
+    render();
+  });
+  return row;
+}
+
+/* -------- 名前を足す・直す -------- */
+function addTrainee() {
+  const name = el.trainNewName.value.trim();
+  if (!name) {
+    el.trainAddMsg.textContent = '名前を入れてください。';
+    return;
+  }
+  const made = Trainees.add(state.storeId, name);
+  el.trainAddMsg.textContent = made ? '' : 'その名前は、もう入っています。';
+  if (made) el.trainNewName.value = '';
+  render();
+}
+
 /* ------------------------------------------------------------
  *  提出（全項目チェックで押せる）
  * ---------------------------------------------------------- */
@@ -1350,6 +1555,19 @@ function taskStatus(taskId, storeId) {
     return cash
       ? { text: `本日 ${cashText(cash.sales)}円`, kind: 'done' }
       : { text: '本日 まだ', kind: 'todo' };
+  }
+
+  if (taskId === 'train') {
+    const people = Trainees.list(storeId);
+    const total = trainTotal(storeId);
+    if (!people.length) return { text: '名前がまだ', kind: 'none' };
+    const items = Store.getDay(storeId, TRAIN_KEY).items || {};
+    const all = getTraining(storeId).flatMap((sec) => sec.items);
+    const going = people.filter((p) =>
+      all.filter((it) => (items[trainItemKey(p.id, it.id)] || {}).done).length < total).length;
+    return going
+      ? { text: `教育中 ${going}人`, kind: 'todo' }
+      : { text: 'みんな終わりました', kind: 'done' };
   }
 
   if (taskId === 'month') {
@@ -6919,6 +7137,7 @@ function render() {
   const isMeeting = state.view === 'meeting';
   const isShift = state.view === 'shift';
   const isCash = state.view === 'cash';
+  const isTrain = state.view === 'train';
 
   /* お金の画面にいるあいだは body に印を付けます。
      入力画面や確認ダイアログは画面をまたいで使い回しているので、
@@ -6948,6 +7167,7 @@ function render() {
     el.viewMeeting.classList.add('is-hidden');
     el.viewShift.classList.add('is-hidden');
     el.viewCash.classList.add('is-hidden');
+    el.viewTrain.classList.add('is-hidden');
     el.viewTasks.classList.remove('is-hidden');
     renderStoreTabs();
     renderTaskPicker();
@@ -6975,6 +7195,7 @@ function render() {
     el.viewMeeting.classList.add('is-hidden');
     el.viewShift.classList.add('is-hidden');
     el.viewCash.classList.add('is-hidden');
+    el.viewTrain.classList.add('is-hidden');
     el.viewStores.classList.remove('is-hidden');
     renderStorePicker();
     renderSyncStatus();
@@ -6984,7 +7205,8 @@ function render() {
   el.viewStores.classList.add('is-hidden');
   el.storeTabs.classList.toggle('is-hidden', isWeekAll || isExpense || isCatch || isSettle || isMeeting);
   // 週間掃除は週ごとに送って見る画面なので、日タブは出しません
-  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle || isMeeting || isShift;
+  const noDays = isReport || isWeek || isWeekAll || isExpense || isCatch || isSettle
+    || isMeeting || isShift || isTrain;
   el.dayTabs.classList.toggle('is-hidden', noDays);
   document.body.classList.toggle('no-daytabs', noDays);
 
@@ -7008,7 +7230,7 @@ function render() {
   // 全店舗の画面は店舗に属さないので、店舗見出しごと隠す
   el.storeHead.classList.toggle('is-hidden', isReport || isWeekAll || isExpense || isCatch || isSettle || isMeeting);
   // 週間掃除は2週間ずつ送るので、年・月タブは使いません
-  el.storeHead.classList.toggle('is-weekview', isWeek || isShift);
+  el.storeHead.classList.toggle('is-weekview', isWeek || isShift || isTrain);
   // いま開いている業務の名前（タップで業務の一覧に戻ります）
   const task = getTask(state.view);
   if (task) el.taskBarName.textContent = task.name;
@@ -7024,6 +7246,7 @@ function render() {
   el.viewMeeting.classList.toggle('is-hidden', !isMeeting);
   el.viewShift.classList.toggle('is-hidden', !isShift);
   el.viewCash.classList.toggle('is-hidden', !isCash);
+  el.viewTrain.classList.toggle('is-hidden', !isTrain);
   // ★シフトの画面だけ、横幅の上限（1100px）を外します。
   //   iPadやパソコンの広い画面で、横に並べる日数を増やすためです
   document.body.classList.toggle('is-shift-wide', isShift);
@@ -7050,6 +7273,7 @@ function render() {
   if (Sync.hot !== wasHot && typeof Sync._loop === 'function') Sync._loop();
 
   if (isShift) renderShift();
+  else if (isTrain) renderTrain();
   else if (isCash) renderCash();
   else if (isMeeting) renderMeeting();
   else if (isSettle) renderSettle();
@@ -7314,6 +7538,14 @@ function bindEvents() {
   );
 
   /* 提出 */
+  /* アルバイトの教育 */
+  el.trainAdd.addEventListener('click', addTrainee);
+  el.trainNewName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !imeEnter(e)) addTrainee();
+  });
+  el.trainBack.addEventListener('click', () => { trainPerson = ''; render(); });
+  el.trainDoneHead.addEventListener('click', () => { trainDoneOpen = !trainDoneOpen; render(); });
+
   /* 現金売上 */
   el.cashFile.addEventListener('change', onCashFile);
   el.cashShot.addEventListener('click', openShot);

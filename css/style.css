@@ -3849,3 +3849,71 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 .cash-line__select:disabled { background: var(--line-2); color: var(--text-sub); }
 /* 「記録し直す」。ふだんは使わないので、真ん中に小さく置きます */
 .cash-box .linkbtn { display: block; margin: 10px auto 0; padding: 4px 10px; }
+
+/* ============================================================
+ *  アルバイトの教育
+ * ============================================================ */
+#trainList.is-hidden, #trainOne.is-hidden { display: none; }
+
+/* 人の一覧 */
+.train-people { display: grid; gap: 6px; margin-bottom: 12px; }
+.train-people.is-hidden { display: none; }
+.train-person {
+  display: grid; grid-template-columns: 1fr 90px 62px; align-items: center; gap: 10px;
+  width: 100%; padding: 12px 12px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface-2); color: var(--text); font: inherit; font-size: 15px;
+}
+.train-person__name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.train-person__bar {
+  display: block; height: 7px; border-radius: 4px; overflow: hidden;
+  background: var(--line);
+}
+.train-person__fill { display: block; height: 100%; background: var(--store, var(--accent)); }
+.train-person__num {
+  text-align: right; font-size: 12.5px; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+.train-person.is-done { opacity: .7; }
+.train-person.is-done .train-person__num { color: color-mix(in srgb, var(--ok) 85%, var(--text)); font-weight: 700; }
+.train-person.is-done .train-person__fill { background: var(--ok); }
+
+/* 名前を足す */
+.train-add { display: flex; gap: 8px; }
+.train-add__input { flex: 1 1 auto; }
+
+/* 終わった人（ふだんは畳んでおきます） */
+.train-done-head {
+  display: flex; align-items: center; width: 100%; padding: 0;
+  border: 0; background: none; color: var(--text); font: inherit; font-size: 15px;
+  font-weight: 700; cursor: pointer;
+}
+.train-done-head__mark { margin-left: auto; color: var(--text-weak); font-size: 18px; }
+
+/* 1人分の中身 */
+.train-one__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.train-one__name { font-size: 19px; font-weight: 700; }
+.train-bar { display: block; height: 9px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.train-bar__fill { display: block; height: 100%; background: var(--store, var(--accent)); transition: width .2s; }
+
+/* 項目。クローズのチェックと同じ押し心地にします */
+.train-item {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%;
+  padding: 13px 4px; cursor: pointer; text-align: left;
+  border: 0; border-top: 1px solid var(--line-2);
+  background: none; color: var(--text); font: inherit; font-size: 15px;
+}
+.train-item:first-of-type { border-top: 0; }
+.train-item__box {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px;
+  border: 2px solid var(--line); background: var(--surface-2);
+  font-size: 15px; font-weight: 800; line-height: 22px; text-align: center;
+  color: transparent;
+}
+.train-item.is-on .train-item__box {
+  background: var(--ok); border-color: var(--ok); color: #fff;
+}
+.train-item__body { display: block; min-width: 0; }
+.train-item__label { display: block; line-height: 1.5; }
+.train-item.is-on .train-item__label { color: var(--text-sub); }
+.train-item__hint { display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-sub); }

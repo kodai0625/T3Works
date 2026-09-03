@@ -43,6 +43,7 @@ const el = {};
   'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
   'shiftStaffInput', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
   'shiftCodeList', 'shiftSubmitUrl', 'viewShift',
+  'viewTrain', 'trainStoreName', 'trainCount', 'trainInput', 'saveTrain', 'trainSaved',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1089,6 +1090,38 @@ function toggleDow(d) {
 }
 
 /* ============================================================
+ *  教育を受ける人（店舗ごと）
+ *
+ *  ★ワークス（現場のアプリ）からも足せます。ここは、まとめて直すとき用です。
+ *  ★行の順番はそのままにしてください。1行が1人に結びついていて、
+ *    入れかえると進み具合が別の人のものになってしまいます。
+ * ============================================================ */
+function renderTrainees() {
+  const people = Trainees.list(state.storeId);
+  el.trainStoreName.textContent = getStore(state.storeId).name;
+  el.trainCount.textContent = `${people.length}人`;
+  el.trainInput.value = people.map((p) => p.n).join('\n');
+}
+
+function saveTrainees() {
+  const names = el.trainInput.value.split('\n').map((t) => t.trim()).filter(Boolean);
+  const before = Trainees.list(state.storeId);
+
+  // 上から順に、いまの人と付き合わせます。
+  // 同じところにいる人は id をそのまま引き継ぐので、名前を直しても進み具合が続きます
+  const after = names.map((n, i) => (
+    before[i]
+      ? { ...before[i], n }
+      : { id: newTraineeId(), n, at: new Date().toISOString() }
+  ));
+  Trainees.save(state.storeId, after);
+
+  renderTrainees();
+  el.trainSaved.classList.remove('is-hidden');
+  setTimeout(() => el.trainSaved.classList.add('is-hidden'), 2500);
+}
+
+/* ============================================================
  *  担当者
  * ============================================================ */
 function renderStaff() {
@@ -1574,6 +1607,8 @@ const ADMIN_PAGES = [
     id: 'shift', name: 'シフト', sub: 'シフトに入る人と番号', icon: '👥',
     when: (storeId) => SHIFT_STORES.includes(storeId),
   },
+  // 教育の名前。ワークスからも足せますが、まとめて直すときはこちらです
+  { id: 'train', name: '教育', sub: '教育を受ける人の名前', icon: '🎓' },
 ];
 
 /** その店舗で使えるページだけ */
@@ -1662,6 +1697,10 @@ function pageStatus(pageId, storeId) {
     const n = ShiftStaff.count(storeId);
     return n ? `${n}人` : 'まだ登録なし';
   }
+  if (pageId === 'train') {
+    const n = Trainees.list(storeId).length;
+    return n ? `${n}人` : 'まだ登録なし';
+  }
   return '';
 }
 
@@ -1732,6 +1771,7 @@ function renderAll() {
   el.viewClosed.classList.toggle('is-hidden', state.view !== 'closed');
   el.viewDrive.classList.toggle('is-hidden', state.view !== 'drive');
   el.viewShift.classList.toggle('is-hidden', state.view !== 'shift');
+  el.viewTrain.classList.toggle('is-hidden', state.view !== 'train');
 
   if (isStores) {
     document.documentElement.style.setProperty('--store', '#2b7fd4');
@@ -1765,6 +1805,8 @@ function renderAll() {
     renderDrivers();
   } else if (state.view === 'shift') {
     renderShiftStaff();
+  } else if (state.view === 'train') {
+    renderTrainees();
   }
 }
 
@@ -1930,6 +1972,7 @@ function bindEvents() {
   el.saveDrivers.addEventListener('click', saveDrivers);
   el.saveCatchStaff.addEventListener('click', saveCatchStaff);
   el.saveShiftStaff.addEventListener('click', saveShiftStaff);
+  el.saveTrain.addEventListener('click', saveTrainees);
   el.saveNippou.addEventListener('click', saveNippouFolders);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));

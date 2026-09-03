@@ -1165,6 +1165,70 @@ const CASH_PHOTO_Q_RETRY = 0.9;
  */
 const CASH_GAS_VERSION = 'f37d4c5e';
 
+
+/* ------------------------------------------------------------
+ *  4-5) アルバイトの教育（教育マニュアル）
+ *
+ *  店舗ごとに、教える項目を大きなくくり（大カテゴリー）に分けて並べます。
+ *  中身の形はクローズのチェック項目と同じです。
+ *
+ *  進み具合は「人ごと」に持ちます。記録の入れ先は  storeId/TRAIN  ひとつで、
+ *  その中の項目名を  人のid::項目id  にして分けています。
+ *  （こうすると Apps Script 側を直さずに、いつもの同期でそのまま配られます）
+ *
+ *  ★全部にチェックが入った人は、一覧から消えます（下の「終わった人」に移ります）。
+ *    記録は消えないので、あとから見返せます。
+ * ---------------------------------------------------------- */
+
+/** 教育の記録の入れ先（storeId/TRAIN）。日付ではないので提出記録には出ません */
+const TRAIN_KEY = 'TRAIN';
+
+/** その人のその項目を入れておく名前 */
+function trainItemKey(personId, itemId) {
+  return `${personId}::${itemId}`;
+}
+
+/**
+ * 教える項目（★あとから足す場所★）
+ *
+ * section = 大カテゴリー
+ *   id     : 英数字で固定（★変えると、それまでの進み具合が消えて見えます★）
+ *   title  : 画面に出る見出し
+ *   items  : 中の項目
+ *
+ * item
+ *   id     : 英数字で固定（同上）
+ *   label  : 画面に出る項目名
+ *   hint   : 補足（省略可）
+ */
+const TRAIN_DEFAULT = [
+  {
+    id: 'tr-basic',
+    title: 'はじめに',
+    items: [
+      { id: 'tr-b01', label: '（ここに項目が入ります）' },
+    ],
+  },
+];
+
+/** 店舗ごとに中身を変えるとき。書いていない店舗は上の TRAIN_DEFAULT を使います */
+const TRAIN_OVERRIDES = {};
+
+/** このファイルに書いてある初期値 */
+function defaultTraining(storeId) {
+  return TRAIN_OVERRIDES[storeId] || TRAIN_DEFAULT;
+}
+
+/** その店舗の教える項目 */
+function getTraining(storeId) {
+  return defaultTraining(storeId);
+}
+
+/** その店舗の項目の数（全部で何個か） */
+function trainTotal(storeId) {
+  return getTraining(storeId).reduce((n, sec) => n + sec.items.length, 0);
+}
+
 /* ------------------------------------------------------------
  *  5) 業務の一覧（★ページを増やす場所★）
  *
@@ -2271,6 +2335,7 @@ function driveYen(totalKm) {
 const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
   { id: 'cash',  name: '現金売上', sub: 'ジャーナルを撮って残す',   icon: '💴' },
+  { id: 'train', name: '教育',     sub: 'アルバイトの教育マニュアル', icon: '🎓' },
   // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します
   { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
   // シフトは現場アプリにも Mine にも、同じように出します。

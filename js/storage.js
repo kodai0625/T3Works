@@ -322,6 +322,81 @@ const Weeklies = {
   },
 };
 
+/* -------- 教育を受ける人（店舗ごと） --------
+ *
+ *  ★管理用PINは要りません。名前を足すのは各店舗なので、
+ *    現場のアプリ（ワークス）からも入れられるようにしてあります。
+ *  ★1人1人に id を振ります。名前を直しても、それまでの進み具合が
+ *    そのまま続くようにするためです。
+ * ---------------------------------------------------------- */
+const Trainees = {
+  _key: APP.storageKey + ':trainees',
+
+  /** { 店舗id: [{ id, n: 名前, at: 入れた日 }] } をまるごと返します */
+  all() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this._key) || 'null');
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        const out = {};
+        Object.keys(saved).forEach((store) => {
+          out[store] = (saved[store] || [])
+            .map((v) => ({ id: String(v.id || ''), n: String(v.n || ''), at: v.at || '' }))
+            .filter((v) => v.id && v.n);
+        });
+        return out;
+      }
+    } catch (e) {
+      /* 壊れていたら空に戻す */
+    }
+    return {};
+  },
+
+  /** その店舗の人（登録した順） */
+  list(storeId) {
+    return (this.all()[storeId] || []).slice();
+  },
+
+  save(storeId, people) {
+    const all = this.all();
+    all[storeId] = people;
+    localStorage.setItem(this._key, JSON.stringify(all));
+    return all;
+  },
+
+  /** 1人足す。同じ名前がすでにあれば足しません */
+  add(storeId, name) {
+    const clean = String(name || '').trim();
+    if (!clean) return null;
+    const people = this.list(storeId);
+    if (people.some((p) => p.n === clean)) return null;
+    const person = { id: newTraineeId(), n: clean, at: new Date().toISOString() };
+    people.push(person);
+    this.save(storeId, people);
+    return person;
+  },
+
+  /** 名前を直す（進み具合はそのまま続きます） */
+  rename(storeId, id, name) {
+    const clean = String(name || '').trim();
+    if (!clean) return;
+    const people = this.list(storeId);
+    const one = people.find((p) => p.id === id);
+    if (!one) return;
+    one.n = clean;
+    this.save(storeId, people);
+  },
+
+  /** 一覧から外す（記録そのものは消えません） */
+  remove(storeId, id) {
+    this.save(storeId, this.list(storeId).filter((p) => p.id !== id));
+  },
+};
+
+/** 人の id。名前を直しても進み具合が続くように、名前とは別に持ちます */
+function newTraineeId() {
+  return 'tp-' + Math.random().toString(36).slice(2, 9);
+}
+
 /* -------- 担当者リスト（プルダウンの選択肢） -------- */
 const Staff = {
   _key: APP.storageKey + ':staffList',

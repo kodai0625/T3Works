@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=bd50ed80">
-<meta name="app-version" content="7b32e635">
+<link rel="stylesheet" href="../css/style.css?v=36493144">
+<meta name="app-version" content="129f7a95">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -344,6 +344,52 @@
 
         <p class="cash-week-miss is-hidden" id="cashWeekMiss"></p>
       </div>
+    </div>
+
+  </section>
+
+  <!-- ===== アルバイトの教育 =====
+       大カテゴリーごとに項目を並べて、1人ずつチェックしていきます。
+       全部にチェックが入った人は、一覧から「終わった人」へ移ります -->
+  <section class="view view--train is-hidden" id="viewTrain">
+
+    <!-- ① 人の一覧 -->
+    <div id="trainList">
+      <div class="cash-box">
+        <div class="cash-box__head">
+          <h2 class="cash-box__title">教育中の人</h2>
+          <span class="cash-box__date" id="trainCount"></span>
+        </div>
+        <div class="train-people" id="trainPeople"></div>
+
+        <div class="train-add">
+          <input type="text" class="input train-add__input" id="trainNewName"
+                 autocomplete="off" placeholder="名前を入れて追加">
+          <button type="button" class="btn" id="trainAdd">＋ 追加</button>
+        </div>
+        <p class="cash-note" id="trainAddMsg"></p>
+      </div>
+
+      <div class="cash-box">
+        <button type="button" class="train-done-head" id="trainDoneHead">
+          <span id="trainDoneLabel">終わった人</span>
+          <span class="train-done-head__mark" id="trainDoneMark">＋</span>
+        </button>
+        <div class="train-people is-hidden" id="trainDonePeople"></div>
+      </div>
+    </div>
+
+    <!-- ② 1人分の中身 -->
+    <div class="is-hidden" id="trainOne">
+      <div class="cash-box">
+        <div class="train-one__head">
+          <button type="button" class="btn" id="trainBack">← 一覧へ</button>
+          <span class="train-one__name" id="trainOneName"></span>
+        </div>
+        <div class="train-bar"><span class="train-bar__fill" id="trainOneBar"></span></div>
+        <p class="cash-note" id="trainOneCount"></p>
+      </div>
+      <div id="trainSections"></div>
     </div>
 
   </section>
@@ -1408,14 +1454,14 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=3bdcb071"></script>
-<script src="../js/storage.js?v=aa7da4cb"></script>
-<script src="../js/sync.js?v=252da6a9"></script>
+<script src="../js/config.js?v=143c51e5"></script>
+<script src="../js/storage.js?v=21d7d09f"></script>
+<script src="../js/sync.js?v=11723ca0"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- 会議資料の中身。スプレッドシートから取り込んだ数字と議事メモです -->
 <script src="../js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
 <script src="../js/shift-sheet.js?v=28f6c733"></script>
-<script src="../js/app.js?v=2fe1a9ba"></script>
+<script src="../js/app.js?v=acd75c14"></script>
 </body>
 </html>

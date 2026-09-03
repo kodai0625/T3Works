@@ -303,6 +303,7 @@ const Sync = {
       if (settings.drivers) localStorage.setItem(Drivers._key, JSON.stringify(settings.drivers));
       if (settings.catchStaff) localStorage.setItem(CatchStaff._key, JSON.stringify(settings.catchStaff));
       if (settings.shiftStaff) localStorage.setItem(ShiftStaff._key, JSON.stringify(settings.shiftStaff));
+      if (settings.trainees) localStorage.setItem(Trainees._key, JSON.stringify(settings.trainees));
       if (settings.nippouFolders) localStorage.setItem(NippouFolders._key, JSON.stringify(settings.nippouFolders));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
@@ -514,6 +515,14 @@ function summaryFor(key) {
     const clean = _saveCatch(map);
     Sync.enqueue({ t: 'setting', n: 'catchStaff', v: clean });
     return clean;
+  };
+
+  // ★教育の名前は管理用PINが要りません（各店舗で入れるものなので）
+  const _saveTrainees = Trainees.save.bind(Trainees);
+  Trainees.save = function (storeId, people) {
+    const all = _saveTrainees(storeId, people);
+    Sync.enqueue({ t: 'setting', n: 'trainees', v: all });
+    return all;
   };
 
   const _saveShiftStaff = ShiftStaff.save.bind(ShiftStaff);
