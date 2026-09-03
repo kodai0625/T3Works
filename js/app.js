@@ -5754,8 +5754,26 @@ function shiftTake() {
     const day = shiftDayOf(rec, dateStr);
     let touched = false;
 
+    /* ★立ち上げで出した人は、立ち上げにだけ入れます。
+       提出ページでは「立ち上げ」と、そのあとの「ランチ／F」を対にして出して
+       もらっています。そのまま取り込むと、立ち上げとランチの両方に同じ名前が
+       並んでしまい、二人いるように見えていました。
+       ★そのあとどこへ入れるかは、組む人がつまんで動かして決めます。
+       ★Fで出していた人は、立ち上げの名前に F を付けて残します
+         （通しで入る、という情報が消えないようにするためです）。 */
+    const openWish = new Map();
+    shiftWishInto(wishes, dateStr, 'open').forEach((w) => openWish.set(w.name, w));
+    const pairFull = new Set();
+    if (openWish.size) {
+      shiftWishInto(wishes, dateStr, 'lunch').forEach((w) => {
+        if (openWish.has(w.name) && w.full) pairFull.add(w.name);
+      });
+    }
+
     SHIFT_SLOTS.forEach((slot) => {
       shiftWishInto(wishes, dateStr, slot.id).forEach((w) => {
+        // 立ち上げで出している人の、そのあとの分（ランチ／F）は入れません
+        if (slot.id !== 'open' && openWish.has(w.name)) return;
         // 印は「出してもらったときの枠」で付けます。ランチとFは別ものとして数えます
         const mark = `${dateStr}|${w.s}|${w.name}`;
         if (taken.has(mark)) return;
@@ -5764,7 +5782,7 @@ function shiftTake() {
         // 取り込んだ人は、ひとまず左の持ち場（キッチン）に入れます。
         // どちらに入るかは人と日で変わるので、機械では決められません
         const entry = { n: w.name, t: w.t || shiftDefaultTime(w.s), p: SHIFT_LANES[0].id };
-        if (w.full) entry.f = true;
+        if (w.full || (slot.id === 'open' && pairFull.has(w.name))) entry.f = true;
         day[slot.id].push(entry);
         added += 1;
         touched = true;
