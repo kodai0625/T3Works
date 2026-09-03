@@ -1278,6 +1278,84 @@ const TRAIN_OVERRIDES = {
     },
   ],
 
+  /* ===== ちゃこる ===== */
+  chacoru: [
+    {
+      id: 'ch-tr-basic',
+      title: '基本ルール',
+      items: [
+        { id: 'ch-tr-b01', label: 'あいさつ', hint: 'おはようございます・お疲れ様です' },
+        { id: 'ch-tr-b02', label: '更衣室と履物の説明' },
+        { id: 'ch-tr-b03', label: 'タイムカード', hint: '出勤は15分刻み、退勤は1分刻み' },
+        { id: 'ch-tr-b04', label: '手洗い' },
+        { id: 'ch-tr-b05', label: 'スタッフ用の飲み物の説明', hint: '水か烏龍茶ならOK、男はストロー✗' },
+        { id: 'ch-tr-b06', label: 'タバコルール' },
+        { id: 'ch-tr-b07', label: '制服の再説明' },
+      ],
+    },
+    {
+      id: 'ch-tr-hall',
+      title: 'ホールの基本',
+      items: [
+        { id: 'ch-tr-h01', label: 'おしぼりルール' },
+        { id: 'ch-tr-h02', label: '卓番説明', hint: '各席の収容人数の説明も' },
+        { id: 'ch-tr-h03', label: 'トイレチェック' },
+      ],
+    },
+    {
+      id: 'ch-tr-guide',
+      title: '来店退店対応',
+      items: [
+        { id: 'ch-tr-g01', label: '予約済みの場合' },
+        { id: 'ch-tr-g02', label: '予約無しの場合' },
+        { id: 'ch-tr-g03', label: '1階のご案内' },
+        { id: 'ch-tr-g04', label: '2階のご案内' },
+        { id: 'ch-tr-g05', label: 'ご案内後の説明（席のみ予約の場合）' },
+        { id: 'ch-tr-g06', label: 'ご案内後の説明（コース予約の場合）' },
+        { id: 'ch-tr-g07', label: 'お会計' },
+        { id: 'ch-tr-g08', label: 'お見送り' },
+      ],
+    },
+    {
+      id: 'ch-tr-serve',
+      title: '配膳',
+      items: [
+        { id: 'ch-tr-s01', label: 'トレンチの持ち方' },
+        { id: 'ch-tr-s02', label: 'お伺い時のルール', hint: 'ノック回数、注文を受けるときの姿勢、扉開閉時の声掛け' },
+        { id: 'ch-tr-s03', label: '料理、ドリンクに付けるシルバーの説明' },
+        { id: 'ch-tr-s04', label: 'お済みのお皿やグラスがあったら下げる' },
+        { id: 'ch-tr-s05', label: '鍋説明（単品の場合）' },
+        { id: 'ch-tr-s06', label: '鍋説明（コースの場合）' },
+        { id: 'ch-tr-s07', label: '飲み放題注文の注意点', hint: 'ちび紙の書き方' },
+        { id: 'ch-tr-s08', label: 'オーダーの取り方' },
+        { id: 'ch-tr-s09', label: 'インターホンのルール' },
+      ],
+    },
+    {
+      id: 'ch-tr-bus',
+      title: 'バッシング・セットの説明＆ルール',
+      items: [
+        { id: 'ch-tr-c01', label: 'バッシングのルール説明' },
+        { id: 'ch-tr-c02', label: 'セットの説明（基本セットVer）' },
+        { id: 'ch-tr-c03', label: 'セットの説明（コースVer）' },
+      ],
+    },
+    {
+      id: 'ch-tr-handy',
+      title: 'ハンディー',
+      items: [
+        { id: 'ch-tr-y01', label: 'ハンディーの使い方' },
+      ],
+    },
+    {
+      id: 'ch-tr-drink',
+      title: 'ドリンク',
+      items: [
+        { id: 'ch-tr-d01', label: 'ドリンクの作り方' },
+      ],
+    },
+  ],
+
 };
 
 /** このファイルに書いてある初期値 */
