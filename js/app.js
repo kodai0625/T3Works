@@ -589,6 +589,7 @@ const cashEdit = {
   photo: '',      // ドライブに残っている写真のID
   pending: '',    // 撮ったばかりで、まだドライブに残していない写真
   ocr: null, how: '', busy: false, text: '',
+  ms: 0, saveMs: 0,   // 何秒かかったか（速さを確かめるためのもの）
 };
 
 /**
@@ -643,6 +644,8 @@ function renderCash() {
     cashEdit.busy = false;
     cashEdit.text = '';
     cashEdit.pending = '';
+    cashEdit.ms = 0;
+    cashEdit.saveMs = 0;
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
@@ -702,8 +705,29 @@ function cashWeekTotal(startStr) {
 }
 
 function setCashMsg(text, kind) {
+  clearInterval(cashTick);
   el.cashMsg.textContent = text || '';
   el.cashMsg.className = 'cash-msg' + (text ? '' : ' is-hidden') + (kind ? ` is-${kind}` : '');
+}
+
+/**
+ * 待っているあいだ、経過の秒数を出します
+ *
+ * ★何秒かかるか分からないまま待つのが一番長く感じます。
+ *   数字が動いていれば「止まっていない」ことも分かります。
+ *   あとから「読み取りに何秒かかったか」を教えてもらう手がかりにもなります。
+ */
+let cashTick = null;
+function setCashWait(text) {
+  clearInterval(cashTick);
+  const from = Date.now();
+  const show = () => {
+    const sec = Math.round((Date.now() - from) / 1000);
+    el.cashMsg.textContent = sec ? `${text}（${sec}秒）` : text;
+    el.cashMsg.className = 'cash-msg is-busy';
+  };
+  show();
+  cashTick = setInterval(show, 1000);
 }
 
 /* -------- 写真 -------- */
@@ -742,7 +766,7 @@ async function onCashFile(e) {
   el.cashRedo.classList.add('is-hidden');
   el.cashSave.classList.remove('is-hidden');
   cashEdit.busy = true;
-  setCashMsg('写真を送っています…', 'busy');
+  setCashWait('写真を送っています…');
   el.cashTake.classList.add('is-busy');
 
   try {
@@ -753,15 +777,17 @@ async function onCashFile(e) {
     el.cashShotEmpty.classList.add('is-hidden');
     el.cashShot.classList.remove('is-empty');
 
-    setCashMsg('文字を読み取っています…', 'busy');
+    setCashWait('文字を読み取っています…');
     // ★ここでは読み取るだけで、ドライブには残しません。
     //   残すのは「記録する」を押したときです（撮っただけの写真が溜まらないように）
+    const from = Date.now();
     const res = await Sync.ask('journal', {
       mode: 'read',
       store: state.storeId,
       date: dateStr,
       image: dataUrl,
     });
+    cashEdit.ms = Date.now() - from;
     if (!res.ok) throw new Error(res.error || '送れませんでした');
 
     cashEdit.pending = dataUrl;
@@ -825,7 +851,8 @@ async function showCashPhoto() {
 
 /** 読み取った文字を出す */
 function openOcrText() {
-  el.ocrText.textContent = cashEdit.text || '（何も読み取れませんでした）';
+  el.ocrText.textContent = (cashEdit.ms ? `（読み取りに ${(cashEdit.ms / 1000).toFixed(1)}秒）\n\n` : '')
+    + (cashEdit.text || '（何も読み取れませんでした）');
   el.ocrCopy.textContent = 'コピーする';
   el.ocrModal.classList.remove('is-hidden');
 }
@@ -862,6 +889,7 @@ async function saveCash() {
     el.cashSave.disabled = true;
     const before = el.cashSave.textContent;
     el.cashSave.textContent = '写真を残しています…';
+    const from = Date.now();
     const res = await Sync.ask('journal', {
       mode: 'save',
       store: state.storeId,
@@ -872,6 +900,7 @@ async function saveCash() {
     });
     el.cashSave.disabled = false;
     el.cashSave.textContent = before;
+    cashEdit.saveMs = Date.now() - from;
 
     if (!res.ok || !res.fileId) {
       // 写真を残せていないのに記録してしまうと、あとで見返せません
