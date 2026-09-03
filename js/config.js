@@ -1067,6 +1067,39 @@ function cashBareOf(line) {
 }
 
 /**
+ * 名前だけが先に並んでいるときの読み方
+ *
+ * 「現金」の下に、金額の付かない支払い方法の名前が続き、そのあとに
+ * 金額がまとめて出てくる形です。名前の並びの**先頭が現金のとき**だけ、
+ * そのあとの最初の金額を現金のものとします。
+ *
+ * ★先頭でなければ、あきらめて null を返します。順番がずれていると、
+ *   よその支払いの金額を現金として入れてしまうためです。
+ */
+function cashStackedOf(lines, at) {
+  const isLabel = (t) => CASH_OTHER_ROWS.some((k) => cashPlain(t).includes(k));
+
+  // 現金のすぐ上が、ほかの支払い方法の名前なら、並びの先頭ではありません
+  const above = lines[at - 1];
+  if (above && isLabel(above) && cashMarkedOf(above) === null) return null;
+
+  let names = 0;
+  for (let j = at + 1; j < Math.min(at + 10, lines.length); j++) {
+    const line = lines[j];
+    const plain = cashPlain(line);
+    if (CASH_SECTION_END.some((k) => plain.includes(k))) return null;
+
+    const money = cashMarkedOf(line);
+    if (money !== null) {
+      // 名前が2つ以上つづいたあとの、最初の金額。そこまで来ていなければ見送ります
+      return names >= 2 ? money : null;
+    }
+    if (isLabel(line)) names += 1;
+  }
+  return null;
+}
+
+/**
  * 読み取った文字から、現金売上を取り出す
  *
  * 返り値
@@ -1125,6 +1158,14 @@ function parseJournalCash(text) {
       const v = cashBareOf(one);
       if (v !== null) return { yen: v, how: 'read' };
     }
+
+    // ★ここまでで見つからないとき。
+    //   紙によっては、支払い方法の**名前だけが先に並び、金額はそのあとに
+    //   まとめて出る**ことがあります（こじゃれの紙で実際に起きました）。
+    //     現金 ／ クレジット ／ その他支払 0点 売掛金 ／ … ／ 303,451円 ／ 96,199円
+    //   このときは、名前の並びのあとに出てくる**最初の金額**が現金のものです。
+    const stacked = cashStackedOf(lines, i);
+    if (stacked !== null) return { yen: stacked, how: 'read' };
   }
 
   // 現金の行はあったのに、金額だけ拾えなかったとき。
