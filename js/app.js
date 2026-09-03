@@ -589,7 +589,7 @@ const cashEdit = {
   photo: '',      // ドライブに残っている写真のID
   pending: '',    // 撮ったばかりで、まだドライブに残していない写真
   ocr: null, how: '', busy: false, text: '',
-  ms: 0, saveMs: 0,   // 何秒かかったか（速さを確かめるためのもの）
+  ms: 0, saveMs: 0, size: 0,   // 何秒かかったか・何KB送ったか（速さを確かめるためのもの）
 };
 
 /**
@@ -646,6 +646,7 @@ function renderCash() {
     cashEdit.pending = '';
     cashEdit.ms = 0;
     cashEdit.saveMs = 0;
+    cashEdit.size = 0;
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
@@ -732,8 +733,14 @@ function setCashWait(text) {
 
 /* -------- 写真 -------- */
 
-/** 撮った写真を、送れる大きさまで小さくします（文字が読める大きさは残します） */
-function cashShrink(file) {
+/**
+ * 撮った写真を、送れる大きさまで小さくします
+ *
+ * ★大きさ（ピクセル）は減らしません。字の形が崩れると読み取れなくなるためです。
+ * ★色は捨てて白黒にします。レシートは白地に黒の字なので、色は要りません。
+ *   捨てるとファイルが小さくなり、送る時間が短くなります。
+ */
+function cashShrink(file, quality) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -745,8 +752,23 @@ function cashShrink(file) {
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', 0.82));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // 白黒にする（色の分だけ小さくなります）
+      try {
+        const px = ctx.getImageData(0, 0, w, h);
+        const d = px.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+          d[i] = g; d[i + 1] = g; d[i + 2] = g;
+        }
+        ctx.putImageData(px, 0, 0);
+      } catch (e) {
+        // 端末によっては読み出せないことがあります。そのときは色のまま送ります
+      }
+
+      resolve(canvas.toDataURL('image/jpeg', quality || CASH_PHOTO_Q));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('写真を開けませんでした')); };
     img.src = url;
@@ -770,7 +792,7 @@ async function onCashFile(e) {
   el.cashTake.classList.add('is-busy');
 
   try {
-    const dataUrl = await cashShrink(file);
+    let dataUrl = await cashShrink(file);
     // 送る前に、撮ったものをその場で出します（待っているあいだ何も出ないと不安なので）
     el.cashShotImg.src = dataUrl;
     el.cashShotImg.classList.remove('is-hidden');
@@ -781,21 +803,37 @@ async function onCashFile(e) {
     // ★ここでは読み取るだけで、ドライブには残しません。
     //   残すのは「記録する」を押したときです（撮っただけの写真が溜まらないように）
     const from = Date.now();
-    const res = await Sync.ask('journal', {
+    let res = await Sync.ask('journal', {
       mode: 'read',
       store: state.storeId,
       date: dateStr,
       image: dataUrl,
     });
-    cashEdit.ms = Date.now() - from;
     if (!res.ok) throw new Error(res.error || '送れませんでした');
+    let got = parseJournalCash(res.text || '');
+
+    // ★小さくして送ったせいで読み取れなかったのかもしれません。
+    //   そのときだけ、元の画質でもう一度送り直します（ふだんは1回で終わります）
+    if (!res.ocrError && got.how === 'ng') {
+      setCashWait('もう一度、きれいな写真で読み取っています…');
+      const big = await cashShrink(file, CASH_PHOTO_Q_RETRY);
+      const res2 = await Sync.ask('journal', {
+        mode: 'read', store: state.storeId, date: dateStr, image: big,
+      });
+      if (res2.ok && parseJournalCash(res2.text || '').how !== 'ng') {
+        res = res2;
+        dataUrl = big;
+        got = parseJournalCash(res2.text || '');
+      }
+    }
+    cashEdit.ms = Date.now() - from;
+    cashEdit.size = Math.round(dataUrl.length * 3 / 4 / 1024);
 
     cashEdit.pending = dataUrl;
     // ★読み取った文字はそのまま持っておきます。金額が違って入ったときに、
     //   何が読めていたのかを見られるようにするためです（紙の形が変わったときの手がかり）
     cashEdit.text = res.text || '';
     el.cashOcrLink.classList.toggle('is-hidden', !cashEdit.text);
-    const got = parseJournalCash(res.text || '');
     cashEdit.ocr = got.yen;
     cashEdit.how = got.how;
 
@@ -851,7 +889,12 @@ async function showCashPhoto() {
 
 /** 読み取った文字を出す */
 function openOcrText() {
-  el.ocrText.textContent = (cashEdit.ms ? `（読み取りに ${(cashEdit.ms / 1000).toFixed(1)}秒）\n\n` : '')
+  const how = [
+    cashEdit.ms ? `読み取り ${(cashEdit.ms / 1000).toFixed(1)}秒` : '',
+    cashEdit.saveMs ? `記録 ${(cashEdit.saveMs / 1000).toFixed(1)}秒` : '',
+    cashEdit.size ? `写真 ${cashEdit.size}KB` : '',
+  ].filter(Boolean).join('　');
+  el.ocrText.textContent = (how ? `（${how}）\n\n` : '')
     + (cashEdit.text || '（何も読み取れませんでした）');
   el.ocrCopy.textContent = 'コピーする';
   el.ocrModal.classList.remove('is-hidden');
