@@ -307,6 +307,21 @@ function sectionItemsForDay(sec, storeId, d, ignoreClosed = false) {
   return sec.items.filter((it) => appliesTo(it, store, state.y, state.m, d, sec));
 }
 
+/**
+ * 下の日タブや「今日へ」で日を選んだときの行き先
+ *
+ * ★ふだんはクローズを開きます。ただし**現金売上を見ているあいだは、
+ *   その日の現金売上**を開きます。日を選ぶたびにクローズへ飛ばされると、
+ *   何日分かをまとめて見るときに戻る手間がかかるためです。
+ */
+function goToDay() {
+  if (state.view === 'cash') {
+    cashTab = 'day';    // 週を見ていても、選んだ日の中身を出します
+    return;
+  }
+  state.view = 'day';
+}
+
 /** その日に何か入力されているか（定休日でもデータがあれば隠さない） */
 function hasAnyData(rec) {
   return !!rec && (Object.keys(rec.items || {}).length > 0 || !!rec.note || !!rec.staff);
@@ -441,7 +456,7 @@ function renderDayTabs(scrollToActive = true) {
       : `${state.m}月${d}日（${DOW[dow]}）　${done}/${items.length}`;
     b.addEventListener('click', () => {
       state.d = d;
-      state.view = 'day';
+      goToDay();
       writeHash();
       render();
     });
@@ -7075,7 +7090,8 @@ function bindEvents() {
     writeHash(); render();
   });
   $('todayBtn').addEventListener('click', () => {
-    state.y = TODAY.y; state.m = TODAY.m; state.d = TODAY.d; state.view = 'day';
+    state.y = TODAY.y; state.m = TODAY.m; state.d = TODAY.d;
+    goToDay();
     writeHash(); render();
   });
 
