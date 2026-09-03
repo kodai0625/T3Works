@@ -75,6 +75,13 @@ const el = {
   weekNavMain: $('weekNavMain'), weekNavSub: $('weekNavSub'),
   periodCard: $('periodCard'), periodTitle: $('periodTitle'), periodRate: $('periodRate'),
   periodBar: $('periodBar'), periodCount: $('periodCount'), periodWhen: $('periodWhen'),
+  viewCash: $('viewCash'), cashDate: $('cashDate'), cashShot: $('cashShot'),
+  cashShotImg: $('cashShotImg'), cashShotEmpty: $('cashShotEmpty'),
+  cashTake: $('cashTake'), cashTakeText: $('cashTakeText'), cashFile: $('cashFile'),
+  cashMsg: $('cashMsg'), cashSales: $('cashSales'), cashCounted: $('cashCounted'),
+  cashDiff: $('cashDiff'), cashSave: $('cashSave'), cashWho: $('cashWho'),
+  cashMonthTitle: $('cashMonthTitle'), cashMonthSum: $('cashMonthSum'), cashList: $('cashList'),
+  shotModal: $('shotModal'), shotBig: $('shotBig'),
   weekSubmitCard: $('weekSubmitCard'), weekSubmitRange: $('weekSubmitRange'),
   weekSubmitRate: $('weekSubmitRate'), weekSubmitHint: $('weekSubmitHint'),
   periodSubmit: $('periodSubmit'), periodStaff: $('periodStaff'),
@@ -536,6 +543,291 @@ function renderDayView() {
     : '';
 }
 
+
+/* ============================================================
+ *  現金売上（ジャーナルの写真から）
+ *
+ *  流れ
+ *    1. レジの「精算」の紙を撮る
+ *    2. 写真をドライブに残して、Google のOCRで文字を読み取る
+ *    3. 読み取った文字から現金売上を拾って、欄に入れておく
+ *    4. 人が見て、違っていれば直す。封筒に入れた金額も入れる
+ *    5. 記録する（ほかの端末にも配られます）
+ *
+ *  ★読み取りはいつも当たるとは限りません（感熱紙のOCRは完璧ではありません）。
+ *    だから「読み取った金額をそのまま記録する」のではなく、
+ *    かならず人が見て確定する作りにしてあります。
+ *  ★記録はその日のクローズと同じ場所（項目 __cash）に入れているので、
+ *    Apps Script 側を直さなくても、いつもの同期でそのまま配られます。
+ * ============================================================ */
+
+/** いま画面で編集している内容（記録するまでは、ここだけにあります） */
+const cashEdit = { key: '', photo: '', ocr: null, how: '', busy: false };
+
+/** その日の現金売上の記録（無ければ null） */
+function cashOf(storeId, dateStr) {
+  const v = (Store.getDay(storeId, dateStr).items || {})[CASH_ITEM];
+  return v && v.value && typeof v.value === 'object' ? v.value : null;
+}
+
+/** 数字だけ取り出す（全角で入れても通ります。空なら null） */
+function cashYen(text) {
+  const t = toHalfWidthNumber(String(text || '')).replace(/[^\d-]/g, '');
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+function cashText(n) {
+  return n === null || n === undefined ? '' : Number(n).toLocaleString('ja-JP');
+}
+
+function renderCash() {
+  const dateStr = ymd(state.y, state.m, state.d);
+  const key = `${state.storeId}/${dateStr}`;
+  const saved = cashOf(state.storeId, dateStr);
+
+  // 日を移ったら、打ちかけの内容は持ち越しません
+  if (cashEdit.key !== key) {
+    cashEdit.key = key;
+    cashEdit.photo = saved ? (saved.photo || '') : '';
+    cashEdit.ocr = saved ? (saved.ocr === undefined ? null : saved.ocr) : null;
+    cashEdit.how = '';
+    cashEdit.busy = false;
+    el.cashSales.value = saved ? cashText(saved.sales) : '';
+    el.cashCounted.value = saved && saved.counted !== null && saved.counted !== undefined
+      ? cashText(saved.counted) : '';
+    setCashMsg('');
+    showCashPhoto();
+  }
+
+  el.cashDate.textContent = `${state.m}/${state.d}（${DOW[new Date(state.y, state.m - 1, state.d).getDay()]}）`;
+  el.cashTakeText.textContent = cashEdit.photo ? '📷 撮り直す' : '📷 ジャーナルを撮る';
+
+  if (saved && saved.at) {
+    const t = new Date(saved.at);
+    el.cashWho.textContent = `記録：${t.getMonth() + 1}/${t.getDate()} `
+      + `${pad2(t.getHours())}:${pad2(t.getMinutes())}`
+      + (saved.by ? `　${saved.by}` : '');
+  } else {
+    el.cashWho.textContent = '';
+  }
+
+  renderCashDiff();
+  renderCashList();
+}
+
+/** 差額の行。合っていれば緑、ずれていれば赤 */
+function renderCashDiff() {
+  const sales = cashYen(el.cashSales.value);
+  const counted = cashYen(el.cashCounted.value);
+
+  if (sales === null || counted === null) {
+    el.cashDiff.className = 'cash-diff';
+    el.cashDiff.textContent = counted === null && sales !== null
+      ? '封筒に入れた金額を入れると、合っているか出ます'
+      : '';
+    return;
+  }
+  const diff = counted - sales;
+  if (diff === 0) {
+    el.cashDiff.className = 'cash-diff is-ok';
+    el.cashDiff.textContent = '✓ 合っています';
+    return;
+  }
+  el.cashDiff.className = 'cash-diff is-ng';
+  el.cashDiff.textContent = diff > 0
+    ? `封筒の方が ${cashText(diff)}円 多いです`
+    : `封筒の方が ${cashText(-diff)}円 足りません`;
+}
+
+function setCashMsg(text, kind) {
+  el.cashMsg.textContent = text || '';
+  el.cashMsg.className = 'cash-msg' + (text ? '' : ' is-hidden') + (kind ? ` is-${kind}` : '');
+}
+
+/* -------- 写真 -------- */
+
+/** 撮った写真を、送れる大きさまで小さくします（文字が読める大きさは残します） */
+function cashShrink(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, CASH_PHOTO_MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('写真を開けませんでした')); };
+    img.src = url;
+  });
+}
+
+async function onCashFile(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';           // 同じ写真をもう一度選べるように
+  if (!file) return;
+
+  const dateStr = ymd(state.y, state.m, state.d);
+  cashEdit.busy = true;
+  setCashMsg('写真を送っています…', 'busy');
+  el.cashTake.classList.add('is-busy');
+
+  try {
+    const dataUrl = await cashShrink(file);
+    // 送る前に、撮ったものをその場で出します（待っているあいだ何も出ないと不安なので）
+    el.cashShotImg.src = dataUrl;
+    el.cashShotImg.classList.remove('is-hidden');
+    el.cashShotEmpty.classList.add('is-hidden');
+    el.cashShot.classList.remove('is-empty');
+
+    setCashMsg('文字を読み取っています…', 'busy');
+    const res = await Sync.ask('journal', {
+      store: state.storeId,
+      date: dateStr,
+      image: dataUrl,
+    });
+    if (!res.ok) throw new Error(res.error || '送れませんでした');
+
+    cashEdit.photo = res.fileId || '';
+    const got = parseJournalCash(res.text || '');
+    cashEdit.ocr = got.yen;
+    cashEdit.how = got.how;
+
+    if (got.how === 'read') {
+      el.cashSales.value = cashText(got.yen);
+      setCashMsg(`読み取りました：${cashText(got.yen)}円　紙と見くらべて、違っていれば直してください`, 'ok');
+    } else if (got.how === 'none') {
+      el.cashSales.value = '0';
+      setCashMsg('現金の行が見当たりませんでした。現金の会計が無かった日は 0円 です。'
+        + '紙に現金の行があるのに 0円 になっているときは、手で直してください', 'warn');
+    } else {
+      setCashMsg('金額を読み取れませんでした。写真は残っているので、金額は手で入れてください', 'warn');
+    }
+    renderCashDiff();
+  } catch (err) {
+    setCashMsg(String(err && err.message || err), 'warn');
+    showCashPhoto();
+  } finally {
+    cashEdit.busy = false;
+    el.cashTake.classList.remove('is-busy');
+    el.cashTakeText.textContent = cashEdit.photo ? '📷 撮り直す' : '📷 ジャーナルを撮る';
+  }
+}
+
+/** 記録に残っている写真を出す（ほかの端末で撮ったものも見られます） */
+async function showCashPhoto() {
+  const id = cashEdit.photo;
+  el.cashShotImg.classList.toggle('is-hidden', !id);
+  el.cashShotEmpty.classList.toggle('is-hidden', !!id);
+  el.cashShot.classList.toggle('is-empty', !id);
+  if (!id) { el.cashShotImg.removeAttribute('src'); return; }
+
+  el.cashShotEmpty.textContent = '写真を読み込んでいます…';
+  el.cashShotEmpty.classList.remove('is-hidden');
+  const res = await Sync.ask('journalImage', { fileId: id });
+  if (cashEdit.photo !== id) return;   // 待っているあいだに日を移った
+  if (res.ok && res.image) {
+    el.cashShotImg.src = `data:${res.type || 'image/jpeg'};base64,${res.image}`;
+    el.cashShotImg.classList.remove('is-hidden');
+    el.cashShotEmpty.classList.add('is-hidden');
+    el.cashShot.classList.remove('is-empty');
+  } else {
+    el.cashShotEmpty.textContent = '写真を出せませんでした';
+  }
+}
+
+function openShot() {
+  const src = el.cashShotImg.getAttribute('src');
+  if (!src) return;
+  el.shotBig.src = src;
+  el.shotModal.classList.remove('is-hidden');
+}
+
+/* -------- 記録する -------- */
+function saveCash() {
+  const dateStr = ymd(state.y, state.m, state.d);
+  const sales = cashYen(el.cashSales.value);
+  const counted = cashYen(el.cashCounted.value);
+
+  if (sales === null) {
+    setCashMsg('現金売上を入れてください', 'warn');
+    return;
+  }
+  const now = new Date().toISOString();
+  const by = (Store.getDay(state.storeId, dateStr).staff || '').trim();
+
+  Store.setItem(state.storeId, dateStr, CASH_ITEM, {
+    done: true,
+    value: { sales, counted, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by },
+  });
+  setCashMsg('記録しました', 'ok');
+  render();
+}
+
+/* -------- その月の一覧（探すためのもの） -------- */
+function renderCashList() {
+  const ym = `${state.y}-${pad2(state.m)}`;
+  const month = Store.getMonth(state.storeId, ym) || {};
+  const last = new Date(state.y, state.m, 0).getDate();
+
+  el.cashList.innerHTML = '';
+  let total = 0;
+  let days = 0;
+  let ng = 0;
+
+  for (let d = last; d >= 1; d--) {
+    const dateStr = ymd(state.y, state.m, d);
+    const rec = month[pad2(d)] || month[String(d)] || null;
+    const v = rec && rec.items && rec.items[CASH_ITEM] && rec.items[CASH_ITEM].value;
+    const cash = v && typeof v === 'object' ? v : null;
+    if (!cash) continue;
+
+    days += 1;
+    total += Number(cash.sales) || 0;
+    const diff = cash.counted === null || cash.counted === undefined
+      ? null : Number(cash.counted) - Number(cash.sales);
+    if (diff !== null && diff !== 0) ng += 1;
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'cash-item' + (diff !== null && diff !== 0 ? ' is-ng' : '');
+    row.innerHTML =
+      `<span class="cash-item__date">${state.m}/${d}（${DOW[new Date(state.y, state.m - 1, d).getDay()]}）</span>`
+      + `<span class="cash-item__yen">${cashText(cash.sales)}円</span>`
+      + (diff === null
+        ? '<span class="cash-item__mark">封筒まだ</span>'
+        : diff === 0
+          ? '<span class="cash-item__mark is-ok">✓</span>'
+          : `<span class="cash-item__mark is-ng">${diff > 0 ? '+' : ''}${cashText(diff)}</span>`)
+      + (cash.photo ? '<span class="cash-item__photo">📷</span>' : '');
+    row.addEventListener('click', () => {
+      state.d = d;
+      writeHash();
+      render();
+    });
+    el.cashList.appendChild(row);
+  }
+
+  el.cashMonthTitle.textContent = `${state.m}月の現金売上`;
+  el.cashMonthSum.textContent = days
+    ? `${days}日分　合計 ${cashText(total)}円` + (ng ? `　※合わない日 ${ng}日` : '')
+    : '';
+
+  if (!days) {
+    const p = document.createElement('p');
+    p.className = 'cash-empty';
+    p.textContent = 'この月は、まだ1日も記録がありません。';
+    el.cashList.appendChild(p);
+  }
+}
+
 /* ------------------------------------------------------------
  *  提出（全項目チェックで押せる）
  * ---------------------------------------------------------- */
@@ -757,6 +1049,18 @@ function taskStatus(taskId, storeId) {
     return never
       ? { text: `${items.length}件　未記録 ${never}`, kind: 'todo' }
       : { text: `${items.length}件`, kind: 'none' };
+  }
+
+  if (taskId === 'cash') {
+    if (Closed.isClosed(storeId, TODAY.y, TODAY.m, TODAY.d)) return { text: '本日は定休日', kind: 'closed' };
+    const cash = cashOf(storeId, dateStr);
+    if (!cash) return { text: '本日 まだ', kind: 'todo' };
+    // 封筒とジャーナルが合っていないときは、業務を選ぶ画面からでも分かるようにします
+    const diff = cash.counted === null || cash.counted === undefined
+      ? null : Number(cash.counted) - Number(cash.sales);
+    if (diff === null) return { text: '本日 封筒まだ', kind: 'todo' };
+    if (diff !== 0) return { text: `本日 ${diff > 0 ? '+' : ''}${cashText(diff)}円`, kind: 'todo' };
+    return { text: `本日 ${cashText(cash.sales)}円`, kind: 'done' };
   }
 
   if (taskId === 'month') {
@@ -6325,6 +6629,7 @@ function render() {
   const isSettle = state.view === 'settle';
   const isMeeting = state.view === 'meeting';
   const isShift = state.view === 'shift';
+  const isCash = state.view === 'cash';
 
   /* お金の画面にいるあいだは body に印を付けます。
      入力画面や確認ダイアログは画面をまたいで使い回しているので、
@@ -6353,6 +6658,7 @@ function render() {
     el.viewSettle.classList.add('is-hidden');
     el.viewMeeting.classList.add('is-hidden');
     el.viewShift.classList.add('is-hidden');
+    el.viewCash.classList.add('is-hidden');
     el.viewTasks.classList.remove('is-hidden');
     renderStoreTabs();
     renderTaskPicker();
@@ -6379,6 +6685,7 @@ function render() {
     el.viewSettle.classList.add('is-hidden');
     el.viewMeeting.classList.add('is-hidden');
     el.viewShift.classList.add('is-hidden');
+    el.viewCash.classList.add('is-hidden');
     el.viewStores.classList.remove('is-hidden');
     renderStorePicker();
     renderSyncStatus();
@@ -6427,6 +6734,7 @@ function render() {
   el.viewSettle.classList.toggle('is-hidden', !isSettle);
   el.viewMeeting.classList.toggle('is-hidden', !isMeeting);
   el.viewShift.classList.toggle('is-hidden', !isShift);
+  el.viewCash.classList.toggle('is-hidden', !isCash);
   // ★シフトの画面だけ、横幅の上限（1100px）を外します。
   //   iPadやパソコンの広い画面で、横に並べる日数を増やすためです
   document.body.classList.toggle('is-shift-wide', isShift);
@@ -6453,6 +6761,7 @@ function render() {
   if (Sync.hot !== wasHot && typeof Sync._loop === 'function') Sync._loop();
 
   if (isShift) renderShift();
+  else if (isCash) renderCash();
   else if (isMeeting) renderMeeting();
   else if (isSettle) renderSettle();
   else if (isCatch) renderCatch();
@@ -6715,6 +7024,17 @@ function bindEvents() {
   );
 
   /* 提出 */
+  /* 現金売上 */
+  el.cashFile.addEventListener('change', onCashFile);
+  el.cashShot.addEventListener('click', openShot);
+  el.cashSave.addEventListener('click', saveCash);
+  el.cashSales.addEventListener('input', renderCashDiff);
+  el.cashCounted.addEventListener('input', renderCashDiff);
+  bindHalfWidthInput(el.cashSales, 'number');
+  bindHalfWidthInput(el.cashCounted, 'number');
+  el.shotModal.querySelectorAll('[data-shot-close]').forEach((n) =>
+    n.addEventListener('click', () => el.shotModal.classList.add('is-hidden')));
+
   el.submitBtn.addEventListener('click', submitDay);
   el.unsubmitBtn.addEventListener('click', unsubmitDay);
 

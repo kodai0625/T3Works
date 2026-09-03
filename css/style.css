@@ -3686,3 +3686,101 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   }
 }
 
+
+/* ============================================================
+ *  現金売上（ジャーナルの写真から）
+ * ============================================================ */
+.cash-box {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow);
+  padding: 14px; margin-bottom: 12px;
+}
+/* 見出しと、その右の短い説明。狭いときは説明だけ下の行に落とします
+   （見出しの方が折れると、2行目が1文字だけになって読みにくいためです） */
+.cash-box__head { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.cash-box__title { margin: 0; font-size: 15px; white-space: nowrap; }
+.cash-box__date {
+  flex: 1 1 auto; font-size: 12.5px; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 撮った写真。押すと大きく出ます */
+.cash-shot {
+  display: block; width: 100%; padding: 0; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface-2); overflow: hidden;
+}
+.cash-shot.is-empty { cursor: default; }
+.cash-shot__img { display: block; width: 100%; max-height: 46vh; object-fit: contain; background: #fff; }
+.cash-shot__empty {
+  display: block; padding: 34px 10px; font-size: 13px; color: var(--text-weak); text-align: center;
+}
+/* このアプリでは、隠すクラスは要素ごとに書く決まりです（.is-hidden だけでは効きません） */
+.cash-shot__img.is-hidden, .cash-shot__empty.is-hidden { display: none; }
+
+/* 撮るボタン。カメラをそのまま開くので、見た目はボタンにします */
+.cash-take {
+  display: block; margin-top: 10px; padding: 13px;
+  border: 1px solid var(--store, var(--accent)); border-radius: 10px;
+  background: var(--store, var(--accent)); color: #fff;
+  font-size: 15.5px; font-weight: 700; text-align: center; cursor: pointer;
+}
+.cash-take.is-busy { opacity: .5; pointer-events: none; }
+
+.cash-msg { margin: 9px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--text-sub); }
+.cash-msg.is-ok   { color: color-mix(in srgb, var(--ok) 85%, var(--text)); font-weight: 700; }
+.cash-msg.is-warn { color: color-mix(in srgb, var(--ng) 85%, var(--text)); font-weight: 700; }
+.cash-msg.is-busy { color: color-mix(in srgb, var(--accent) 85%, var(--text)); }
+.cash-msg.is-hidden { display: none; }
+
+/* 金額を入れる2行 */
+.cash-line { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cash-line__label { flex: 1 1 auto; font-size: 13.5px; font-weight: 700; }
+.cash-line__field { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.cash-line__input {
+  width: 130px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 18px; font-weight: 700; text-align: right;
+  padding: 9px 10px; font-variant-numeric: tabular-nums;
+}
+.cash-line__input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.cash-line__unit { font-size: 13px; color: var(--text-sub); }
+
+.cash-diff {
+  margin: 0 0 12px; padding: 10px; border-radius: 9px;
+  background: var(--surface-2); font-size: 14px; font-weight: 700; text-align: center;
+  color: var(--text-sub); min-height: 40px;
+}
+.cash-diff.is-ok {
+  background: color-mix(in srgb, var(--ok) 10%, var(--surface));
+  color: color-mix(in srgb, var(--ok) 85%, var(--text));
+}
+.cash-diff.is-ng {
+  background: color-mix(in srgb, var(--ng) 10%, var(--surface));
+  color: color-mix(in srgb, var(--ng) 88%, var(--text));
+}
+.cash-note { margin: 9px 0 0; font-size: 12px; color: var(--text-sub); text-align: center; }
+
+/* その月の一覧。探すためのものなので、新しい日を上にします */
+.cash-list { display: grid; gap: 6px; }
+.cash-item {
+  display: grid; grid-template-columns: 92px 1fr auto auto; align-items: center; gap: 8px;
+  width: 100%; padding: 10px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-2); color: var(--text); font: inherit; font-size: 13.5px;
+}
+.cash-item.is-ng { border-color: color-mix(in srgb, var(--ng) 45%, var(--line)); }
+.cash-item__date { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cash-item__yen { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cash-item__mark { font-size: 12px; color: var(--text-weak); font-variant-numeric: tabular-nums; }
+.cash-item__mark.is-ok { color: color-mix(in srgb, var(--ok) 85%, var(--text)); font-weight: 700; }
+.cash-item__mark.is-ng { color: color-mix(in srgb, var(--ng) 88%, var(--text)); font-weight: 700; }
+.cash-item__photo { font-size: 12px; }
+.cash-empty { margin: 0; font-size: 13px; color: var(--text-sub); }
+
+/* 写真を大きく見る */
+.modal__panel--shot { max-width: 92vw; }
+.shot-big {
+  display: block; width: 100%; max-height: 74vh; object-fit: contain;
+  background: #fff; border-radius: 8px;
+}

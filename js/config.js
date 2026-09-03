@@ -913,6 +913,136 @@ function getAnytime(storeId) {
 const ANYTIME_KEY = 'ANYTIME';
 
 /* ------------------------------------------------------------
+ *  4-4) 現金売上（ジャーナルの写真から読み取る）
+ *
+ *  閉店したときにレジから出す「精算」の紙を撮ると、その中の
+ *  現金売上の金額を読み取ります。読み取りは Google のOCRで、
+ *  文字を返すところまでが Apps Script（gas/現金売上.gs）の役目です。
+ *  ★どこが現金売上かを見つけるのは、ここでやります。
+ *    レシートの形が変わっても、貼り直しではなく公開で直せるようにするためです。
+ *
+ *  記録の入れ先は、その日のクローズの記録と同じ場所です。
+ *  項目の1つ（CASH_ITEM）として持たせているので、
+ *  Apps Script 側を直さなくても、そのまま全端末へ配られます。
+ *
+ *  1日分の中身（JSON）
+ *    sales   : ジャーナルの現金売上（円）
+ *    counted : 封筒に避けた金額（円）。まだ数えていなければ null
+ *    photo   : ドライブに残した写真のID
+ *    ocr     : OCRが読んだ生の金額（人が直したかどうかが分かります）
+ *    at, by  : 入れた日時と人
+ * ---------------------------------------------------------- */
+
+/** その日の記録の中で、現金売上を入れておく項目名（チェック項目とはぶつかりません） */
+const CASH_ITEM = '__cash';
+
+/**
+ * ジャーナルの支払いの欄が始まる目印
+ *
+ * ★店舗ごとに決め打ちにせず、3つとも探します。
+ *   OCRは1文字読みまちがえることがあるので、当たる目印が多い方が強いためです。
+ *     おいでんテラス          … 支払方法
+ *     こじゃれ                … 支払内訳
+ *     炭まろ・ちゃこる・バグる・popo … 支払情報
+ */
+const CASH_SECTION_MARKS = ['支払方法', '支払内訳', '支払情報', '支払明細'];
+
+/** 支払いの欄が終わる目印（ここから先の「現金」は数えません） */
+const CASH_SECTION_END = ['現金以外', '割引', '割増', 'クレジット明細', 'その他支払明細',
+  'ドロア', '釣銭', '預かり', '締め', '担当'];
+
+/** 「現金」に見えるが、現金売上ではない行 */
+const CASH_NOT_ROWS = ['現金以外', '現金売上', '預かり現金', '現金釣銭', '現金有高', '現金過不足'];
+
+/** 目印を探すとき用。空きを全部取り除きます（OCRは「現 金」のように離すことがあります） */
+function cashPlain(line) {
+  return cashNormalize(line).replace(/[\s\u3000]/g, '');
+}
+
+/** 全角の数字と記号を半角にして、数字の中の区切りを取り除く */
+function cashNormalize(line) {
+  return String(line || '')
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[，、]/g, ',')
+    .replace(/[￥]/g, '¥')
+    .replace(/,\s+(?=\d)/g, ',');   // 「205, 946」のように空きが入ることがあります
+}
+
+/**
+ * 1行から金額を取り出す
+ *
+ * ★「4件」「1点」のような数え方の数字は金額ではないので外します。
+ *   金額は ¥ が前に付くか、円 が後ろに付くのが目印です。
+ *   どちらも無いときだけ、一番後ろの数字を金額とみなします。
+ */
+function cashFromLine(line) {
+  const s = cashNormalize(line);
+  const num = (t) => {
+    const n = Number(String(t).replace(/[,.\s]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const marked = [];
+  const re = /¥\s*([\d][\d,.]*)|([\d][\d,.]*)\s*円/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const v = num(m[1] !== undefined ? m[1] : m[2]);
+    if (v !== null) marked.push(v);
+  }
+  if (marked.length) return marked[marked.length - 1];
+
+  // 目印が読み取れなかったとき。数え方の数字（件・点・%・個・人）は外します
+  const rest = [];
+  const re2 = /([\d][\d,.]*)\s*([件点%個人])?/g;
+  while ((m = re2.exec(s)) !== null) {
+    if (m[2]) continue;
+    const v = num(m[1]);
+    if (v !== null) rest.push(v);
+  }
+  return rest.length ? rest[rest.length - 1] : null;
+}
+
+/**
+ * 読み取った文字から、現金売上を取り出す
+ *
+ * 返り値
+ *   { yen: 数字, how: 'read' }   … 現金の行から読めた
+ *   { yen: 0,    how: 'none' }   … 支払いの欄はあったが、現金の行が無い（＝現金なしの日）
+ *   { yen: null, how: 'ng' }     … 支払いの欄が見つからない（撮り直してもらう）
+ */
+function parseJournalCash(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  let from = -1;
+  for (let i = 0; i < lines.length && from < 0; i++) {
+    if (CASH_SECTION_MARKS.some((mark) => cashPlain(lines[i]).includes(mark))) from = i;
+  }
+  if (from < 0) return { yen: null, how: 'ng' };
+
+  for (let i = from + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const plain = cashPlain(line);
+    if (CASH_SECTION_END.some((mark) => plain.includes(mark))) break;
+    if (!plain.includes('現金')) continue;
+    if (CASH_NOT_ROWS.some((ng) => plain.includes(ng))) continue;
+
+    // 「現金」と同じ行に金額があればそれ。無ければ次の行にあります
+    // （炭まろ・ちゃこる・バグる・popo の紙は、金額が下の行に出ます）
+    const here = cashFromLine(line);
+    if (here !== null) return { yen: here, how: 'read' };
+    const next = i + 1 < lines.length ? cashFromLine(lines[i + 1]) : null;
+    if (next !== null) return { yen: next, how: 'read' };
+  }
+
+  // 支払いの欄はあったのに現金の行が無い＝その日は現金の会計が1件も無かった
+  // （おいでんテラスの紙は、現金が無い日は行ごと出ません）
+  return { yen: 0, how: 'none' };
+}
+
+/** 写真は長い辺をこの大きさまで小さくしてから送ります（文字が読める大きさ） */
+const CASH_PHOTO_MAX = 2000;
+
+/* ------------------------------------------------------------
  *  5) 業務の一覧（★ページを増やす場所★）
  *
  *  アプリは「店舗を選ぶ → 業務を選ぶ → その画面」の3段です。
@@ -2017,6 +2147,7 @@ function driveYen(totalKm) {
 
 const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
+  { id: 'cash',  name: '現金売上', sub: 'ジャーナルを撮って残す',   icon: '💴' },
   // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します
   { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
   // シフトは現場アプリにも Mine にも、同じように出します。

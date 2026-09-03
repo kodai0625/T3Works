@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=4ec53225">
-<meta name="app-version" content="77295914">
+<link rel="stylesheet" href="../css/style.css?v=8a3e7d17">
+<meta name="app-version" content="13509cde">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -258,6 +258,64 @@
     </div>
 
     <p class="updated" id="dayUpdated"></p>
+  </section>
+
+  <!-- ===== 現金売上 =====
+       レジから出した「精算」の紙（ジャーナル）を撮ると、その中の
+       現金売上を読み取って、封筒に入れた金額と突き合わせます。
+       写真はドライブに残るので、あとから日付と店舗で開けます -->
+  <section class="view view--cash is-hidden" id="viewCash">
+
+    <div class="cash-box">
+      <div class="cash-box__head">
+        <h2 class="cash-box__title">ジャーナル</h2>
+        <span class="cash-box__date" id="cashDate"></span>
+      </div>
+
+      <!-- 撮った写真。押すと大きく出ます -->
+      <button type="button" class="cash-shot is-empty" id="cashShot">
+        <img class="cash-shot__img is-hidden" id="cashShotImg" alt="ジャーナルの写真">
+        <span class="cash-shot__empty" id="cashShotEmpty">まだ撮っていません</span>
+      </button>
+
+      <!-- ★capture を付けると、iPhoneではカメラがそのまま開きます。
+           撮り直しや、あとから写真アプリの中のものを選ぶこともできます -->
+      <label class="cash-take" id="cashTake">
+        <input type="file" accept="image/*" capture="environment" id="cashFile" hidden>
+        <span id="cashTakeText">📷 ジャーナルを撮る</span>
+      </label>
+      <p class="cash-msg is-hidden" id="cashMsg"></p>
+    </div>
+
+    <div class="cash-box">
+      <div class="cash-line">
+        <label class="cash-line__label" for="cashSales">現金売上（ジャーナル）</label>
+        <span class="cash-line__field">
+          <input type="text" inputmode="numeric" autocomplete="off" class="cash-line__input" id="cashSales">
+          <span class="cash-line__unit">円</span>
+        </span>
+      </div>
+      <div class="cash-line">
+        <label class="cash-line__label" for="cashCounted">封筒に入れた金額</label>
+        <span class="cash-line__field">
+          <input type="text" inputmode="numeric" autocomplete="off" class="cash-line__input" id="cashCounted">
+          <span class="cash-line__unit">円</span>
+        </span>
+      </div>
+
+      <p class="cash-diff" id="cashDiff"></p>
+      <button type="button" class="submit-btn" id="cashSave">記録する</button>
+      <p class="cash-note" id="cashWho"></p>
+    </div>
+
+    <div class="cash-box">
+      <div class="cash-box__head">
+        <h2 class="cash-box__title" id="cashMonthTitle">この月の現金売上</h2>
+        <span class="cash-box__date" id="cashMonthSum"></span>
+      </div>
+      <div class="cash-list" id="cashList"></div>
+    </div>
+
   </section>
 
   <!-- ===== 全店舗提出記録 =====
@@ -1292,7 +1350,18 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=bddbf9db"></script>
+<!-- ===== ジャーナルの写真を大きく見る ===== -->
+<div class="modal is-hidden" id="shotModal">
+  <div class="modal__backdrop" data-shot-close></div>
+  <div class="modal__panel modal__panel--shot" role="dialog" aria-modal="true" aria-label="ジャーナルの写真">
+    <img class="shot-big" id="shotBig" alt="ジャーナルの写真">
+    <div class="modal__actions">
+      <button type="button" class="btn btn--primary" data-shot-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/config.js?v=7f38fb26"></script>
 <script src="../js/storage.js?v=aa7da4cb"></script>
 <script src="../js/sync.js?v=252da6a9"></script>
 <script src="../js/update.js?v=c530219e"></script>
@@ -1300,6 +1369,6 @@
 <script src="../js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
 <script src="../js/shift-sheet.js?v=28f6c733"></script>
-<script src="../js/app.js?v=8bf73cd9"></script>
+<script src="../js/app.js?v=1bd0f174"></script>
 </body>
 </html>
