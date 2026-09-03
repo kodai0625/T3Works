@@ -5779,9 +5779,13 @@ function shiftTake() {
         if (taken.has(mark)) return;
         taken.add(mark);
         if (day[slot.id].some((e) => e.n === w.name)) return;
-        // 取り込んだ人は、ひとまず左の持ち場（キッチン）に入れます。
-        // どちらに入るかは人と日で変わるので、機械では決められません
-        const entry = { n: w.name, t: w.t || shiftDefaultTime(w.s), p: SHIFT_LANES[0].id };
+        // ★マネージで決めてある「ふだんの持ち場」に入れます。
+        //   決めていない人は、ひとまず左の持ち場（キッチン）です
+        const entry = {
+          n: w.name,
+          t: w.t || shiftDefaultTime(w.s),
+          p: ShiftStaff.laneOf(state.storeId, w.name) || SHIFT_LANES[0].id,
+        };
         if (w.full || (slot.id === 'open' && pairFull.has(w.name))) entry.f = true;
         day[slot.id].push(entry);
         added += 1;

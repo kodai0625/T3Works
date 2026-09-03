@@ -542,10 +542,11 @@ const ShiftStaff = {
   _key: APP.storageKey + ':shiftStaff',
 
   /**
-   * { 店舗id: [{ n: 名前, c: 番号, s: 番号を送りずみか }] } をまるごと返します
+   * { 店舗id: [{ n: 名前, c: 番号, s: 送りずみか, p: 持ち場 }] } をまるごと返します
    *
    * 名前だけの配列で入っていた時期のものは、番号なしとして読みます
    * （保存し直すと番号が振られます）。
+   * p（持ち場）は 'k'（キッチン）か 'h'（ホール）。決めていなければ空です。
    */
   all() {
     try {
@@ -555,8 +556,11 @@ const ShiftStaff = {
         Object.keys(saved).forEach((id) => {
           out[id] = (saved[id] || []).map((v) => (
             typeof v === 'string'
-              ? { n: v, c: '', s: false }
-              : { n: String(v.n || ''), c: String(v.c || ''), s: !!v.s }
+              ? { n: v, c: '', s: false, p: '' }
+              : {
+                n: String(v.n || ''), c: String(v.c || ''), s: !!v.s,
+                p: SHIFT_LANES.some((l) => l.id === v.p) ? v.p : '',
+              }
           )).filter((v) => v.n);
         });
         return out;
@@ -565,6 +569,16 @@ const ShiftStaff = {
       /* 壊れていたら空に戻す */
     }
     return {};
+  },
+
+  /**
+   * その人のふだんの持ち場（'k' か 'h'。決めていなければ空）
+   *
+   * 希望を取り込むときに、この持ち場へ入れます。
+   */
+  laneOf(storeId, name) {
+    const who = this.people(storeId).find((p) => p.n === name);
+    return who ? (who.p || '') : '';
   },
 
   /** その店舗の人（名前と番号）。店舗を指定しなければ、シフトを組む店舗全部 */
@@ -616,7 +630,8 @@ const ShiftStaff = {
           code = makeShiftCode(used);
           used.add(code);
         }
-        list.push({ n: name, c: code, s: !!(p && p.s) });
+        const lane = SHIFT_LANES.some((l) => l.id === (p && p.p)) ? p.p : '';
+        list.push({ n: name, c: code, s: !!(p && p.s), p: lane });
       });
       if (list.length) clean[id] = list;
     });
@@ -636,7 +651,12 @@ const ShiftStaff = {
     map[storeId] = String(text || '').split('\n').map((line) => {
       const name = line.trim();
       const old = before.find((p) => p.n === name);
-      return { n: name, c: old ? old.c : '', s: old ? old.s : false };
+      return {
+        n: name,
+        c: old ? old.c : '',
+        s: old ? old.s : false,
+        p: old ? (old.p || '') : '',
+      };
     }).filter((p) => p.n);
     return this.save(map);
   },
@@ -650,6 +670,15 @@ const ShiftStaff = {
     who.c = makeShiftCode(this.codes());
     // 番号が変わったら、送りずみの印は外します（送り直しが要るため）
     who.s = false;
+    return this.save(map);
+  },
+
+  /** その人のふだんの持ち場を決める（'k' / 'h' / 空で「決めていない」） */
+  setLane(storeId, name, lane) {
+    const map = this.all();
+    const who = (map[storeId] || []).find((p) => p.n === name);
+    if (!who) return this.all();
+    who.p = SHIFT_LANES.some((l) => l.id === lane) ? lane : '';
     return this.save(map);
   },
 

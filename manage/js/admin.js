@@ -1264,11 +1264,13 @@ function renderShiftCodes() {
   }
 
   const 送りずみ = people.filter((p) => p.s).length;
+  const 持ち場なし = people.filter((p) => !p.p).length;
   const count = document.createElement('p');
   count.className = 'admin-note';
-  count.textContent = 送りずみ === people.length
+  count.textContent = (送りずみ === people.length
     ? `全員に送りました（${people.length}人）`
-    : `送りずみ ${送りずみ} / ${people.length}人`;
+    : `送りずみ ${送りずみ} / ${people.length}人`)
+    + (持ち場なし ? `　／　持ち場がまだ ${持ち場なし}人` : '');
   el.shiftCodeList.appendChild(count);
 
   const box = document.createElement('div');
@@ -1295,6 +1297,22 @@ function renderShiftCodes() {
     name.className = 'shift-code__name';
     name.textContent = p.n;
 
+    // ★ふだんの持ち場。希望を取り込むと、ここで決めた側に入ります
+    const lanes = document.createElement('span');
+    lanes.className = 'shift-code__lanes';
+    SHIFT_LANES.forEach((lane) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lane-btn' + (p.p === lane.id ? ' is-on' : '');
+      b.textContent = lane.name;
+      b.title = p.p === lane.id ? 'もう一度押すと、決めていない状態に戻ります' : `${lane.name}にする`;
+      b.addEventListener('click', () => {
+        ShiftStaff.setLane(storeId, p.n, p.p === lane.id ? '' : lane.id);
+        renderShiftStaff();
+      });
+      lanes.appendChild(b);
+    });
+
     const code = document.createElement('span');
     code.className = 'shift-code__num';
     code.textContent = p.c || '—';
@@ -1315,7 +1333,7 @@ function renderShiftCodes() {
       renderShiftStaff();
     });
 
-    row.append(sent, name, code, copy, again);
+    row.append(sent, name, lanes, code, copy, again);
     box.appendChild(row);
   });
   el.shiftCodeList.appendChild(box);

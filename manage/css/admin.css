@@ -294,3 +294,15 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 .dow-toggles--pick .dow-toggle.is-on {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
+
+/* シフトに入る人の、ふだんの持ち場（キッチン／ホール） */
+.shift-code__lanes { display: inline-flex; gap: 4px; }
+.lane-btn {
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--surface-2); color: var(--text-weak);
+  font: inherit; font-size: 12px; font-weight: 700;
+  padding: 5px 9px; cursor: pointer; white-space: nowrap;
+}
+.lane-btn.is-on {
+  background: var(--store, var(--accent)); border-color: var(--store, var(--accent)); color: #fff;
+}
