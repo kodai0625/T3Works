@@ -173,7 +173,7 @@ const el = {
   shiftPickLanes: $('shiftPickLanes'),
   shiftPickFreeField: $('shiftPickFreeField'), shiftPickFree: $('shiftPickFree'),
   shiftPickFreeGo: $('shiftPickFreeGo'),
-  shiftPickFullField: $('shiftPickFullField'),
+  shiftPickFullField: $('shiftPickFullField'), shiftPickFullLabel: $('shiftPickFullLabel'),
   shiftPickEarlyField: $('shiftPickEarlyField'),
   shiftPickEarlyOn: $('shiftPickEarlyOn'), shiftPickEarlyOff: $('shiftPickEarlyOff'),
   shiftPickFullOn: $('shiftPickFullOn'), shiftPickFullOff: $('shiftPickFullOff'),
@@ -6368,6 +6368,19 @@ function cancelShiftDrag() {
   document.removeEventListener('touchmove', blockShiftScroll);
 }
 
+/**
+ * 中身を作り直しても、見ている場所が動かないようにします
+ *
+ * ★シフトの表は、いったん空にしてから作り直しています。その一瞬だけ
+ *   ページが短くなるので、ブラウザが「そこまで下げられない」と考えて
+ *   一番上まで戻してしまいます。前の位置を覚えておいて、書き戻します。
+ */
+function renderKeepScroll() {
+  const y = window.scrollY;
+  render();
+  if (window.scrollY !== y) window.scrollTo(0, y);
+}
+
 /** 名前を、別のマスへ移します */
 function moveShiftChip(from, to) {
   if (from.date === to.date && from.slot === to.slot && from.lane === to.lane) return;
@@ -6400,7 +6413,7 @@ function moveShiftChip(from, to) {
     shiftFillShort(dayTo, to.slot, to.lane);
     saveShiftDay(to.date, dayTo);
   }
-  render();
+  renderKeepScroll();
 }
 
 /* -------- 人を選ぶ・直す -------- */
@@ -6454,7 +6467,7 @@ function renderShiftPick() {
           now[slotId] = shiftSort(now[slotId]);
           saveShiftDay(dateStr, now);
           closeShiftPick();
-          render();
+          renderKeepScroll();
         } else {
           shiftPickAt.time = t;
           renderShiftPick();
@@ -6481,10 +6494,14 @@ function renderShiftPick() {
   el.shiftPickFree.value = entry && entry.t !== '' && entry.t !== undefined
     ? shiftTimeText(entry.t) : '';
 
-  /* 通し（F）。ランチの枠のときだけ出します */
-  const canFull = slotId === 'lunch';
+  /* 通し（F）。ランチと立ち上げの枠で出します。
+     ★立ち上げから通しで入る人がいるので、立ち上げでも選べるようにしてあります */
+  const canFull = slotId === 'lunch' || slotId === 'open';
   el.shiftPickFullField.classList.toggle('is-hidden', !canFull);
   if (canFull) {
+    el.shiftPickFullLabel.textContent = slotId === 'open'
+      ? '立ち上げのあとは？'
+      : 'ランチだけか、通し（F）か';
     const on = entry ? !!entry.f : !!shiftPickAt.full;
     el.shiftPickFullOff.classList.toggle('is-on', !on);
     el.shiftPickFullOn.classList.toggle('is-on', on);
@@ -6546,7 +6563,7 @@ function renderShiftPick() {
           shiftFillShort(now, slotId, shiftPickAt.laneId);
           saveShiftDay(dateStr, now);
           closeShiftPick();
-          render();
+          renderKeepScroll();
         });
         grid.appendChild(b);
 
@@ -6566,7 +6583,7 @@ function renderShiftPick() {
             shiftFillShort(now, to.slot, shiftPickAt.laneId);
             saveShiftDay(dateStr, now);
             closeShiftPick();
-            render();
+            renderKeepScroll();
           });
           grid.appendChild(spill);
         }
@@ -6597,7 +6614,7 @@ function setShiftLane(laneId) {
   now[slotId][index] = { ...now[slotId][index], p: laneId };
   saveShiftDay(dateStr, now);
   closeShiftPick();
-  render();
+  renderKeepScroll();
 }
 
 /**
@@ -6645,7 +6662,7 @@ function applyShiftFreeTime() {
 
   saveShiftDay(dateStr, now);
   closeShiftPick();
-  render();
+  renderKeepScroll();
 }
 
 /** 「早上がり」を切り替える（Fで入れているが、早めに帰す人） */
@@ -6659,7 +6676,7 @@ function setShiftEarly(on) {
   now[slotId][index] = e;
   saveShiftDay(dateStr, now);
   closeShiftPick();
-  render();
+  renderKeepScroll();
 }
 
 /**
@@ -6689,7 +6706,7 @@ function applyShiftShort() {
   else delete now.short[key];
   saveShiftDay(dateStr, now);
   closeShiftPick();
-  render();
+  renderKeepScroll();
 }
 
 /** 「通し（F）」を切り替える */
@@ -6709,7 +6726,7 @@ function setShiftFull(on) {
   now[slotId][index] = e;
   saveShiftDay(dateStr, now);
   closeShiftPick();
-  render();
+  renderKeepScroll();
 }
 
 function removeShiftPick() {
