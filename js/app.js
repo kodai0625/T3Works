@@ -1560,6 +1560,8 @@ function taskStatus(taskId, storeId) {
   if (taskId === 'train') {
     const people = Trainees.list(storeId);
     const total = trainTotal(storeId);
+    // ★項目を先に見ます。項目が無いのに「みんな終わりました」と出すと嘘になります
+    if (!total) return { text: '項目がまだ', kind: 'none' };
     if (!people.length) return { text: '名前がまだ', kind: 'none' };
     const items = Store.getDay(storeId, TRAIN_KEY).items || {};
     const all = getTraining(storeId).flatMap((sec) => sec.items);

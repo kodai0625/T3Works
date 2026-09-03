@@ -1201,18 +1201,84 @@ function trainItemKey(personId, itemId) {
  *   label  : 画面に出る項目名
  *   hint   : 補足（省略可）
  */
-const TRAIN_DEFAULT = [
-  {
-    id: 'tr-basic',
-    title: 'はじめに',
-    items: [
-      { id: 'tr-b01', label: '（ここに項目が入ります）' },
-    ],
-  },
-];
+const TRAIN_DEFAULT = [];
 
-/** 店舗ごとに中身を変えるとき。書いていない店舗は上の TRAIN_DEFAULT を使います */
-const TRAIN_OVERRIDES = {};
+/**
+ * 店舗ごとの中身。書いていない店舗は上の TRAIN_DEFAULT（＝まだ空）を使います
+ *
+ * ★かっこの中は、2つの項目を見分けるためのものは label に残し、
+ *   ただの補足は hint（項目の下に小さく出ます）にしてあります。
+ */
+const TRAIN_OVERRIDES = {
+
+  /* ===== こじゃれ ===== */
+  kojare: [
+    {
+      id: 'kj-tr-basic',
+      title: '基本ルール',
+      items: [
+        { id: 'kj-tr-b01', label: 'あいさつ', hint: 'おはようございます・お疲れ様です' },
+        { id: 'kj-tr-b02', label: '更衣室と履物の説明' },
+        { id: 'kj-tr-b03', label: 'タイムカード', hint: '出勤は15分刻み、退勤は1分刻み' },
+        { id: 'kj-tr-b04', label: '手洗い' },
+        { id: 'kj-tr-b05', label: 'スタッフ用の飲み物の説明', hint: '水か烏龍茶ならOK、男はストロー✗' },
+        { id: 'kj-tr-b06', label: 'タバコルール' },
+        { id: 'kj-tr-b07', label: '制服の再説明' },
+      ],
+    },
+    {
+      id: 'kj-tr-hall',
+      title: 'ホールの基本',
+      items: [
+        { id: 'kj-tr-h01', label: 'おしぼりルール' },
+        { id: 'kj-tr-h02', label: '卓番説明', hint: '各席の収容人数の説明も' },
+      ],
+    },
+    {
+      id: 'kj-tr-guide',
+      title: '来店退店対応',
+      items: [
+        { id: 'kj-tr-g01', label: '予約済みの場合' },
+        { id: 'kj-tr-g02', label: '予約無しの場合' },
+        { id: 'kj-tr-g03', label: '1階のご案内' },
+        { id: 'kj-tr-g04', label: '2階のご案内' },
+        { id: 'kj-tr-g05', label: 'ご案内後の説明（席のみ予約の場合）' },
+        { id: 'kj-tr-g06', label: 'ご案内後の説明（コース予約の場合）' },
+        { id: 'kj-tr-g07', label: 'お会計' },
+        { id: 'kj-tr-g08', label: 'お見送り' },
+      ],
+    },
+    {
+      id: 'kj-tr-serve',
+      title: '配膳',
+      items: [
+        { id: 'kj-tr-s01', label: 'トレンチの持ち方' },
+        { id: 'kj-tr-s02', label: 'お伺い時のルール', hint: 'ノック回数、注文を受けるときの姿勢、扉開閉時の声掛け' },
+        { id: 'kj-tr-s03', label: '料理、ドリンクに付けるシルバーの説明' },
+        { id: 'kj-tr-s04', label: 'お済みのお皿やグラスがあったら下げる' },
+        { id: 'kj-tr-s05', label: '鍋説明（単品の場合）' },
+        { id: 'kj-tr-s06', label: '鍋説明（コースの場合）' },
+      ],
+    },
+    {
+      id: 'kj-tr-bus',
+      title: 'バッシング・セットの説明＆ルール',
+      items: [
+        { id: 'kj-tr-c01', label: 'バッシングのルール説明' },
+        { id: 'kj-tr-c02', label: 'セットの説明（基本セットVer）' },
+        { id: 'kj-tr-c03', label: 'セットの説明（コースVer）' },
+      ],
+    },
+    {
+      id: 'kj-tr-drink',
+      title: 'ドリンク',
+      items: [
+        { id: 'kj-tr-d01', label: 'ドリンクの作り方' },
+      ],
+    },
+  ],
+
+};
 
 /** このファイルに書いてある初期値 */
 function defaultTraining(storeId) {
