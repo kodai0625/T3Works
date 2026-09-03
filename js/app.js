@@ -584,7 +584,12 @@ function renderDayView() {
  * ============================================================ */
 
 /** いま画面で編集している内容（記録するまでは、ここだけにあります） */
-const cashEdit = { key: '', photo: '', ocr: null, how: '', busy: false, text: '' };
+const cashEdit = {
+  key: '',        // いま開いている 店舗/日
+  photo: '',      // ドライブに残っている写真のID
+  pending: '',    // 撮ったばかりで、まだドライブに残していない写真
+  ocr: null, how: '', busy: false, text: '',
+};
 
 /**
  * 記録したあと「記録し直す」を押したか
@@ -637,6 +642,7 @@ function renderCash() {
     cashEdit.how = '';
     cashEdit.busy = false;
     cashEdit.text = '';
+    cashEdit.pending = '';
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
@@ -650,7 +656,7 @@ function renderCash() {
   el.cashPaneWeek.classList.toggle('is-hidden', cashTab !== 'week');
 
   el.cashDate.textContent = `${state.m}/${state.d}（${DOW[new Date(state.y, state.m - 1, state.d).getDay()]}）`;
-  el.cashTakeText.textContent = cashEdit.photo ? '📷 撮り直す' : '📷 ジャーナルを撮る';
+  el.cashTakeText.textContent = (cashEdit.photo || cashEdit.pending) ? '📷 撮り直す' : '📷 ジャーナルを撮る';
 
   // 記録が済んでいる日は、ボタンを「✓ 記録済み」に入れかえます
   const done = !!saved && !cashUnlocked;
@@ -748,16 +754,17 @@ async function onCashFile(e) {
     el.cashShot.classList.remove('is-empty');
 
     setCashMsg('文字を読み取っています…', 'busy');
+    // ★ここでは読み取るだけで、ドライブには残しません。
+    //   残すのは「記録する」を押したときです（撮っただけの写真が溜まらないように）
     const res = await Sync.ask('journal', {
+      mode: 'read',
       store: state.storeId,
-      // フォルダの名前に使うので、店舗の名前も送ります
-      storeName: getStore(state.storeId).name,
       date: dateStr,
       image: dataUrl,
     });
     if (!res.ok) throw new Error(res.error || '送れませんでした');
 
-    cashEdit.photo = res.fileId || '';
+    cashEdit.pending = dataUrl;
     // ★読み取った文字はそのまま持っておきます。金額が違って入ったときに、
     //   何が読めていたのかを見られるようにするためです（紙の形が変わったときの手がかり）
     cashEdit.text = res.text || '';
@@ -767,8 +774,7 @@ async function onCashFile(e) {
     cashEdit.how = got.how;
 
     if (res.ocrError) {
-      // 写真は残っています。読み取りだけができなかったときです
-      setCashMsg(`写真は残りました。金額は手で入れてください（${res.ocrError}）`, 'warn');
+      setCashMsg(`金額を読み取れませんでした。手で入れてください（${res.ocrError}）`, 'warn');
       return;
     }
 
@@ -780,7 +786,7 @@ async function onCashFile(e) {
       setCashMsg('現金の行が見当たりませんでした。現金の会計が無かった日は 0円 です。'
         + '紙に現金の行があるのに 0円 になっているときは、手で直してください', 'warn');
     } else {
-      setCashMsg('金額を読み取れませんでした。写真は残っているので、金額は手で入れてください。'
+      setCashMsg('金額を読み取れませんでした。金額は手で入れてください。'
         + '下の「読み取った文字を見る」を送っていただければ、読み方を直します', 'warn');
     }
   } catch (err) {
@@ -789,7 +795,7 @@ async function onCashFile(e) {
   } finally {
     cashEdit.busy = false;
     el.cashTake.classList.remove('is-busy');
-    el.cashTakeText.textContent = cashEdit.photo ? '📷 撮り直す' : '📷 ジャーナルを撮る';
+    el.cashTakeText.textContent = (cashEdit.photo || cashEdit.pending) ? '📷 撮り直す' : '📷 ジャーナルを撮る';
   }
 }
 
@@ -841,7 +847,7 @@ function openShot() {
 }
 
 /* -------- 記録する -------- */
-function saveCash() {
+async function saveCash() {
   const dateStr = ymd(state.y, state.m, state.d);
   const sales = cashYen(el.cashSales.value);
 
@@ -849,6 +855,34 @@ function saveCash() {
     setCashMsg('現金売上を入れてください', 'warn');
     return;
   }
+
+  // ★写真をドライブに残すのは、ここ（記録するを押したとき）です。
+  //   同じ日の古い写真はサーバー側でゴミ箱に入るので、残るのは最後の1枚だけです
+  if (cashEdit.pending) {
+    el.cashSave.disabled = true;
+    const before = el.cashSave.textContent;
+    el.cashSave.textContent = '写真を残しています…';
+    const res = await Sync.ask('journal', {
+      mode: 'save',
+      store: state.storeId,
+      // フォルダの名前に使うので、店舗の名前も送ります
+      storeName: getStore(state.storeId).name,
+      date: dateStr,
+      image: cashEdit.pending,
+    });
+    el.cashSave.disabled = false;
+    el.cashSave.textContent = before;
+
+    if (!res.ok || !res.fileId) {
+      // 写真を残せていないのに記録してしまうと、あとで見返せません
+      setCashMsg(`写真を残せませんでした（${res.error || '通信できません'}）。`
+        + 'もう一度「記録する」を押してください', 'warn');
+      return;
+    }
+    cashEdit.photo = res.fileId;
+    cashEdit.pending = '';
+  }
+
   const now = new Date().toISOString();
   const by = (Store.getDay(state.storeId, dateStr).staff || '').trim();
 
