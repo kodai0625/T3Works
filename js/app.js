@@ -799,15 +799,14 @@ function cashGasOk(res) {
   const now = res && res.v ? String(res.v) : '';
   if (now === CASH_GAS_VERSION) return true;
 
-  if (!now) {
-    setCashMsg('Apps Script が古いままです（版が分かりません）。'
-      + '「現金売上のコードをコピーする」から 現金売上.gs を貼り直して、'
-      + 'デプロイを更新してください', 'warn');
-  } else {
-    setCashMsg(`Apps Script が古いままです（サーバー ${now} ／ アプリ ${CASH_GAS_VERSION}）。`
-      + '「現金売上のコードをコピーする」から 現金売上.gs を貼り直して、'
-      + 'デプロイを更新してください', 'warn');
-  }
+  // ★「貼っただけ」では切り替わりません。デプロイを更新するまで、
+  //   サーバーは前の版のまま動きつづけます。そこを名指しで伝えます
+  const how = '★コードを貼っただけでは切り替わりません。'
+    + 'Apps Script の右上「デプロイ」→「デプロイを管理」→ '
+    + 'いま使っているデプロイの鉛筆 → バージョンを「新バージョン」→「デプロイ」';
+  setCashMsg(now
+    ? `Apps Script が古いままです（サーバー ${now} ／ アプリ ${CASH_GAS_VERSION}）。${how}`
+    : `Apps Script が古いままです（版が分かりません）。${how}`, 'warn');
   return false;
 }
 
