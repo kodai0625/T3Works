@@ -2519,6 +2519,207 @@ function nippouCells(storeId) {
 const NIPPOU_FOLDERS = {};
 
 /* ------------------------------------------------------------
+ *  USENレジの「汎用検索 → 売上データ(伝票)」CSVを読む
+ *
+ *  レジは出前館とウーバーも通っていますが、日報では別の行なので
+ *  テーブル番号（UB1 / DK1 …）で分けています。
+ * ---------------------------------------------------------- */
+
+/** 出前館・ウーバーのテーブル番号の頭文字 */
+const UREGI_DELIVERY = [
+  { key: 'uber',  head: 'UB', name: 'ウーバー' },
+  { key: 'demae', head: 'DK', name: '出前館' },
+];
+
+/** 読む列。日報に入れるのはここから作ります */
+const UREGI_COLS = {
+  flag:   'H.集計フラグ',
+  store:  'H.店舗',
+  date:   'H.集計対象営業年月日',
+  table:  'H.テーブル番号',
+  amount: 'H.伝票金額',
+  cash:   'H.支払金額（現金）',
+  card:   'H.支払金額（クレジットカード）',
+  emoney: 'H.支払金額（電子マネー）',
+  ex10:   'H.税抜金額10%',
+  ex8:    'H.税抜金額8%',
+  guests: 'H.客数（合計）',
+};
+
+/** 1日分の入れもの */
+function uregiBlank() {
+  return {
+    cash: 0, card: 0, emoney: 0, net: 0, guests: 0,
+    demaeCash: 0, demaeCard: 0, uberCash: 0, uberCard: 0,
+    incTax: 0, slips: 0,
+  };
+}
+
+/** カンマ区切りを、引用符ごと正しく分ける */
+function uregiSplit(line) {
+  const out = [];
+  let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else q = false;
+      } else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function uregiNum(v) {
+  const s = String(v == null ? '' : v).replace(/[,\s]/g, '');
+  return /^-?\d+$/.test(s) ? parseInt(s, 10) : 0;
+}
+
+/** 「004:炭焼ハンバーグ バグる」から店舗を見つける */
+function uregiStoreId(text, stores) {
+  const s = String(text || '').toLowerCase();
+  let hit = null;
+  stores.forEach((st) => {
+    [st.name, st.short, st.id].forEach((w) => {
+      if (w && s.indexOf(String(w).toLowerCase()) >= 0) {
+        // 長い名前の方を優先します（「popo」より「おいでんテラス」）
+        if (!hit || String(w).length > hit.len) hit = { id: st.id, len: String(w).length };
+      }
+    });
+  });
+  return hit ? hit.id : null;
+}
+
+/** テーブル番号から、店内か出前館かウーバーかを見分ける */
+function uregiWhere(table) {
+  const t = String(table || '').split(':').pop().trim().toUpperCase();
+  for (let i = 0; i < UREGI_DELIVERY.length; i++) {
+    if (t.indexOf(UREGI_DELIVERY[i].head) === 0) return UREGI_DELIVERY[i].key;
+  }
+  return 'in';                       // 店内とテイクアウト
+}
+
+/**
+ *  CSVの本文（文字にしたもの）を読んで、店舗ごと・日ごとにまとめます。
+ *  返すもの … { ok, days:{ 店舗id: { 'YYYY-MM-DD': {…} } }, stores:[…], rows, used, unknown:[…] }
+ */
+function uregiParse(text, stores) {
+  const lines = String(text || '').split(/\r\n|\r|\n/);
+  let head = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf(UREGI_COLS.flag) >= 0) { head = i; break; }
+  }
+  if (head < 0) return { ok: false, error: 'レジのCSVではないようです（見出しが見つかりません）' };
+
+  const cols = uregiSplit(lines[head]).map((s) => s.replace(/^"|"$/g, '').trim());
+  const at = {};
+  Object.keys(UREGI_COLS).forEach((k) => { at[k] = cols.indexOf(UREGI_COLS[k]); });
+  const missing = Object.keys(at).filter((k) => at[k] < 0).map((k) => UREGI_COLS[k]);
+  if (missing.length) {
+    return { ok: false, error: '足りない列があります … ' + missing.join('、') };
+  }
+
+  const days = {};
+  const unknown = {};
+  let rows = 0, used = 0;
+
+  for (let i = head + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const r = uregiSplit(lines[i]);
+    if (r.length < cols.length) continue;
+    rows++;
+    if (r[at.flag].replace(/"/g, '').trim() !== '*') continue;   // 集計しない行
+
+    const storeText = r[at.store];
+    const id = uregiStoreId(storeText, stores);
+    if (!id) { unknown[storeText] = (unknown[storeText] || 0) + 1; continue; }
+
+    const ymd = String(r[at.date]).trim().replace(/\//g, '-');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) continue;
+
+    if (!days[id]) days[id] = {};
+    if (!days[id][ymd]) days[id][ymd] = uregiBlank();
+    const v = days[id][ymd];
+
+    const cash = uregiNum(r[at.cash]);
+    const card = uregiNum(r[at.card]);
+    const where = uregiWhere(r[at.table]);
+    if (where === 'in') {
+      v.cash += cash;
+      v.card += card;
+      v.emoney += uregiNum(r[at.emoney]);
+    } else if (where === 'demae') {
+      v.demaeCash += cash; v.demaeCard += card;
+    } else {
+      v.uberCash += cash; v.uberCard += card;
+    }
+    v.net += uregiNum(r[at.ex10]) + uregiNum(r[at.ex8]);
+    v.guests += uregiNum(r[at.guests]);
+    v.incTax += uregiNum(r[at.amount]);
+    v.slips++;
+    used++;
+  }
+
+  return {
+    ok: true, days: days, rows: rows, used: used,
+    stores: Object.keys(days),
+    unknown: Object.keys(unknown).map((k) => ({ name: k, n: unknown[k] })),
+  };
+}
+
+/* ------------------------------------------------------------
+ *  日報の「日ごとのページ」の入れ先
+ *
+ *  ページの名前は日にちそのもの（"1" 〜 "31"）です。
+ *  ★2026年9月から様式が変わりました。ここは9月からの形です。
+ *    様式が変わったときは、ここを直してアプリを入れ直せば直ります
+ *    （Apps Script は「言われたセルに書くだけ」なので、貼り直しは要りません）。
+ * ---------------------------------------------------------- */
+const NIPPOU_DAY_CELLS_DEFAULT = {
+  cash:   'B3',    // 現金売上
+  card:   'B4',    // クレジット
+  emoney: 'B10',   // 電子マネー
+  net:    'B26',   // 純売上（税抜）
+  guests: 'B30',   // 当日客数
+};
+/** 様式が違う店舗だけ、ここに書きます */
+const NIPPOU_DAY_CELLS = {};
+
+/**
+ *  出前館とウーバーも書くかどうか
+ *
+ *  いまは書きません（これまでどおり手で入れてもらいます）。
+ *  数字は画面に出るので、見ながら打てます。
+ *  書かせたくなったら true にしてください。
+ */
+const NIPPOU_WRITE_DELIVERY = false;
+const NIPPOU_DELIVERY_CELLS = {
+  demaeCash: 'B5',   // 出前館現金
+  demaeCard: 'B6',   // 出前館クレジット
+  uberCash:  'B11',  // ウーバー現金
+  uberCard:  'B12',  // ウーバークレジット
+};
+
+function nippouDayCells(storeId) {
+  return NIPPOU_DAY_CELLS[storeId] || NIPPOU_DAY_CELLS_DEFAULT;
+}
+
+/** レジのCSVは Shift-JIS です。うまくいかなければ UTF-8 で読み直します */
+function uregiDecode(buf) {
+  const bytes = new Uint8Array(buf);
+  let text = '';
+  try { text = new TextDecoder('shift_jis').decode(bytes); } catch (e) { text = ''; }
+  if (text.indexOf(UREGI_COLS.flag) < 0) {
+    try { text = new TextDecoder('utf-8').decode(bytes); } catch (e2) { /* そのまま */ }
+  }
+  return text;
+}
+
+/* ------------------------------------------------------------
  *  ミスの記録（クローズの提出記録から入れます）
  *
  *  「提出はしたけれど、じつは できていなかった」を残しておくためのものです。

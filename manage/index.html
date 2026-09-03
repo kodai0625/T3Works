@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="64x64" href="../img/manage-icon-64.png?v=2b8a9145">
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=f1875ffb">
-<link rel="stylesheet" href="css/admin.css?v=faacfaa8">
-<meta name="app-version" content="82db7858">
+<link rel="stylesheet" href="css/admin.css?v=e0496ad4">
+<meta name="app-version" content="7daf338e">
 </head>
 <body class="no-daytabs">
 
@@ -112,6 +112,27 @@
       <button type="button" class="btn btn--primary" id="saveNippou">フォルダを保存</button>
       <span class="admin-saved is-hidden" id="nippouSaved">保存しました</span>
     </div>
+  </section>
+
+  <!-- ===== レジのCSVから日報へ（全店舗分が1ファイルに入るので、ここに置きます） ===== -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">レジから日報へ</h2>
+      <span class="admin-count" id="uregiCount"></span>
+    </div>
+    <p class="admin-note">
+      USENレジの管理画面で <b>店舗運営 → 帳票管理 → 汎用検索</b> を開き、データ形式を
+      <b>「売上データ(伝票)」</b>にして期間を決め、<b>CSV出力</b>したファイルを読ませてください。
+      店舗は全部チェックしてかまいません。1つのファイルに何店舗分入っていても、店名で分けて読みます。<br>
+      日報に入れるのは <b>現金売上・クレジット・電子マネー・純売上・当日客数</b> の5つです。
+      出前館とウーバーは、レジでは現金やカードとして数えられています。日報では別の行なので、
+      取り分けて<b>下に出すだけ</b>にしてあります（日報には書きません）。
+    </p>
+    <div class="admin-actions">
+      <label class="btn btn--primary">CSVを読む<input type="file" id="uregiFile" accept=".csv,text/csv" hidden></label>
+      <span class="admin-saved is-hidden" id="uregiNote"></span>
+    </div>
+    <div class="uregi" id="uregiResult"></div>
   </section>
 
   <!-- ===== 現金支払い管理表の取り込み（全店舗で共通なので、ここに置きます） ===== -->
@@ -511,7 +532,7 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=c50334c1"></script>
+<script src="../js/config.js?v=abb41c93"></script>
 <script src="../js/storage.js?v=11df9bc6"></script>
 <script src="../js/sync.js?v=bc990976"></script>
 <script src="../js/update.js?v=c530219e"></script>
@@ -519,6 +540,6 @@
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=0b85b841"></script>
+<script src="js/admin.js?v=e6e1909e"></script>
 </body>
 </html>

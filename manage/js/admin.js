@@ -46,6 +46,7 @@ const el = {};
   'viewTrain', 'trainStoreName', 'trainCount', 'trainInput', 'saveTrain', 'trainSaved',
   'trainItemsStore', 'trainItemsCount', 'trainEditor', 'trainAddSection',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
+  'uregiFile', 'uregiCount', 'uregiNote', 'uregiResult',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
   'closedStoreName', 'dowToggles', 'exFrom', 'exKind', 'exAdd', 'exHint', 'exList',
@@ -1408,6 +1409,169 @@ function saveNippouFolders() {
   setTimeout(() => el.nippouSaved.classList.add('is-hidden'), 2500);
 }
 
+/* ============================================================
+ *  レジのCSVから日報へ
+ *
+ *  USENレジの「汎用検索 → 売上データ(伝票)」で出したCSVを読み、
+ *  店舗ごと・日ごとにまとめて出します。
+ *  ★いまは出すだけです。日報への書き込みはまだ付けていません。
+ * ============================================================ */
+
+/** 読んだ結果。{ name, res } */
+let uregiRead = null;
+
+async function onUregiFile(file) {
+  if (!file) return;
+  uregiNote(`${file.name} を読んでいます…`);
+  let res;
+  try {
+    const buf = await file.arrayBuffer();
+    res = uregiParse(uregiDecode(buf), STORES);
+  } catch (e) {
+    res = { ok: false, error: 'ファイルを開けませんでした（' + String(e && e.message || e).slice(0, 60) + '）' };
+  }
+  uregiRead = { name: file.name, res };
+  renderUregi();
+  uregiNote('');
+}
+
+function uregiNote(text) {
+  el.uregiNote.textContent = text;
+  el.uregiNote.classList.toggle('is-hidden', !text);
+}
+
+function uregiYen(n) { return Number(n || 0).toLocaleString('ja-JP'); }
+
+/** 1日分を、日報のどの欄に入るかの順で並べます */
+const UREGI_SHOW = [
+  { key: 'cash',   name: '現金売上',   cell: 'cash' },
+  { key: 'card',   name: 'クレジット', cell: 'card' },
+  { key: 'emoney', name: '電子マネー', cell: 'emoney' },
+  { key: 'net',    name: '純売上',     cell: 'net' },
+  { key: 'guests', name: '客数',       cell: 'guests', plain: true },
+];
+const UREGI_SHOW_DELIVERY = [
+  { key: 'demaeCash', name: '出前館 現金' },
+  { key: 'demaeCard', name: '出前館 ｶｰﾄﾞ' },
+  { key: 'uberCash',  name: 'ｳｰﾊﾞｰ 現金' },
+  { key: 'uberCard',  name: 'ｳｰﾊﾞｰ ｶｰﾄﾞ' },
+];
+
+function renderUregi() {
+  const box = el.uregiResult;
+  box.innerHTML = '';
+  if (!uregiRead) { el.uregiCount.textContent = ''; return; }
+
+  const { name, res } = uregiRead;
+  if (!res.ok) {
+    el.uregiCount.textContent = '読めません';
+    const p = document.createElement('p');
+    p.className = 'uregi__error';
+    p.textContent = res.error;
+    box.appendChild(p);
+    return;
+  }
+
+  const ids = STORES.map((s) => s.id).filter((id) => res.days[id]);
+  const days = ids.reduce((n, id) => n + Object.keys(res.days[id]).length, 0);
+  el.uregiCount.textContent = `${ids.length}店舗・${days}日分`;
+
+  const head = document.createElement('p');
+  head.className = 'uregi__head';
+  head.textContent = `${name}　（${res.rows}行のうち ${res.used}行を数えました）`;
+  box.appendChild(head);
+
+  if (res.unknown.length) {
+    const w = document.createElement('p');
+    w.className = 'uregi__error';
+    w.textContent = '店舗を見分けられなかったもの … ' +
+      res.unknown.map((u) => `${u.name}（${u.n}件）`).join('、');
+    box.appendChild(w);
+  }
+  if (!ids.length) {
+    const w = document.createElement('p');
+    w.className = 'uregi__error';
+    w.textContent = '中身がありませんでした。データ形式が「売上データ(伝票)」になっているか確かめてください。';
+    box.appendChild(w);
+    return;
+  }
+
+  ids.forEach((id) => box.appendChild(uregiStoreTable(id, res.days[id])));
+}
+
+function uregiStoreTable(storeId, byDay) {
+  const store = getStore(storeId);
+  const wrap = document.createElement('section');
+  wrap.className = 'uregi__store';
+
+  const h = document.createElement('h3');
+  h.className = 'uregi__name';
+  h.textContent = store.name;
+  wrap.appendChild(h);
+
+  const dates = Object.keys(byDay).sort();
+  const sum = uregiBlank();
+  dates.forEach((d) => Object.keys(sum).forEach((k) => { sum[k] += byDay[d][k]; }));
+  const hasDelivery = UREGI_SHOW_DELIVERY.some((c) => sum[c.key]);
+  const cols = UREGI_SHOW.concat(hasDelivery ? UREGI_SHOW_DELIVERY : []);
+
+  const table = document.createElement('table');
+  table.className = 'uregi__table';
+
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  hr.appendChild(uregiCell('th', '日'));
+  cols.forEach((c) => hr.appendChild(uregiCell('th', c.name)));
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  dates.forEach((d) => {
+    const tr = document.createElement('tr');
+    tr.appendChild(uregiCell('th', uregiDayLabel(d)));
+    cols.forEach((c) => {
+      const v = byDay[d][c.key];
+      tr.appendChild(uregiCell('td', c.plain ? String(v) : uregiYen(v)));
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  const tfoot = document.createElement('tfoot');
+  const fr = document.createElement('tr');
+  fr.appendChild(uregiCell('th', '計'));
+  cols.forEach((c) => fr.appendChild(uregiCell('td', c.plain ? String(sum[c.key]) : uregiYen(sum[c.key]))));
+  tfoot.appendChild(fr);
+  table.appendChild(tfoot);
+
+  wrap.appendChild(table);
+
+  // 検算：分けた金額を全部足すと、レジの伝票合計に戻るはずです
+  const back = sum.cash + sum.card + sum.emoney +
+    sum.demaeCash + sum.demaeCard + sum.uberCash + sum.uberCard;
+  const chk = document.createElement('p');
+  chk.className = back === sum.incTax ? 'uregi__ok' : 'uregi__error';
+  chk.textContent = back === sum.incTax
+    ? `検算OK　支払を全部足すと ${uregiYen(back)}円 で、レジの伝票合計と一致します（${sum.slips}件）`
+    : `★検算が合いません　分けた合計 ${uregiYen(back)}円 / レジの伝票合計 ${uregiYen(sum.incTax)}円`;
+  wrap.appendChild(chk);
+
+  return wrap;
+}
+
+function uregiCell(tag, text) {
+  const c = document.createElement(tag);
+  c.textContent = text;
+  return c;
+}
+
+/** '2026-08-01' → '8/1(土)' */
+function uregiDayLabel(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const w = '日月火水木金土'[new Date(y, m - 1, d).getDay()];
+  return `${m}/${d}(${w})`;
+}
+
 function saveDrivers() {
   Drivers.saveFromText(el.driversInput.value);
   renderDrivers();
@@ -1850,6 +2014,7 @@ function renderAll() {
     renderStaff();
     renderCatchStaff();
     renderNippouFolders();
+    renderUregi();
     renderSyncStatus();
     return;
   }
@@ -2085,6 +2250,11 @@ function bindEvents() {
   el.expImport.addEventListener('click', () => importExpenseRecords(false));
   el.exAdd.addEventListener('click', addClosedException);
   el.exportBtn.addEventListener('click', exportJson);
+  el.uregiFile.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';                       // 同じファイルをもう一度選べるように
+    onUregiFile(f);
+  });
   el.importFile.addEventListener('change', (e) => {
     if (e.target.files[0]) importJson(e.target.files[0]);
     e.target.value = '';
