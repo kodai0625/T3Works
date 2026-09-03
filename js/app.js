@@ -80,6 +80,8 @@ const el = {
   cashTake: $('cashTake'), cashTakeText: $('cashTakeText'), cashFile: $('cashFile'),
   cashMsg: $('cashMsg'), cashSales: $('cashSales'), cashCounted: $('cashCounted'),
   cashDiff: $('cashDiff'), cashSave: $('cashSave'), cashWho: $('cashWho'),
+  cashDone: $('cashDone'), cashRedo: $('cashRedo'),
+  cashWeekDone: $('cashWeekDone'), cashWeekRedo: $('cashWeekRedo'), cashWeekMsg: $('cashWeekMsg'),
   cashMonthTitle: $('cashMonthTitle'), cashMonthSum: $('cashMonthSum'), cashList: $('cashList'),
   cashOcrLink: $('cashOcrLink'), ocrModal: $('ocrModal'), ocrText: $('ocrText'), ocrCopy: $('ocrCopy'),
   cashTabDay: $('cashTabDay'), cashTabWeek: $('cashTabWeek'),
@@ -586,6 +588,16 @@ function renderDayView() {
 /** いま画面で編集している内容（記録するまでは、ここだけにあります） */
 const cashEdit = { key: '', photo: '', ocr: null, how: '', busy: false, text: '' };
 
+/**
+ * 記録したあと「記録し直す」を押したか
+ *
+ * ★記録が済んだ日は、ボタンを「✓ 記録済み」に変えて、金額の欄も
+ *   さわれないようにします。押しまちがえて上書きしてしまわないためです。
+ *   直したいときだけ「記録し直す」を押してもらいます。
+ */
+let cashUnlocked = false;
+let cashWeekUnlocked = false;
+
 /** 「日ごと」と「1週間」のどちらを見ているか */
 let cashTab = 'day';
 /** 1週間の画面で見ている週（その週の月曜）。空なら、いま選んでいる日の週 */
@@ -636,6 +648,7 @@ function renderCash() {
     cashEdit.how = '';
     cashEdit.busy = false;
     cashEdit.text = '';
+    cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
     setCashMsg('');
@@ -650,9 +663,16 @@ function renderCash() {
   el.cashDate.textContent = `${state.m}/${state.d}（${DOW[new Date(state.y, state.m - 1, state.d).getDay()]}）`;
   el.cashTakeText.textContent = cashEdit.photo ? '📷 撮り直す' : '📷 ジャーナルを撮る';
 
+  // 記録が済んでいる日は、ボタンを「✓ 記録済み」に入れかえます
+  const done = !!saved && !cashUnlocked;
+  el.cashDone.classList.toggle('is-hidden', !done);
+  el.cashSave.classList.toggle('is-hidden', done);
+  el.cashRedo.classList.toggle('is-hidden', !done);
+  el.cashSales.readOnly = done;
+
   if (saved && saved.at) {
     const t = new Date(saved.at);
-    el.cashWho.textContent = `記録：${t.getMonth() + 1}/${t.getDate()} `
+    el.cashWho.textContent = `${t.getMonth() + 1}/${t.getDate()} `
       + `${pad2(t.getHours())}:${pad2(t.getMinutes())}`
       + (saved.by ? `　${saved.by}` : '');
   } else {
@@ -742,6 +762,12 @@ async function onCashFile(e) {
   if (!file) return;
 
   const dateStr = ymd(state.y, state.m, state.d);
+  // 撮り直したら、金額も入れ直すことになるので、記録済みの錠をはずします
+  cashUnlocked = true;
+  el.cashSales.readOnly = false;
+  el.cashDone.classList.add('is-hidden');
+  el.cashRedo.classList.add('is-hidden');
+  el.cashSave.classList.remove('is-hidden');
   cashEdit.busy = true;
   setCashMsg('写真を送っています…', 'busy');
   el.cashTake.classList.add('is-busy');
@@ -865,7 +891,8 @@ function saveCash() {
     done: true,
     value: { sales, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by },
   });
-  setCashMsg('記録しました', 'ok');
+  cashUnlocked = false;
+  setCashMsg('');
   render();
 }
 
@@ -878,6 +905,9 @@ function renderCashWeek() {
   // 週を移ったら、打ちかけの金額は持ち越しません
   if (cashWeekKey !== `${state.storeId}/${start}`) {
     cashWeekKey = `${state.storeId}/${start}`;
+    cashWeekUnlocked = false;
+    el.cashWeekMsg.textContent = '';
+    el.cashWeekMsg.classList.add('is-hidden');
     el.cashCounted.value = saved && saved.counted !== null && saved.counted !== undefined
       ? cashText(saved.counted) : '';
   }
@@ -921,9 +951,15 @@ function renderCashWeek() {
     el.cashWeekMiss.textContent = `まだ撮っていない日があります：${miss.join('・')}`;
   }
 
+  const done = !!saved && !cashWeekUnlocked;
+  el.cashWeekDone.classList.toggle('is-hidden', !done);
+  el.cashWeekSave.classList.toggle('is-hidden', done);
+  el.cashWeekRedo.classList.toggle('is-hidden', !done);
+  el.cashCounted.readOnly = done;
+
   if (saved && saved.at) {
     const t = new Date(saved.at);
-    el.cashWeekWho.textContent = `記録：${t.getMonth() + 1}/${t.getDate()} `
+    el.cashWeekWho.textContent = `${t.getMonth() + 1}/${t.getDate()} `
       + `${pad2(t.getHours())}:${pad2(t.getMinutes())}`
       + (saved.by ? `　${saved.by}` : '');
   } else {
@@ -945,7 +981,8 @@ function saveCashWeek() {
   const start = cashWeekNow();
   const counted = cashYen(el.cashCounted.value);
   if (counted === null) {
-    el.cashWeekWho.textContent = '実際に数えた金額を入れてください';
+    el.cashWeekMsg.textContent = '実際に数えた金額を入れてください';
+    el.cashWeekMsg.className = 'cash-msg is-warn';
     return;
   }
   const { total } = cashWeekTotal(start);
@@ -955,7 +992,23 @@ function saveCashWeek() {
     done: true,
     value: { counted, total, at: new Date().toISOString(), by },
   });
+  cashWeekUnlocked = false;
+  el.cashWeekMsg.textContent = '';
+  el.cashWeekMsg.classList.add('is-hidden');
   render();
+}
+
+/** 記録し直す（押しまちがえたとき） */
+function redoCash() {
+  cashUnlocked = true;
+  render();
+  el.cashSales.focus();
+}
+
+function redoCashWeek() {
+  cashWeekUnlocked = true;
+  render();
+  el.cashCounted.focus();
 }
 
 /* -------- その月の一覧（探すためのもの） -------- */
@@ -7208,6 +7261,8 @@ function bindEvents() {
   el.cashWeekNext.addEventListener('click', () => moveCashWeek(1));
   el.cashWeekThis.addEventListener('click', () => moveCashWeek(0));
   el.cashWeekSave.addEventListener('click', saveCashWeek);
+  el.cashRedo.addEventListener('click', redoCash);
+  el.cashWeekRedo.addEventListener('click', redoCashWeek);
   bindHalfWidthInput(el.cashSales, 'number');
   bindHalfWidthInput(el.cashCounted, 'number');
   el.shotModal.querySelectorAll('[data-shot-close]').forEach((n) =>

@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=0d5eb8fe">
-<meta name="app-version" content="30671454">
+<link rel="stylesheet" href="css/style.css?v=c1da9f62">
+<meta name="app-version" content="4aaf44a2">
 </head>
 <body>
 
@@ -303,8 +303,13 @@
           <span class="cash-line__unit">円</span>
         </span>
       </div>
+      <!-- 記録できたら、ボタンがこの箱に入れかわります -->
+      <div class="cash-done is-hidden" id="cashDone">
+        <span class="cash-done__mark">✓ 記録済み</span>
+        <span class="cash-done__meta" id="cashWho"></span>
+      </div>
       <button type="button" class="submit-btn" id="cashSave">記録する</button>
-      <p class="cash-note" id="cashWho"></p>
+      <button type="button" class="linkbtn is-hidden" id="cashRedo">記録し直す</button>
       <p class="cash-note">実際に数えた金額は、上の<b>「1週間」</b>で入れます。</p>
     </div>
 
@@ -345,8 +350,14 @@
         </div>
 
         <p class="cash-diff" id="cashDiff"></p>
+
+        <div class="cash-done is-hidden" id="cashWeekDone">
+          <span class="cash-done__mark">✓ 記録済み</span>
+          <span class="cash-done__meta" id="cashWeekWho"></span>
+        </div>
         <button type="button" class="submit-btn" id="cashWeekSave">記録する</button>
-        <p class="cash-note" id="cashWeekWho"></p>
+        <button type="button" class="linkbtn is-hidden" id="cashWeekRedo">記録し直す</button>
+        <p class="cash-msg is-hidden" id="cashWeekMsg"></p>
       </div>
     </div>
 
@@ -1420,6 +1431,6 @@
 <script src="js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
 <script src="js/shift-sheet.js?v=28f6c733"></script>
-<script src="js/app.js?v=da2dfc5a"></script>
+<script src="js/app.js?v=f50f674a"></script>
 </body>
 </html>
