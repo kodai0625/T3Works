@@ -14,7 +14,7 @@
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=f1875ffb">
 <link rel="stylesheet" href="css/admin.css?v=faacfaa8">
-<meta name="app-version" content="40012892">
+<meta name="app-version" content="0b6e554b">
 </head>
 <body class="no-daytabs">
 
@@ -34,6 +34,10 @@
       <a class="settings-btn settings-btn--label" href="../mine/">
         <span aria-hidden="true">⇄</span><span>T3 Works</span>
       </a>
+      <!-- ワークス・マインと同じ設定ボタン。版の確かめと、同期の様子を見るためのものです -->
+      <button class="settings-btn" id="settingsBtn" type="button" title="この端末の設定">
+        <span aria-hidden="true">⚙</span><span class="settings-btn__text">設定</span>
+      </button>
     </div>
   </div>
   <nav class="store-tabs" id="storeTabs" aria-label="店舗"></nav>
@@ -397,6 +401,39 @@
   </div>
 </div>
 
+<!-- ===== この端末の設定（ワークス・マインと同じ中身です） ===== -->
+<div class="modal is-hidden" id="modal">
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 class="modal__title" id="modalTitle">この端末の設定</h2>
+
+    <div class="field">
+      <span class="field__label">共有の状態</span>
+      <p class="sync-info" id="syncInfo"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="syncNow">今すぐ同期</button>
+        <button type="button" class="btn" id="pinChange">PINを入れ直す</button>
+      </div>
+      <p class="sync-legend__head">ヘッダーのしるしの見かた</p>
+      <ul class="sync-legend" id="syncLegend"></ul>
+    </div>
+
+    <!-- 版の番号と、強制的に読み直すボタン。
+         「画面が古いまま」というときの切り分けに使います -->
+    <div class="field">
+      <span class="field__label">アプリの版</span>
+      <p class="app-version" id="appVersionText"></p>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="forceUpdate">今すぐ最新にする</button>
+      </div>
+    </div>
+
+    <div class="modal__actions">
+      <button type="button" class="btn" data-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 休止期間 ===== -->
 <div class="modal is-hidden" id="pauseModal">
   <div class="modal__backdrop" data-pause-close></div>
@@ -482,6 +519,6 @@
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=24f3c99b"></script>
+<script src="js/admin.js?v=0b85b841"></script>
 </body>
 </html>

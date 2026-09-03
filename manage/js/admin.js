@@ -54,6 +54,8 @@ const el = {};
   'dowModal', 'dowItem', 'dowPick', 'dowHint', 'dowEveryday',
   'confirmDialog', 'confirmItem', 'confirmMessage', 'confirmOk',
   'pinModal', 'pinInput', 'pinReveal', 'pinError', 'pinOk',
+  'settingsBtn', 'modal', 'syncInfo', 'syncNow', 'pinChange', 'syncLegend',
+  'appVersionText', 'forceUpdate',
 ].forEach((id) => { el[id] = document.getElementById(id); });
 
 /* ============================================================
@@ -1895,6 +1897,39 @@ function renderSyncStatus() {
 }
 
 /* ============================================================
+ *  この端末の設定（ワークス・マインと同じ中身です）
+ *
+ *  ★アプリが最新の版かどうかを、ここで確かめられます。
+ *    「画面が古いまま」というときの切り分けに使います。
+ * ============================================================ */
+function openSettings() {
+  // 共有の様子
+  const n = Sync.outbox().length;
+  const t = Sync.lastSyncAt;
+  const at = t ? `（最後に保存 ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}）` : '';
+  el.syncInfo.textContent = !Sync.enabled()
+    ? '（この端末では共有していません）'
+    : Sync.lastError
+      ? `${Sync.lastError}（未保存 ${n}件。つながり次第、自動で送られます）`
+      : n
+        ? `未保存 ${n}件。まもなく送られます。${at}`
+        : `全店舗と同期できています。${at}`;
+  el.syncLegend.innerHTML = Sync.legendHtml();
+
+  // 版の番号。困ったときに「この番号を教えて」と聞くためのものです
+  const v = Updater.current();
+  el.appVersionText.innerHTML = v
+    ? `いま入っているのは <b>${v}</b> です。`
+    : '（手元で開いているため、版の番号はありません）';
+
+  el.modal.classList.remove('is-hidden');
+}
+
+function closeSettings() {
+  el.modal.classList.add('is-hidden');
+}
+
+/* ============================================================
  *  管理用PIN
  * ============================================================ */
 function openPinModal() {
@@ -2057,6 +2092,21 @@ function bindEvents() {
 
   el.syncChip.addEventListener('click', () => Sync.flush());
   el.pinOk.addEventListener('click', submitPin);
+
+  /* この端末の設定 */
+  el.settingsBtn.addEventListener('click', openSettings);
+  el.modal.querySelectorAll('[data-close]').forEach((n) => n.addEventListener('click', closeSettings));
+  el.syncNow.addEventListener('click', () => { Sync.scheduleFlush(0); closeSettings(); });
+  el.pinChange.addEventListener('click', () => {
+    Sync.clearPin();
+    closeSettings();
+    openPinModal();
+  });
+  el.forceUpdate.addEventListener('click', () => {
+    el.forceUpdate.disabled = true;
+    el.forceUpdate.textContent = '読み直しています…';
+    Updater.force();
+  });
   el.pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !imeEnter(e)) submitPin(); });
   bindHalfWidthInput(el.pinInput, 'code');
   el.pinReveal.addEventListener('click', () => {
