@@ -996,6 +996,20 @@ const CASH_SECTION_MARKS = ['支払方法', '支払内訳', '支払情報', '支
 const CASH_SECTION_END = ['現金以外', '割引', '割増', 'クレジット明細', 'その他支払明細',
   'ドロア', '釣銭', '預かり', '締め', '担当'];
 
+/**
+ * 現金の次に来る、ほかの支払い方法
+ *
+ * ★紙によっては「現金」「4件」「￥6,930」が別々の行に分かれて出てきます。
+ *   そこで、現金の行から下へ少し探しに行きます。
+ *   ただし、ほかの支払い方法に当たったらそこで止めます
+ *   （止めないと、クレジットの金額を現金として拾ってしまいます）。
+ */
+const CASH_OTHER_ROWS = ['クレジット', 'カード', '電子マネー', 'ポイント', '商品券',
+  '掛売', '売掛', 'QR', 'その他支払', 'コード決済', '小計', '合計', '値引'];
+
+/** 現金の行から、何行下まで金額を探しに行くか */
+const CASH_LOOK_AHEAD = 3;
+
 /** 「現金」に見えるが、現金売上ではない行 */
 const CASH_NOT_ROWS = ['現金以外', '現金売上', '預かり現金', '現金釣銭', '現金有高', '現金過不足'];
 
@@ -1053,7 +1067,11 @@ function cashFromLine(line) {
  * 返り値
  *   { yen: 数字, how: 'read' }   … 現金の行から読めた
  *   { yen: 0,    how: 'none' }   … 支払いの欄はあったが、現金の行が無い（＝現金なしの日）
- *   { yen: null, how: 'ng' }     … 支払いの欄が見つからない（撮り直してもらう）
+ *   { yen: null, how: 'ng' }     … 読み取れない（現金の行はあるのに金額が拾えない場合も含む）
+ *
+ * ★「現金の行はあるのに金額が読めない」ときに 0円 を入れてはいけません。
+ *   本当は売上があった日を 0円 で記録してしまうためです。'ng' にして、
+ *   人に入れてもらいます。
  */
 function parseJournalCash(text) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -1064,20 +1082,33 @@ function parseJournalCash(text) {
   }
   if (from < 0) return { yen: null, how: 'ng' };
 
+  let sawCash = false;   // 現金の行そのものは見つかったか
   for (let i = from + 1; i < lines.length; i++) {
     const line = lines[i];
     const plain = cashPlain(line);
     if (CASH_SECTION_END.some((mark) => plain.includes(mark))) break;
     if (!plain.includes('現金')) continue;
     if (CASH_NOT_ROWS.some((ng) => plain.includes(ng))) continue;
+    sawCash = true;
 
-    // 「現金」と同じ行に金額があればそれ。無ければ次の行にあります
-    // （炭まろ・ちゃこる・バグる・popo の紙は、金額が下の行に出ます）
-    const here = cashFromLine(line);
-    if (here !== null) return { yen: here, how: 'read' };
-    const next = i + 1 < lines.length ? cashFromLine(lines[i + 1]) : null;
-    if (next !== null) return { yen: next, how: 'read' };
+    // 「現金」と同じ行に金額があればそれ。無ければ、少し下まで探します
+    // （炭まろ・ちゃこる・バグる・popo の紙は、件数と金額が下の行に分かれます）
+    const last = Math.min(i + CASH_LOOK_AHEAD, lines.length - 1);
+    for (let j = i; j <= last; j++) {
+      if (j > i) {
+        const p = cashPlain(lines[j]);
+        // ほかの支払い方法まで来てしまったら、そこで止めます
+        if (CASH_OTHER_ROWS.some((k) => p.includes(k))) break;
+        if (CASH_SECTION_END.some((k) => p.includes(k))) break;
+      }
+      const v = cashFromLine(lines[j]);
+      if (v !== null) return { yen: v, how: 'read' };
+    }
   }
+
+  // 現金の行はあったのに、金額だけ拾えなかったとき。
+  // ここで 0円 にすると、売上があった日を 0円 で残してしまいます
+  if (sawCash) return { yen: null, how: 'ng' };
 
   // 支払いの欄はあったのに現金の行が無い＝その日は現金の会計が1件も無かった
   // （おいでんテラスの紙は、現金が無い日は行ごと出ません）

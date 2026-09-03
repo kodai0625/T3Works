@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="../img/mine-icon-512.png?v=2dbb903e">
 <link rel="icon" type="image/png" sizes="64x64" href="../img/mine-icon-64.png?v=ea09f133">
 <title>T3 Works Mine｜T3Dining株式会社</title>
-<link rel="stylesheet" href="../css/style.css?v=dfb38864">
-<meta name="app-version" content="ed6d8b14">
+<link rel="stylesheet" href="../css/style.css?v=0d5eb8fe">
+<meta name="app-version" content="64ac0f3f">
 </head>
 <body data-mode="mine" data-assets="../">
 
@@ -292,6 +292,7 @@
         <span id="cashTakeText">📷 ジャーナルを撮る</span>
       </label>
       <p class="cash-msg is-hidden" id="cashMsg"></p>
+      <button type="button" class="cash-ocr-link is-hidden" id="cashOcrLink">読み取った文字を見る</button>
     </div>
 
     <div class="cash-box">
@@ -1383,6 +1384,23 @@
   </div>
 </div>
 
+<!-- ===== 読み取った文字を見る =====
+     金額が違って入ったときに、何が読めていたのかを確かめるためのものです -->
+<div class="modal is-hidden" id="ocrModal">
+  <div class="modal__backdrop" data-ocr-close></div>
+  <div class="modal__panel modal__panel--shot" role="dialog" aria-modal="true" aria-labelledby="ocrTitle">
+    <h2 class="modal__title" id="ocrTitle">読み取った文字</h2>
+    <p class="modal__note">
+      金額が違って入るときは、これをコピーして送ってください。読み方を直します。
+    </p>
+    <pre class="ocr-text" id="ocrText"></pre>
+    <div class="modal__actions">
+      <button type="button" class="btn" id="ocrCopy">コピーする</button>
+      <button type="button" class="btn btn--primary" data-ocr-close>閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== ジャーナルの写真を大きく見る ===== -->
 <div class="modal is-hidden" id="shotModal">
   <div class="modal__backdrop" data-shot-close></div>
@@ -1394,7 +1412,7 @@
   </div>
 </div>
 
-<script src="../js/config.js?v=97d35f59"></script>
+<script src="../js/config.js?v=f3594b45"></script>
 <script src="../js/storage.js?v=aa7da4cb"></script>
 <script src="../js/sync.js?v=252da6a9"></script>
 <script src="../js/update.js?v=c530219e"></script>
@@ -1402,6 +1420,6 @@
 <script src="../js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
 <script src="../js/shift-sheet.js?v=28f6c733"></script>
-<script src="../js/app.js?v=4dc1bdf4"></script>
+<script src="../js/app.js?v=a4cc15f5"></script>
 </body>
 </html>

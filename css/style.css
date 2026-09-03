@@ -3834,3 +3834,17 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   color: color-mix(in srgb, var(--ng) 85%, var(--text));
 }
 .cash-week-miss.is-hidden { display: none; }
+
+/* 読み取った文字を見る（金額が違って入ったときの確かめ用） */
+.cash-ocr-link {
+  display: block; margin: 8px auto 0; padding: 6px 10px;
+  border: 0; background: none; color: var(--text-weak);
+  font: inherit; font-size: 12.5px; text-decoration: underline; cursor: pointer;
+}
+.cash-ocr-link.is-hidden { display: none; }
+.ocr-text {
+  margin: 0 0 14px; padding: 10px; max-height: 52vh; overflow: auto;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface-2); color: var(--text);
+  font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all;
+}

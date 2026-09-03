@@ -81,6 +81,7 @@ const el = {
   cashMsg: $('cashMsg'), cashSales: $('cashSales'), cashCounted: $('cashCounted'),
   cashDiff: $('cashDiff'), cashSave: $('cashSave'), cashWho: $('cashWho'),
   cashMonthTitle: $('cashMonthTitle'), cashMonthSum: $('cashMonthSum'), cashList: $('cashList'),
+  cashOcrLink: $('cashOcrLink'), ocrModal: $('ocrModal'), ocrText: $('ocrText'), ocrCopy: $('ocrCopy'),
   cashTabDay: $('cashTabDay'), cashTabWeek: $('cashTabWeek'),
   cashPaneDay: $('cashPaneDay'), cashPaneWeek: $('cashPaneWeek'),
   cashWeekPrev: $('cashWeekPrev'), cashWeekNext: $('cashWeekNext'), cashWeekThis: $('cashWeekThis'),
@@ -568,7 +569,7 @@ function renderDayView() {
  * ============================================================ */
 
 /** いま画面で編集している内容（記録するまでは、ここだけにあります） */
-const cashEdit = { key: '', photo: '', ocr: null, how: '', busy: false };
+const cashEdit = { key: '', photo: '', ocr: null, how: '', busy: false, text: '' };
 
 /** 「日ごと」と「1週間」のどちらを見ているか */
 let cashTab = 'day';
@@ -619,6 +620,8 @@ function renderCash() {
     cashEdit.ocr = saved ? (saved.ocr === undefined ? null : saved.ocr) : null;
     cashEdit.how = '';
     cashEdit.busy = false;
+    cashEdit.text = '';
+    el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
     setCashMsg('');
     showCashPhoto();
@@ -745,6 +748,10 @@ async function onCashFile(e) {
     if (!res.ok) throw new Error(res.error || '送れませんでした');
 
     cashEdit.photo = res.fileId || '';
+    // ★読み取った文字はそのまま持っておきます。金額が違って入ったときに、
+    //   何が読めていたのかを見られるようにするためです（紙の形が変わったときの手がかり）
+    cashEdit.text = res.text || '';
+    el.cashOcrLink.classList.toggle('is-hidden', !cashEdit.text);
     const got = parseJournalCash(res.text || '');
     cashEdit.ocr = got.yen;
     cashEdit.how = got.how;
@@ -764,7 +771,8 @@ async function onCashFile(e) {
       setCashMsg('現金の行が見当たりませんでした。現金の会計が無かった日は 0円 です。'
         + '紙に現金の行があるのに 0円 になっているときは、手で直してください', 'warn');
     } else {
-      setCashMsg('金額を読み取れませんでした。写真は残っているので、金額は手で入れてください', 'warn');
+      setCashMsg('金額を読み取れませんでした。写真は残っているので、金額は手で入れてください。'
+        + '下の「読み取った文字を見る」を送っていただければ、読み方を直します', 'warn');
     }
     renderCashDiff();
   } catch (err) {
@@ -798,6 +806,22 @@ async function showCashPhoto() {
     el.cashShot.classList.remove('is-empty');
   } else {
     el.cashShotEmpty.textContent = '写真を出せませんでした';
+  }
+}
+
+/** 読み取った文字を出す */
+function openOcrText() {
+  el.ocrText.textContent = cashEdit.text || '（何も読み取れませんでした）';
+  el.ocrCopy.textContent = 'コピーする';
+  el.ocrModal.classList.remove('is-hidden');
+}
+
+async function copyOcrText() {
+  try {
+    await navigator.clipboard.writeText(cashEdit.text || '');
+    el.ocrCopy.textContent = 'コピーしました';
+  } catch (e) {
+    el.ocrCopy.textContent = 'コピーできませんでした';
   }
 }
 
@@ -7170,6 +7194,10 @@ function bindEvents() {
   bindHalfWidthInput(el.cashCounted, 'number');
   el.shotModal.querySelectorAll('[data-shot-close]').forEach((n) =>
     n.addEventListener('click', () => el.shotModal.classList.add('is-hidden')));
+  el.cashOcrLink.addEventListener('click', openOcrText);
+  el.ocrCopy.addEventListener('click', copyOcrText);
+  el.ocrModal.querySelectorAll('[data-ocr-close]').forEach((n) =>
+    n.addEventListener('click', () => el.ocrModal.classList.add('is-hidden')));
 
   el.submitBtn.addEventListener('click', submitDay);
   el.unsubmitBtn.addEventListener('click', unsubmitDay);
