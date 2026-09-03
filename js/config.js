@@ -936,15 +936,6 @@ const ANYTIME_KEY = 'ANYTIME';
 /** その日の記録の中で、現金売上を入れておく項目名（チェック項目とはぶつかりません） */
 const CASH_ITEM = '__cash';
 
-/**
- * 実際に数えた金額（封筒）を入れておく項目名
- *
- * ★数えるのは1週間まとめてなので、日ごとには持ちません。
- *   その週の**月曜の記録**に、1つだけ入れます。
- *   （週間掃除は日曜はじまりですが、現金は月〜日でまとめる決まりです）
- */
-const CASH_WEEK_ITEM = '__cashWeek';
-
 /** その日が入る週の月曜（'YYYY-MM-DD'）を返します */
 function cashWeekStart(y, m, d) {
   const t = new Date(y, m - 1, d);

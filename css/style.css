@@ -3746,19 +3746,6 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 .cash-line__input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); }
 .cash-line__unit { font-size: 13px; color: var(--text-sub); }
 
-.cash-diff {
-  margin: 0 0 12px; padding: 10px; border-radius: 9px;
-  background: var(--surface-2); font-size: 14px; font-weight: 700; text-align: center;
-  color: var(--text-sub); min-height: 40px;
-}
-.cash-diff.is-ok {
-  background: color-mix(in srgb, var(--ok) 10%, var(--surface));
-  color: color-mix(in srgb, var(--ok) 85%, var(--text));
-}
-.cash-diff.is-ng {
-  background: color-mix(in srgb, var(--ng) 10%, var(--surface));
-  color: color-mix(in srgb, var(--ng) 88%, var(--text));
-}
 .cash-note { margin: 9px 0 0; font-size: 12px; color: var(--text-sub); text-align: center; }
 
 /* その月の一覧。探すためのものなので、新しい日を上にします */
