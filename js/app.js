@@ -749,6 +749,13 @@ async function onCashFile(e) {
     cashEdit.ocr = got.yen;
     cashEdit.how = got.how;
 
+    if (res.ocrError) {
+      // 写真は残っています。読み取りだけができなかったときです
+      setCashMsg(`写真は残りました。金額は手で入れてください（${res.ocrError}）`, 'warn');
+      renderCashDiff();
+      return;
+    }
+
     if (got.how === 'read') {
       el.cashSales.value = cashText(got.yen);
       setCashMsg(`読み取りました：${cashText(got.yen)}円　紙と見くらべて、違っていれば直してください`, 'ok');
