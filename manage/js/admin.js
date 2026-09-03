@@ -44,6 +44,7 @@ const el = {};
   'shiftStaffInput', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
   'shiftCodeList', 'shiftSubmitUrl', 'viewShift',
   'viewTrain', 'trainStoreName', 'trainCount', 'trainInput', 'saveTrain', 'trainSaved',
+  'trainItemsStore', 'trainItemsCount', 'trainEditor', 'trainAddSection',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -123,9 +124,31 @@ function askConfirm({ item, message, okLabel }) {
  */
 const NEW_ITEM = '新しい項目';
 
+/** 足したばかりの区分・大カテゴリーに付けておく名前 */
+const NEW_SECTION = '新しい区分';
+const NEW_SECTION_TRAIN = '新しい大カテゴリー';
+
+/**
+ * いま直しているのは「教育の項目」か（そうでなければクローズの項目）
+ *
+ * ★区分と項目の編集は、クローズも教育もまったく同じ作りです。
+ *   同じ道具を使い回して、しまう先だけをここで切りかえます。
+ */
+function editingTrain() {
+  return state.view === 'train';
+}
+
+/** いま編集中の区分を入れる場所 */
+function editorBox() {
+  return editingTrain() ? el.trainEditor : el.checklistEditor;
+}
+
 /** いま編集中の店舗の区分一覧（保存されていなければ config.js の初期値を複製） */
 function currentSections() {
-  return JSON.parse(JSON.stringify(Checklists.sections(state.storeId)));
+  const list = editingTrain()
+    ? Trainings.sections(state.storeId)
+    : Checklists.sections(state.storeId);
+  return JSON.parse(JSON.stringify(list));
 }
 
 /** 書き換えた内容を保存して、全端末へ送る */
@@ -135,7 +158,8 @@ function saveSections(sections) {
     ...sec,
     items: sec.items.filter((it) => !(it.addedAt && it.retiredAt && it.addedAt >= it.retiredAt)),
   }));
-  Checklists.save(state.storeId, cleaned);
+  if (editingTrain()) Trainings.save(state.storeId, cleaned);
+  else Checklists.save(state.storeId, cleaned);
   renderChecklistEditor();
 }
 
@@ -144,24 +168,35 @@ const alive = (x) => !x.retiredAt;
 
 function renderChecklistEditor() {
   const sections = currentSections();
-  el.itemsStoreName.textContent = getStore(state.storeId).name;
+  const train = editingTrain();
+  const box = editorBox();
+  const store = getStore(state.storeId).name;
 
   const liveSections = sections.filter(alive);
   const total = liveSections.reduce((n, sec) => n + sec.items.filter(alive).length, 0);
-  el.itemsCount.textContent = `${liveSections.length}区分 / ${total}項目`;
 
-  el.checklistEditor.innerHTML = '';
+  if (train) {
+    el.trainItemsStore.textContent = store;
+    el.trainItemsCount.textContent = `${liveSections.length}カテゴリー / ${total}項目`;
+  } else {
+    el.itemsStoreName.textContent = store;
+    el.itemsCount.textContent = `${liveSections.length}区分 / ${total}項目`;
+  }
+
+  box.innerHTML = '';
 
   if (!liveSections.length) {
     const p = document.createElement('p');
     p.className = 'admin-empty';
-    p.textContent = '区分がありません。下の「＋ 区分を追加」から作ってください。';
-    el.checklistEditor.appendChild(p);
+    p.textContent = train
+      ? '大カテゴリーがありません。下の「＋ 大カテゴリーを追加」から作ってください。'
+      : '区分がありません。下の「＋ 区分を追加」から作ってください。';
+    box.appendChild(p);
     return;
   }
 
   liveSections.forEach((sec) => {
-    el.checklistEditor.appendChild(buildSectionCard(sec, sections, liveSections));
+    box.appendChild(buildSectionCard(sec, sections, liveSections));
   });
 }
 
@@ -253,21 +288,24 @@ function buildItemRow(sec, item, index, count) {
     row.appendChild(span);
   });
 
-  const dow = document.createElement('button');
-  dow.type = 'button';
-  dow.className = 'icon-btn' + (item.onlyDows ? ' icon-btn--on' : '');
-  dow.textContent = '曜';
-  dow.title = '出す曜日の設定';
-  dow.addEventListener('click', () => openDow(sec.id, item.id));
-  row.appendChild(dow);
+  // ★教育の項目には、曜日も休止もありません（毎日出るものではないので）
+  if (!editingTrain()) {
+    const dow = document.createElement('button');
+    dow.type = 'button';
+    dow.className = 'icon-btn' + (item.onlyDows ? ' icon-btn--on' : '');
+    dow.textContent = '曜';
+    dow.title = '出す曜日の設定';
+    dow.addEventListener('click', () => openDow(sec.id, item.id));
+    row.appendChild(dow);
 
-  const pause = document.createElement('button');
-  pause.type = 'button';
-  pause.className = 'icon-btn' + (item.pauses && item.pauses.length ? ' icon-btn--on' : '');
-  pause.textContent = '休';
-  pause.title = '休止期間の設定';
-  pause.addEventListener('click', () => openPause(sec.id, item.id));
-  row.appendChild(pause);
+    const pause = document.createElement('button');
+    pause.type = 'button';
+    pause.className = 'icon-btn' + (item.pauses && item.pauses.length ? ' icon-btn--on' : '');
+    pause.textContent = '休';
+    pause.title = '休止期間の設定';
+    pause.addEventListener('click', () => openPause(sec.id, item.id));
+    row.appendChild(pause);
+  }
 
   row.appendChild(moveButton('↑', index > 0, () => moveItem(sec.id, item.id, -1)));
   row.appendChild(moveButton('↓', index < count - 1, () => moveItem(sec.id, item.id, 1)));
@@ -412,7 +450,7 @@ function addItem(secId) {
   saveSections(next);
 
   // 追加した項目にすぐ名前を入れられるようにしておく
-  const cells = [...el.checklistEditor.querySelectorAll('.item-row__name')];
+  const cells = [...editorBox().querySelectorAll('.item-row__name')];
   const last = cells.reverse().find((c) => c.textContent === NEW_ITEM);
   if (last) startNameEdit(last);
 }
@@ -420,7 +458,9 @@ function addItem(secId) {
 async function removeItem(sec, item) {
   const ok = await askConfirm({
     item: item.label,
-    message: 'この項目を明日から出さないようにします。過去の記録はそのまま残ります。',
+    message: editingTrain()
+      ? 'この項目を一覧から外します。それまでの進み具合はそのまま残ります。'
+      : 'この項目を明日から出さないようにします。過去の記録はそのまま残ります。',
   });
   if (!ok) return;
   const next = currentSections();
@@ -602,11 +642,16 @@ async function removeWeeklyItem(item) {
 
 function addSection() {
   const next = currentSections();
-  next.push({ id: newId('sec'), title: '新しい区分', items: [] });
+  next.push({
+    id: newId('sec'),
+    title: editingTrain() ? NEW_SECTION_TRAIN : NEW_SECTION,
+    items: [],
+  });
   saveSections(next);
 
-  const boxes = el.checklistEditor.querySelectorAll('.sec-card__name');
-  const last = [...boxes].reverse().find((b) => b.value === '新しい区分');
+  const boxes = editorBox().querySelectorAll('.sec-card__name');
+  const want = editingTrain() ? NEW_SECTION_TRAIN : NEW_SECTION;
+  const last = [...boxes].reverse().find((b) => b.value === want);
   if (last) { last.focus(); last.select(); }
 }
 
@@ -614,7 +659,9 @@ async function removeSection(sec) {
   const n = sec.items.filter(alive).length;
   const ok = await askConfirm({
     item: sec.title,
-    message: `この区分と、中の${n}項目をまとめて明日から出さないようにします。過去の記録はそのまま残ります。`,
+    message: editingTrain()
+      ? `この大カテゴリーと、中の${n}項目をまとめて一覧から外します。それまでの進み具合はそのまま残ります。`
+      : `この区分と、中の${n}項目をまとめて明日から出さないようにします。過去の記録はそのまま残ります。`,
   });
   if (!ok) return;
   const next = currentSections();
@@ -1608,7 +1655,7 @@ const ADMIN_PAGES = [
     when: (storeId) => SHIFT_STORES.includes(storeId),
   },
   // 教育の名前。ワークスからも足せますが、まとめて直すときはこちらです
-  { id: 'train', name: '教育', sub: '教育を受ける人の名前', icon: '🎓' },
+  { id: 'train', name: '教育', sub: '教える項目と、受ける人', icon: '🎓' },
 ];
 
 /** その店舗で使えるページだけ */
@@ -1698,8 +1745,11 @@ function pageStatus(pageId, storeId) {
     return n ? `${n}人` : 'まだ登録なし';
   }
   if (pageId === 'train') {
+    const secs = Trainings.sections(storeId).filter(alive);
+    const items = secs.reduce((t, s) => t + s.items.filter(alive).length, 0);
     const n = Trainees.list(storeId).length;
-    return n ? `${n}人` : 'まだ登録なし';
+    if (!items) return '項目がまだ';
+    return `${items}項目 / ${n}人`;
   }
   return '';
 }
@@ -1806,6 +1856,7 @@ function renderAll() {
   } else if (state.view === 'shift') {
     renderShiftStaff();
   } else if (state.view === 'train') {
+    renderChecklistEditor();
     renderTrainees();
   }
 }
@@ -1973,6 +2024,7 @@ function bindEvents() {
   el.saveCatchStaff.addEventListener('click', saveCatchStaff);
   el.saveShiftStaff.addEventListener('click', saveShiftStaff);
   el.saveTrain.addEventListener('click', saveTrainees);
+  el.trainAddSection.addEventListener('click', addSection);
   el.saveNippou.addEventListener('click', saveNippouFolders);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));

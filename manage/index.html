@@ -14,7 +14,7 @@
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=36493144">
 <link rel="stylesheet" href="css/admin.css?v=d4729fc6">
-<meta name="app-version" content="7856699f">
+<meta name="app-version" content="9b340f2d">
 </head>
 <body class="no-daytabs">
 
@@ -338,8 +338,26 @@
   </section>
 </section>
 
-<!-- ===== 教育の名前 ===== -->
+<!-- ===== 教育 ===== -->
 <section class="view is-hidden" id="viewTrain">
+
+  <!-- 教える項目（クローズと同じ作りです） -->
+  <section class="admin-block">
+    <div class="admin-block__head">
+      <h2 class="admin-block__title">教える項目 ― <span id="trainItemsStore">店舗名</span></h2>
+      <span class="admin-count" id="trainItemsCount"></span>
+    </div>
+    <p class="admin-note">
+      大カテゴリー（区分）の中に項目を並べます。<b>つまんで上下に動かすと順番が変わります</b>。<br>
+      項目を消しても、<b>それまでの進み具合は残ります</b>（数える対象から外れるだけです）。<br>
+      ここで一度でも直すと、<b>この店舗はここの内容が優先されます</b>。
+    </p>
+
+    <div id="trainEditor"></div>
+
+    <button type="button" class="btn btn--wide" id="trainAddSection">＋ 大カテゴリーを追加</button>
+  </section>
+
   <div class="admin-card">
     <div class="admin-card__head">
       <h2 class="admin-card__title">教育を受ける人 ― <span id="trainStoreName"></span></h2>
@@ -453,14 +471,14 @@
   <button type="button" class="update-bar__btn">更新する</button>
 </div>
 
-<script src="../js/config.js?v=1b67b9a1"></script>
-<script src="../js/storage.js?v=21d7d09f"></script>
-<script src="../js/sync.js?v=11723ca0"></script>
+<script src="../js/config.js?v=c7f61aaa"></script>
+<script src="../js/storage.js?v=0bee6114"></script>
+<script src="../js/sync.js?v=bc990976"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=9876d145"></script>
+<script src="js/admin.js?v=1da1adb5"></script>
 </body>
 </html>

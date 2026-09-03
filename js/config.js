@@ -1232,6 +1232,7 @@ const TRAIN_OVERRIDES = {
       items: [
         { id: 'kj-tr-h01', label: 'おしぼりルール' },
         { id: 'kj-tr-h02', label: '卓番説明', hint: '各席の収容人数の説明も' },
+        { id: 'kj-tr-h03', label: 'トイレチェック' },
       ],
     },
     {
@@ -1258,6 +1259,7 @@ const TRAIN_OVERRIDES = {
         { id: 'kj-tr-s04', label: 'お済みのお皿やグラスがあったら下げる' },
         { id: 'kj-tr-s05', label: '鍋説明（単品の場合）' },
         { id: 'kj-tr-s06', label: '鍋説明（コースの場合）' },
+        { id: 'kj-tr-s07', label: 'インターホンのルール' },
       ],
     },
     {
@@ -1274,6 +1276,13 @@ const TRAIN_OVERRIDES = {
       title: 'ドリンク',
       items: [
         { id: 'kj-tr-d01', label: 'ドリンクの作り方' },
+      ],
+    },
+    {
+      id: 'kj-tr-wash',
+      title: '洗い物',
+      items: [
+        { id: 'kj-tr-w01', label: '洗い物ルール' },
       ],
     },
   ],
@@ -1354,6 +1363,13 @@ const TRAIN_OVERRIDES = {
         { id: 'ch-tr-d01', label: 'ドリンクの作り方' },
       ],
     },
+    {
+      id: 'ch-tr-wash',
+      title: '洗い物',
+      items: [
+        { id: 'ch-tr-w01', label: '洗い物ルール' },
+      ],
+    },
   ],
 
 };
@@ -1363,9 +1379,21 @@ function defaultTraining(storeId) {
   return TRAIN_OVERRIDES[storeId] || TRAIN_DEFAULT;
 }
 
-/** その店舗の教える項目 */
+/**
+ * その店舗の教える項目
+ *
+ * ★マネージで直した内容があれば、そちらが優先されます。
+ *   クローズの項目と同じ考え方です（config.js は初期値としてだけ使われます）。
+ * ★やめた項目（retiredAt）は数えません。
+ */
 function getTraining(storeId) {
-  return defaultTraining(storeId);
+  const list = typeof Trainings !== 'undefined'
+    ? Trainings.sections(storeId)
+    : defaultTraining(storeId);
+  return list
+    .filter((sec) => !sec.retiredAt)
+    .map((sec) => ({ ...sec, items: sec.items.filter((it) => !it.retiredAt) }))
+    .filter((sec) => sec.items.length);
 }
 
 /** その店舗の項目の数（全部で何個か） */

@@ -322,6 +322,48 @@ const Weeklies = {
   },
 };
 
+/* -------- 教育の項目（マネージで変更し、全端末へ配られます） --------
+ *
+ *  クローズのチェック項目（Checklists）とまったく同じ形です。
+ *  未設定の店舗は config.js の初期値を使います。
+ * ---------------------------------------------------------- */
+const Trainings = {
+  _key: APP.storageKey + ':trainings',
+
+  _read() {
+    try {
+      const v = JSON.parse(localStorage.getItem(this._key) || 'null');
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    } catch (e) {
+      return {};
+    }
+  },
+
+  /** 保存されている全店舗分。管理アプリの一括保存で使います */
+  all() {
+    return this._read();
+  },
+
+  /** その店舗の区分と項目。未設定なら config.js の初期値を使う */
+  sections(storeId) {
+    const saved = this._read()[storeId];
+    if (Array.isArray(saved)) return saved;
+    return defaultTraining(storeId);
+  },
+
+  /** まだ一度も編集されていない（config.js の初期値のまま）かどうか */
+  isDefault(storeId) {
+    return !Array.isArray(this._read()[storeId]);
+  },
+
+  save(storeId, sections) {
+    const all = this._read();
+    all[storeId] = sections;
+    localStorage.setItem(this._key, JSON.stringify(all));
+    return all;
+  },
+};
+
 /* -------- 教育を受ける人（店舗ごと） --------
  *
  *  ★管理用PINは要りません。名前を足すのは各店舗なので、
