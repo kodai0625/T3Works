@@ -1027,38 +1027,52 @@ function cashNormalize(line) {
     .replace(/,\s+(?=\d)/g, ',');   // 「205, 946」のように空きが入ることがあります
 }
 
-/**
- * 1行から金額を取り出す
- *
- * ★「4件」「1点」のような数え方の数字は金額ではないので外します。
- *   金額は ¥ が前に付くか、円 が後ろに付くのが目印です。
- *   どちらも無いときだけ、一番後ろの数字を金額とみなします。
- */
-function cashFromLine(line) {
-  const s = cashNormalize(line);
-  const num = (t) => {
-    const n = Number(String(t).replace(/[,.\s]/g, ''));
-    return Number.isFinite(n) ? n : null;
-  };
+/** 文字を数にする（「6,930」「6.930」→ 6930。数でなければ null） */
+function cashNumOf(text) {
+  const n = Number(String(text).replace(/[,.\s]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
 
-  const marked = [];
+/**
+ * 1行から「¥ か 円 の付いた金額」を取り出す
+ *
+ * ★これがいちばん確かな目印なので、まずこれだけで探します。
+ */
+function cashMarkedOf(line) {
+  const s = cashNormalize(line);
+  const out = [];
   const re = /¥\s*([\d][\d,.]*)|([\d][\d,.]*)\s*円/g;
   let m;
   while ((m = re.exec(s)) !== null) {
-    const v = num(m[1] !== undefined ? m[1] : m[2]);
-    if (v !== null) marked.push(v);
+    const v = cashNumOf(m[1] !== undefined ? m[1] : m[2]);
+    if (v !== null) out.push(v);
   }
-  if (marked.length) return marked[marked.length - 1];
+  return out.length ? out[out.length - 1] : null;
+}
 
-  // 目印が読み取れなかったとき。数え方の数字（件・点・%・個・人）は外します
-  const rest = [];
-  const re2 = /([\d][\d,.]*)\s*([件点%個人])?/g;
-  while ((m = re2.exec(s)) !== null) {
-    if (m[2]) continue;
-    const v = num(m[1]);
-    if (v !== null) rest.push(v);
+/**
+ * 1行から「目印の無い数字」を取り出す（最後の手だて）
+ *
+ * ★ここがいちばん間違えやすいところです。実際に、OCRが「4件」を「414」と
+ *   読んでいて、それを金額として拾ってしまいました。
+ *   なので **0円 か、1000円以上** しか受け付けません。
+ *   件数（0〜99くらい）を金額とまちがえないためです。
+ *   本当に1000円未満だった日は読み取れませんが、そのときは手で入れてもらいます
+ *   （まちがった金額が入るより、入らない方が安全です）。
+ */
+function cashBareOf(line) {
+  const s = cashNormalize(line);
+  const out = [];
+  const re = /([\d][\d,.]*)\s*([件点%個人])?/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    if (m[2]) continue;                       // 「4件」のような数え方は外します
+    const v = cashNumOf(m[1]);
+    if (v === null) continue;
+    if (v !== 0 && v < 1000) continue;        // 件数らしい小さな数は受け付けません
+    out.push(v);
   }
-  return rest.length ? rest[rest.length - 1] : null;
+  return out.length ? out[out.length - 1] : null;
 }
 
 /**
@@ -1089,10 +1103,13 @@ function parseJournalCash(text) {
     if (CASH_SECTION_END.some((mark) => plain.includes(mark))) break;
     if (!plain.includes('現金')) continue;
     if (CASH_NOT_ROWS.some((ng) => plain.includes(ng))) continue;
+    // 「(含む 現金釣銭 ¥0)」のような、かっこ書きの但し書きは数えません
+    if (/^[(（]/.test(plain)) continue;
     sawCash = true;
 
-    // 「現金」と同じ行に金額があればそれ。無ければ、少し下まで探します
+    // 「現金」の行から少し下までを、金額をさがす範囲にします
     // （炭まろ・ちゃこる・バグる・popo の紙は、件数と金額が下の行に分かれます）
+    const window = [];
     const last = Math.min(i + CASH_LOOK_AHEAD, lines.length - 1);
     for (let j = i; j <= last; j++) {
       if (j > i) {
@@ -1101,7 +1118,20 @@ function parseJournalCash(text) {
         if (CASH_OTHER_ROWS.some((k) => p.includes(k))) break;
         if (CASH_SECTION_END.some((k) => p.includes(k))) break;
       }
-      const v = cashFromLine(lines[j]);
+      window.push(lines[j]);
+    }
+
+    // ★2段に分けて探します。
+    //   ① ¥ か 円 の付いた金額（いちばん確か）を、範囲ぜんぶから
+    //   ② それが1つも無いときだけ、目印の無い数字から
+    //   1行ずつ「①→②」で見てしまうと、「4件」を読みまちがえた「414」を
+    //   先に拾ってしまいます（実際にそうなりました）
+    for (const one of window) {
+      const v = cashMarkedOf(one);
+      if (v !== null) return { yen: v, how: 'read' };
+    }
+    for (const one of window) {
+      const v = cashBareOf(one);
       if (v !== null) return { yen: v, how: 'read' };
     }
   }
