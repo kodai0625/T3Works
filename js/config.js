@@ -1224,6 +1224,7 @@ const TRAIN_OVERRIDES = {
         { id: 'kj-tr-b05', label: 'スタッフ用の飲み物の説明', hint: '水か烏龍茶ならOK、男はストロー✗' },
         { id: 'kj-tr-b06', label: 'タバコルール' },
         { id: 'kj-tr-b07', label: '制服の再説明' },
+        { id: 'kj-tr-b08', label: 'キッチン内ルール', hint: '誰かの後ろを通るときと刃物類を持っているときの声掛け' },
       ],
     },
     {
@@ -1300,6 +1301,7 @@ const TRAIN_OVERRIDES = {
         { id: 'ch-tr-b05', label: 'スタッフ用の飲み物の説明', hint: '水か烏龍茶ならOK、男はストロー✗' },
         { id: 'ch-tr-b06', label: 'タバコルール' },
         { id: 'ch-tr-b07', label: '制服の再説明' },
+        { id: 'ch-tr-b08', label: 'キッチン内ルール', hint: '誰かの後ろを通るときと刃物類を持っているときの声掛け' },
       ],
     },
     {
@@ -1368,6 +1370,95 @@ const TRAIN_OVERRIDES = {
       title: '洗い物',
       items: [
         { id: 'ch-tr-w01', label: '洗い物ルール' },
+      ],
+    },
+  ],
+
+  /* ===== 炭まろ =====
+     ちゃこると同じ中身です。「飲み放題注文の注意点」の
+     （ちび紙の書き方）だけ、炭まろには付けていません */
+  sumimaro: [
+    {
+      id: 'sm-tr-basic',
+      title: '基本ルール',
+      items: [
+        { id: 'sm-tr-b01', label: 'あいさつ', hint: 'おはようございます・お疲れ様です' },
+        { id: 'sm-tr-b02', label: '更衣室と履物の説明' },
+        { id: 'sm-tr-b03', label: 'タイムカード', hint: '出勤は15分刻み、退勤は1分刻み' },
+        { id: 'sm-tr-b04', label: '手洗い' },
+        { id: 'sm-tr-b05', label: 'スタッフ用の飲み物の説明', hint: '水か烏龍茶ならOK、男はストロー✗' },
+        { id: 'sm-tr-b06', label: 'タバコルール' },
+        { id: 'sm-tr-b07', label: '制服の再説明' },
+        { id: 'sm-tr-b08', label: 'キッチン内ルール', hint: '誰かの後ろを通るときと刃物類を持っているときの声掛け' },
+      ],
+    },
+    {
+      id: 'sm-tr-hall',
+      title: 'ホールの基本',
+      items: [
+        { id: 'sm-tr-h01', label: 'おしぼりルール' },
+        { id: 'sm-tr-h02', label: '卓番説明', hint: '各席の収容人数の説明も' },
+        { id: 'sm-tr-h03', label: 'トイレチェック' },
+      ],
+    },
+    {
+      id: 'sm-tr-guide',
+      title: '来店退店対応',
+      items: [
+        { id: 'sm-tr-g01', label: '予約済みの場合' },
+        { id: 'sm-tr-g02', label: '予約無しの場合' },
+        { id: 'sm-tr-g03', label: '1階のご案内' },
+        { id: 'sm-tr-g04', label: '2階のご案内' },
+        { id: 'sm-tr-g05', label: 'ご案内後の説明（席のみ予約の場合）' },
+        { id: 'sm-tr-g06', label: 'ご案内後の説明（コース予約の場合）' },
+        { id: 'sm-tr-g07', label: 'お会計' },
+        { id: 'sm-tr-g08', label: 'お見送り' },
+      ],
+    },
+    {
+      id: 'sm-tr-serve',
+      title: '配膳',
+      items: [
+        { id: 'sm-tr-s01', label: 'トレンチの持ち方' },
+        { id: 'sm-tr-s02', label: 'お伺い時のルール', hint: 'ノック回数、注文を受けるときの姿勢、扉開閉時の声掛け' },
+        { id: 'sm-tr-s03', label: '料理、ドリンクに付けるシルバーの説明' },
+        { id: 'sm-tr-s04', label: 'お済みのお皿やグラスがあったら下げる' },
+        { id: 'sm-tr-s05', label: '鍋説明（単品の場合）' },
+        { id: 'sm-tr-s06', label: '鍋説明（コースの場合）' },
+        // ★ちゃこるにある「ちび紙の書き方」は、炭まろには付けません
+        { id: 'sm-tr-s07', label: '飲み放題注文の注意点' },
+        { id: 'sm-tr-s08', label: 'オーダーの取り方' },
+        { id: 'sm-tr-s09', label: 'インターホンのルール' },
+      ],
+    },
+    {
+      id: 'sm-tr-bus',
+      title: 'バッシング・セットの説明＆ルール',
+      items: [
+        { id: 'sm-tr-c01', label: 'バッシングのルール説明' },
+        { id: 'sm-tr-c02', label: 'セットの説明（基本セットVer）' },
+        { id: 'sm-tr-c03', label: 'セットの説明（コースVer）' },
+      ],
+    },
+    {
+      id: 'sm-tr-handy',
+      title: 'ハンディー',
+      items: [
+        { id: 'sm-tr-y01', label: 'ハンディーの使い方' },
+      ],
+    },
+    {
+      id: 'sm-tr-drink',
+      title: 'ドリンク',
+      items: [
+        { id: 'sm-tr-d01', label: 'ドリンクの作り方' },
+      ],
+    },
+    {
+      id: 'sm-tr-wash',
+      title: '洗い物',
+      items: [
+        { id: 'sm-tr-w01', label: '洗い物ルール' },
       ],
     },
   ],
