@@ -590,6 +590,7 @@ const cashEdit = {
   pending: '',    // 撮ったばかりで、まだドライブに残していない写真
   ocr: null, how: '', busy: false, text: '',
   ms: 0, saveMs: 0, size: 0,   // 何秒かかったか・何KB送ったか（速さを確かめるためのもの）
+  gas: '',                     // サーバー（現金売上.gs）の版の印
 };
 
 /**
@@ -775,6 +776,28 @@ function cashShrink(file, quality) {
   });
 }
 
+/**
+ * サーバー（現金売上.gs）が新しい版かどうか
+ *
+ * 食いちがっていたら、その場で何をすればよいかを出します。
+ * true なら、そのまま進めて大丈夫です。
+ */
+function cashGasOk(res) {
+  const now = res && res.v ? String(res.v) : '';
+  if (now === CASH_GAS_VERSION) return true;
+
+  if (!now) {
+    setCashMsg('Apps Script が古いままです（版が分かりません）。'
+      + '「現金売上のコードをコピーする」から 現金売上.gs を貼り直して、'
+      + 'デプロイを更新してください', 'warn');
+  } else {
+    setCashMsg(`Apps Script が古いままです（サーバー ${now} ／ アプリ ${CASH_GAS_VERSION}）。`
+      + '「現金売上のコードをコピーする」から 現金売上.gs を貼り直して、'
+      + 'デプロイを更新してください', 'warn');
+  }
+  return false;
+}
+
 async function onCashFile(e) {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';           // 同じ写真をもう一度選べるように
@@ -810,6 +833,12 @@ async function onCashFile(e) {
       image: dataUrl,
     });
     if (!res.ok) throw new Error(res.error || '送れませんでした');
+
+    // ★Apps Script の貼り直しが済んでいるか、ここで見ます。
+    //   古いままだと、撮っただけでドライブに写真が残ってしまうなど、
+    //   見た目では分からない食いちがいが出るためです
+    if (!cashGasOk(res)) return;
+
     let got = parseJournalCash(res.text || '');
 
     // ★小さくして送ったせいで読み取れなかったのかもしれません。
@@ -828,6 +857,7 @@ async function onCashFile(e) {
     }
     cashEdit.ms = Date.now() - from;
     cashEdit.size = Math.round(dataUrl.length * 3 / 4 / 1024);
+    cashEdit.gas = res.v || '（分かりません）';
 
     cashEdit.pending = dataUrl;
     // ★読み取った文字はそのまま持っておきます。金額が違って入ったときに、
@@ -893,6 +923,7 @@ function openOcrText() {
     cashEdit.ms ? `読み取り ${(cashEdit.ms / 1000).toFixed(1)}秒` : '',
     cashEdit.saveMs ? `記録 ${(cashEdit.saveMs / 1000).toFixed(1)}秒` : '',
     cashEdit.size ? `写真 ${cashEdit.size}KB` : '',
+    cashEdit.gas ? `サーバー ${cashEdit.gas}` : '',
   ].filter(Boolean).join('　');
   el.ocrText.textContent = (how ? `（${how}）\n\n` : '')
     + (cashEdit.text || '（何も読み取れませんでした）');
@@ -944,6 +975,8 @@ async function saveCash() {
     el.cashSave.disabled = false;
     el.cashSave.textContent = before;
     cashEdit.saveMs = Date.now() - from;
+
+    if (res.ok && !cashGasOk(res)) return;
 
     if (!res.ok || !res.fileId) {
       // 写真を残せていないのに記録してしまうと、あとで見返せません
