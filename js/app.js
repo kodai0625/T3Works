@@ -88,7 +88,7 @@ const el = {
   cashPaneDay: $('cashPaneDay'), cashPaneWeek: $('cashPaneWeek'),
   cashWeekPrev: $('cashWeekPrev'), cashWeekNext: $('cashWeekNext'), cashWeekThis: $('cashWeekThis'),
   cashWeekLabel: $('cashWeekLabel'), cashWeekList: $('cashWeekList'),
-  cashWeekTotal: $('cashWeekTotal'), cashWeekMiss: $('cashWeekMiss'),
+  cashWeekMiss: $('cashWeekMiss'),
   cashWeekSave: $('cashWeekSave'), cashWeekWho: $('cashWeekWho'),
   shotModal: $('shotModal'), shotBig: $('shotBig'),
   weekSubmitCard: $('weekSubmitCard'), weekSubmitRange: $('weekSubmitRange'),
@@ -944,12 +944,12 @@ function renderCashWeek() {
     el.cashWeekList.appendChild(row);
   });
 
-  const { total, miss } = cashWeekTotal(start);
-  el.cashWeekTotal.textContent = `${cashText(total)}円`;
+  // 合計そのものは画面に出しません（差額だけ見れば足りるためです）。
+  // 中では、下の差額を出すのに使っています
+  const { miss } = cashWeekTotal(start);
   el.cashWeekMiss.classList.toggle('is-hidden', !miss.length);
-  if (miss.length) {
-    el.cashWeekMiss.textContent = `まだ撮っていない日があります：${miss.join('・')}`;
-  }
+  el.cashWeekMiss.textContent = miss.length
+    ? `まだ撮っていない日があります：${miss.join('・')}` : '';
 
   const done = !!saved && !cashWeekUnlocked;
   el.cashWeekDone.classList.toggle('is-hidden', !done);

@@ -3822,13 +3822,6 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 .cash-day.is-closed .cash-day__yen { color: var(--text-weak); font-weight: 400; }
 .cash-day__photo { font-size: 12px; text-align: right; }
 
-.cash-week-sum {
-  display: flex; align-items: baseline; gap: 10px;
-  padding: 11px 10px; margin-bottom: 10px; border-radius: 9px;
-  background: var(--surface-2); border: 1px solid var(--line);
-}
-.cash-week-sum__label { flex: 1 1 auto; font-size: 13.5px; font-weight: 700; }
-.cash-week-sum__yen { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .cash-week-miss {
   margin: 0 0 10px; font-size: 12.5px; font-weight: 700;
   color: color-mix(in srgb, var(--ng) 85%, var(--text));
