@@ -651,9 +651,11 @@ function renderCash() {
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
-    // 記録した人が残っていればその人。無ければ、その日のクローズの担当者を先に入れておきます
-    fillStaffOptions(el.cashStaff,
-      (saved && saved.by) || (Store.getDay(state.storeId, dateStr).staff || ''));
+    // ★記録した人が残っていればその人。まだなら空のままにします。
+    //   クローズの担当者を先に入れていましたが、クローズをやった人と
+    //   ジャーナルを記録する人がちがう日があるので、入れないようにしました
+    //   （先に入っていると、そのまま押してしまいます）
+    fillStaffOptions(el.cashStaff, (saved && saved.by) || '');
     setCashMsg('');
     showCashPhoto();
   }
