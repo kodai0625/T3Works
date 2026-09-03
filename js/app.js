@@ -80,7 +80,7 @@ const el = {
   trainAddMsg: $('trainAddMsg'), trainDoneHead: $('trainDoneHead'),
   trainDoneLabel: $('trainDoneLabel'), trainDoneMark: $('trainDoneMark'),
   trainDonePeople: $('trainDonePeople'), trainOne: $('trainOne'), trainBack: $('trainBack'),
-  trainOneName: $('trainOneName'), trainOneBar: $('trainOneBar'),
+  trainOneName: $('trainOneName'), trainOneBar: $('trainOneBar'), trainRemove: $('trainRemove'),
   trainOneCount: $('trainOneCount'), trainSections: $('trainSections'),
   viewCash: $('viewCash'), cashDate: $('cashDate'), cashShot: $('cashShot'),
   cashShotImg: $('cashShotImg'), cashShotEmpty: $('cashShotEmpty'),
@@ -1311,6 +1311,31 @@ function trainItemRow(personId, item, items) {
     render();
   });
   return row;
+}
+
+/**
+ * その人を一覧から消す
+ *
+ * ★消すのは名前だけです。それまでのチェックはサーバーに残っていますが、
+ *   同じ名前をもう一度足すと**別の人**として始まります（進み具合は最初から）。
+ *   まちがえて消したときのために、そこも先に伝えておきます。
+ */
+async function removeTrainee() {
+  const person = Trainees.list(state.storeId).find((p) => p.id === trainPerson);
+  if (!person) return;
+
+  const ok = await askConfirm({
+    item: person.n,
+    message: 'この人を教育の一覧から消します。'
+      + 'もう一度足したときは、進み具合は最初からになります。',
+    okLabel: '消す',
+    danger: true,
+  });
+  if (!ok) return;
+
+  Trainees.remove(state.storeId, person.id);
+  trainPerson = '';
+  render();
 }
 
 /* -------- 名前を足す・直す -------- */
@@ -7546,6 +7571,7 @@ function bindEvents() {
     if (e.key === 'Enter' && !imeEnter(e)) addTrainee();
   });
   el.trainBack.addEventListener('click', () => { trainPerson = ''; render(); });
+  el.trainRemove.addEventListener('click', removeTrainee);
   el.trainDoneHead.addEventListener('click', () => { trainDoneOpen = !trainDoneOpen; render(); });
 
   /* 現金売上 */

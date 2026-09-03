@@ -3917,3 +3917,9 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 .train-item__label { display: block; line-height: 1.5; }
 .train-item.is-on .train-item__label { color: var(--text-sub); }
 .train-item__hint { display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-sub); }
+
+/* 「この人を一覧から消す」。まちがって押さないよう、色を落として真ん中に置きます */
+.train-remove {
+  display: block; margin: 4px auto 8px; padding: 8px 12px;
+  color: var(--text-weak); font-weight: 400;
+}
