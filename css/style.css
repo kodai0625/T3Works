@@ -3923,3 +3923,18 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   display: block; margin: 4px auto 8px; padding: 8px 12px;
   color: var(--text-weak); font-weight: 400;
 }
+
+/* -------- シフト：名前をつまんで動かす -------- */
+/* 持ち上げているあいだ、元の名前はうすくします（どれを動かしているか分かるように） */
+.shift-chip.is-moving { opacity: .3; }
+/* 指について回る影。下のマスを拾えるよう、指の下では当たり判定を持ちません */
+.shift-ghost {
+  position: fixed; z-index: 999; pointer-events: none;
+  box-shadow: 0 6px 18px rgba(18, 22, 30, .35);
+  transform: scale(1.06);
+}
+/* 落とし先のマス */
+.shift-cell.is-drop {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: 2px solid var(--accent); outline-offset: -2px;
+}

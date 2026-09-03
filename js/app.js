@@ -6064,11 +6064,18 @@ function shiftGridBlock(rec, wishes, days) {
 function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   const td = document.createElement('td');
   td.className = 'shift-cell';
+  // つまんで動かすときの行き先。どのマスに落としたかを、ここから読みます
+  td.dataset.date = dateStr;
+  td.dataset.slot = slot.id;
+  td.dataset.lane = lane.id;
 
   day[slot.id].forEach((e, i) => {
     if (shiftLaneOf(e) !== lane.id) return;
     const chip = document.createElement('button');
     chip.type = 'button';
+    chip.dataset.i = i;
+    chip.dataset.n = e.n;
+    chip.addEventListener('pointerdown', (ev) => startShiftDrag(ev, chip));
     chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
     chip.textContent = shiftNameText(slot.id, e);
     // ★通しの人は名前のうしろに F。塗りだけだと、ぱっと見て分かりません
@@ -6080,7 +6087,10 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     }
     const note = [e.f ? 'F（ランチからディナーまで通し）' : '', e.early ? '早上がり' : ''].filter(Boolean);
     if (note.length) chip.title = note.join('・');
-    chip.addEventListener('click', () => openShiftPick(dateStr, slot.id, lane.id, i));
+    chip.addEventListener('click', () => {
+      if (shiftDrag.justMoved) return;   // 動かした直後は、開かない
+      openShiftPick(dateStr, slot.id, lane.id, i);
+    });
     td.appendChild(chip);
   });
 
@@ -6188,6 +6198,191 @@ function shiftPattyBox(day, dateStr) {
     box.appendChild(b);
   });
   return box;
+}
+
+
+/* ============================================================
+ *  シフトの名前を、つまんで動かす
+ *
+ *  ・名前を0.35秒押し続けると持ち上がります
+ *    （すぐ動かしたときは、今までどおり画面のスクロールです）
+ *  ・指を動かすと、その下のマスが青くなります
+ *  ・離すと、そのマスへ移ります（キッチン⇄ホール、ランチ⇄ディナー、別の日も）
+ *
+ *  ★iPhone・iPadでは、ブラウザに元からある「ドラッグ」の仕組みが効きません。
+ *    なので、指の位置を自分で追いかけています（マネージの並べ替えと同じ作りです）。
+ *  ★枠が変わるときは、時刻をその枠のふだんの時刻に入れかえます。
+ *    ランチの11:00をディナーに持っていっても、そのままでは意味が通らないためです。
+ * ============================================================ */
+const shiftDrag = {
+  chip: null, from: null, ghost: null, cell: null,
+  timer: null, x: 0, y: 0, active: false, raf: 0, justMoved: false,
+};
+
+function startShiftDrag(e, chip) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const td = chip.closest('.shift-cell');
+  if (!td) return;
+
+  cancelShiftDrag();
+  shiftDrag.chip = chip;
+  shiftDrag.from = {
+    date: td.dataset.date,
+    slot: td.dataset.slot,
+    lane: td.dataset.lane,
+    index: Number(chip.dataset.i),
+    // ★誰を持ったかも覚えておきます。つまんでいるあいだに、ほかの端末の
+    //   直しが届いて並びが変わることがあり、番号だけだと別人を動かしてしまいます
+    name: chip.dataset.n || '',
+  };
+  shiftDrag.x = e.clientX;
+  shiftDrag.y = e.clientY;
+  shiftDrag.timer = setTimeout(() => beginShiftDrag(), 350);
+
+  document.addEventListener('pointermove', onShiftDragMove, { passive: false });
+  document.addEventListener('pointerup', endShiftDrag);
+  document.addEventListener('pointercancel', cancelShiftDrag);
+  document.addEventListener('touchmove', blockShiftScroll, { passive: false });
+}
+
+function beginShiftDrag() {
+  const chip = shiftDrag.chip;
+  if (!chip) return;
+  shiftDrag.active = true;
+  shiftDrag.timer = null;
+
+  // 指について回る影。中身は名前そのままにして、どれを持っているか分かるようにします
+  const box = chip.getBoundingClientRect();
+  const ghost = chip.cloneNode(true);
+  ghost.className = 'shift-chip shift-ghost';
+  ghost.style.width = `${box.width}px`;
+  ghost.style.left = `${box.left}px`;
+  ghost.style.top = `${box.top}px`;
+  document.body.appendChild(ghost);
+  shiftDrag.ghost = ghost;
+
+  chip.classList.add('is-moving');
+  document.body.classList.add('is-dragging');
+  if (navigator.vibrate) navigator.vibrate(15);
+  moveShiftGhost(shiftDrag.x, shiftDrag.y);
+}
+
+function blockShiftScroll(e) {
+  if (shiftDrag.active) e.preventDefault();
+}
+
+function onShiftDragMove(e) {
+  if (!shiftDrag.active) {
+    // 持ち上がる前に動いたら、スクロールしたいのだと見なして取りやめます
+    const far = Math.abs(e.clientX - shiftDrag.x) > 8 || Math.abs(e.clientY - shiftDrag.y) > 8;
+    if (far) cancelShiftDrag();
+    return;
+  }
+  e.preventDefault();
+  moveShiftGhost(e.clientX, e.clientY);
+  shiftAutoScroll(e.clientY);
+}
+
+/** 影を指の位置へ運び、下にあるマスを光らせます */
+function moveShiftGhost(x, y) {
+  const g = shiftDrag.ghost;
+  if (!g) return;
+  const box = g.getBoundingClientRect();
+  g.style.left = `${x - box.width / 2}px`;
+  g.style.top = `${y - box.height / 2}px`;
+
+  const under = document.elementFromPoint(x, y);
+  const cell = under ? under.closest('.shift-cell') : null;
+  if (cell === shiftDrag.cell) return;
+  if (shiftDrag.cell) shiftDrag.cell.classList.remove('is-drop');
+  shiftDrag.cell = cell;
+  if (cell) cell.classList.add('is-drop');
+}
+
+/** 画面の端まで持っていったら、ゆっくりスクロールします */
+function shiftAutoScroll(y) {
+  cancelAnimationFrame(shiftDrag.raf);
+  const margin = 80;
+  const step = y < margin ? -9 : y > window.innerHeight - margin ? 9 : 0;
+  if (!step) return;
+  const tick = () => {
+    if (!shiftDrag.active) return;
+    window.scrollBy(0, step);
+    shiftDrag.raf = requestAnimationFrame(tick);
+  };
+  shiftDrag.raf = requestAnimationFrame(tick);
+}
+
+function endShiftDrag() {
+  const wasActive = shiftDrag.active;
+  const from = shiftDrag.from;
+  const cell = shiftDrag.cell;
+  cancelShiftDrag();
+  if (!wasActive || !from || !cell) return;
+
+  // 動かした直後の click で「直す」が開かないようにします
+  shiftDrag.justMoved = true;
+  setTimeout(() => { shiftDrag.justMoved = false; }, 400);
+
+  moveShiftChip(from, {
+    date: cell.dataset.date,
+    slot: cell.dataset.slot,
+    lane: cell.dataset.lane,
+  });
+}
+
+function cancelShiftDrag() {
+  clearTimeout(shiftDrag.timer);
+  cancelAnimationFrame(shiftDrag.raf);
+  if (shiftDrag.ghost) shiftDrag.ghost.remove();
+  if (shiftDrag.chip) shiftDrag.chip.classList.remove('is-moving');
+  if (shiftDrag.cell) shiftDrag.cell.classList.remove('is-drop');
+  document.body.classList.remove('is-dragging');
+  shiftDrag.timer = null;
+  shiftDrag.active = false;
+  shiftDrag.chip = null;
+  shiftDrag.from = null;
+  shiftDrag.ghost = null;
+  shiftDrag.cell = null;
+  document.removeEventListener('pointermove', onShiftDragMove);
+  document.removeEventListener('pointerup', endShiftDrag);
+  document.removeEventListener('pointercancel', cancelShiftDrag);
+  document.removeEventListener('touchmove', blockShiftScroll);
+}
+
+/** 名前を、別のマスへ移します */
+function moveShiftChip(from, to) {
+  if (from.date === to.date && from.slot === to.slot && from.lane === to.lane) return;
+
+  const dayFrom = shiftDayOf(shiftRec(), from.date);
+  // つまんだときの番号を先に見て、違う人になっていたら名前で探し直します
+  let at = from.index;
+  const same = (e) => e && e.n === from.name && shiftLaneOf(e) === from.lane;
+  if (!same(dayFrom[from.slot][at])) {
+    at = dayFrom[from.slot].findIndex(same);
+  }
+  const entry = at >= 0 ? dayFrom[from.slot][at] : null;
+  if (!entry) return;   // 動かすあいだに、その人が消えていた
+
+  const moved = { ...entry, p: to.lane };
+  // 枠が変わったら、時刻はその枠のふだんの時刻に入れかえます
+  if (from.slot !== to.slot) moved.t = shiftDefaultTime(to.slot);
+
+  if (from.date === to.date) {
+    dayFrom[from.slot].splice(at, 1);
+    dayFrom[to.slot].push(moved);
+    shiftFillShort(dayFrom, to.slot, to.lane);   // 赤いあきが1つ埋まります
+    saveShiftDay(from.date, dayFrom);
+  } else {
+    dayFrom[from.slot].splice(at, 1);
+    saveShiftDay(from.date, dayFrom);
+    // ★書いたあとに読み直します（同じ人の分を二重に持たないため）
+    const dayTo = shiftDayOf(shiftRec(), to.date);
+    dayTo[to.slot].push(moved);
+    shiftFillShort(dayTo, to.slot, to.lane);
+    saveShiftDay(to.date, dayTo);
+  }
+  render();
 }
 
 /* -------- 人を選ぶ・直す -------- */
