@@ -937,6 +937,51 @@ const ANYTIME_KEY = 'ANYTIME';
 const CASH_ITEM = '__cash';
 
 /**
+ * 実際に数えた金額（封筒）を入れておく項目名
+ *
+ * ★数えるのは1週間まとめてなので、日ごとには持ちません。
+ *   その週の**月曜の記録**に、1つだけ入れます。
+ *   （週間掃除は日曜はじまりですが、現金は月〜日でまとめる決まりです）
+ */
+const CASH_WEEK_ITEM = '__cashWeek';
+
+/** その日が入る週の月曜（'YYYY-MM-DD'）を返します */
+function cashWeekStart(y, m, d) {
+  const t = new Date(y, m - 1, d);
+  // getDay() は 0=日 なので、月曜からの日数に直します（日曜は6日前が月曜）
+  const back = (t.getDay() + 6) % 7;
+  t.setDate(t.getDate() - back);
+  const p2 = (n) => String(n).padStart(2, '0');
+  return `${t.getFullYear()}-${p2(t.getMonth() + 1)}-${p2(t.getDate())}`;
+}
+
+/** 月曜から日曜までの7日分（'YYYY-MM-DD' の並び） */
+function cashWeekDays(startStr) {
+  const [y, m, d] = startStr.split('-').map(Number);
+  const p2 = (n) => String(n).padStart(2, '0');
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const t = new Date(y, m - 1, d + i);
+    out.push(`${t.getFullYear()}-${p2(t.getMonth() + 1)}-${p2(t.getDate())}`);
+  }
+  return out;
+}
+
+/** 「9/1（月）〜 9/7（日）」のような表記 */
+function cashWeekLabel(startStr) {
+  const days = cashWeekDays(startStr);
+  const [, sm, sd] = days[0].split('-').map(Number);
+  const [, em, ed] = days[6].split('-').map(Number);
+  return `${sm}/${sd}（月）〜 ${em}/${ed}（日）`;
+}
+
+/** 週を送る（n 週あと。マイナスなら前） */
+function cashWeekShift(startStr, n) {
+  const [y, m, d] = startStr.split('-').map(Number);
+  return cashWeekStart(y, m, d + n * 7);
+}
+
+/**
  * ジャーナルの支払いの欄が始まる目印
  *
  * ★店舗ごとに決め打ちにせず、3つとも探します。

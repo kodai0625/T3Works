@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=8a3e7d17">
-<meta name="app-version" content="13509cde">
+<link rel="stylesheet" href="css/style.css?v=dfb38864">
+<meta name="app-version" content="70c1ab1c">
 </head>
 <body>
 
@@ -266,6 +266,13 @@
        写真はドライブに残るので、あとから日付と店舗で開けます -->
   <section class="view view--cash is-hidden" id="viewCash">
 
+    <!-- 日ごと（撮る）と、1週間（数えた金額と突き合わせる）の2枚 -->
+    <div class="cash-tabs">
+      <button type="button" class="cash-tab is-on" id="cashTabDay">日ごと</button>
+      <button type="button" class="cash-tab" id="cashTabWeek">1週間</button>
+    </div>
+
+    <div id="cashPaneDay">
     <div class="cash-box">
       <div class="cash-box__head">
         <h2 class="cash-box__title">ジャーナル</h2>
@@ -295,17 +302,9 @@
           <span class="cash-line__unit">円</span>
         </span>
       </div>
-      <div class="cash-line">
-        <label class="cash-line__label" for="cashCounted">封筒に入れた金額</label>
-        <span class="cash-line__field">
-          <input type="text" inputmode="numeric" autocomplete="off" class="cash-line__input" id="cashCounted">
-          <span class="cash-line__unit">円</span>
-        </span>
-      </div>
-
-      <p class="cash-diff" id="cashDiff"></p>
       <button type="button" class="submit-btn" id="cashSave">記録する</button>
       <p class="cash-note" id="cashWho"></p>
+      <p class="cash-note">実際に数えた金額は、上の<b>「1週間」</b>で入れます。</p>
     </div>
 
     <div class="cash-box">
@@ -314,6 +313,40 @@
         <span class="cash-box__date" id="cashMonthSum"></span>
       </div>
       <div class="cash-list" id="cashList"></div>
+    </div>
+    </div><!-- /cashPaneDay -->
+
+    <!-- ===== 1週間分（月〜日） =====
+         数えるのは1週間まとめてなので、実際の金額はここで1回だけ入れます -->
+    <div class="is-hidden" id="cashPaneWeek">
+      <div class="cash-box">
+        <div class="cash-week-nav">
+          <button type="button" class="year-btn" id="cashWeekPrev" aria-label="前の週">‹</button>
+          <span class="cash-week-nav__label" id="cashWeekLabel">9/1（月）〜 9/7（日）</span>
+          <button type="button" class="year-btn" id="cashWeekNext" aria-label="次の週">›</button>
+          <button type="button" class="today-btn" id="cashWeekThis">今週</button>
+        </div>
+
+        <div class="cash-week" id="cashWeekList"></div>
+
+        <div class="cash-week-sum">
+          <span class="cash-week-sum__label">ジャーナルの合計</span>
+          <span class="cash-week-sum__yen" id="cashWeekTotal">0円</span>
+        </div>
+        <p class="cash-week-miss is-hidden" id="cashWeekMiss"></p>
+
+        <div class="cash-line">
+          <label class="cash-line__label" for="cashCounted">実際に数えた金額</label>
+          <span class="cash-line__field">
+            <input type="text" inputmode="numeric" autocomplete="off" class="cash-line__input" id="cashCounted">
+            <span class="cash-line__unit">円</span>
+          </span>
+        </div>
+
+        <p class="cash-diff" id="cashDiff"></p>
+        <button type="button" class="submit-btn" id="cashWeekSave">記録する</button>
+        <p class="cash-note" id="cashWeekWho"></p>
+      </div>
     </div>
 
   </section>
@@ -1361,7 +1394,7 @@
   </div>
 </div>
 
-<script src="js/config.js?v=7f38fb26"></script>
+<script src="js/config.js?v=97d35f59"></script>
 <script src="js/storage.js?v=aa7da4cb"></script>
 <script src="js/sync.js?v=252da6a9"></script>
 <script src="js/update.js?v=c530219e"></script>
@@ -1369,6 +1402,6 @@
 <script src="js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
 <script src="js/shift-sheet.js?v=28f6c733"></script>
-<script src="js/app.js?v=1bd0f174"></script>
+<script src="js/app.js?v=cf8a082d"></script>
 </body>
 </html>

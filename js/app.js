@@ -81,6 +81,12 @@ const el = {
   cashMsg: $('cashMsg'), cashSales: $('cashSales'), cashCounted: $('cashCounted'),
   cashDiff: $('cashDiff'), cashSave: $('cashSave'), cashWho: $('cashWho'),
   cashMonthTitle: $('cashMonthTitle'), cashMonthSum: $('cashMonthSum'), cashList: $('cashList'),
+  cashTabDay: $('cashTabDay'), cashTabWeek: $('cashTabWeek'),
+  cashPaneDay: $('cashPaneDay'), cashPaneWeek: $('cashPaneWeek'),
+  cashWeekPrev: $('cashWeekPrev'), cashWeekNext: $('cashWeekNext'), cashWeekThis: $('cashWeekThis'),
+  cashWeekLabel: $('cashWeekLabel'), cashWeekList: $('cashWeekList'),
+  cashWeekTotal: $('cashWeekTotal'), cashWeekMiss: $('cashWeekMiss'),
+  cashWeekSave: $('cashWeekSave'), cashWeekWho: $('cashWeekWho'),
   shotModal: $('shotModal'), shotBig: $('shotBig'),
   weekSubmitCard: $('weekSubmitCard'), weekSubmitRange: $('weekSubmitRange'),
   weekSubmitRate: $('weekSubmitRate'), weekSubmitHint: $('weekSubmitHint'),
@@ -564,10 +570,29 @@ function renderDayView() {
 /** いま画面で編集している内容（記録するまでは、ここだけにあります） */
 const cashEdit = { key: '', photo: '', ocr: null, how: '', busy: false };
 
+/** 「日ごと」と「1週間」のどちらを見ているか */
+let cashTab = 'day';
+/** 1週間の画面で見ている週（その週の月曜）。空なら、いま選んでいる日の週 */
+let cashWeek = '';
+/** 実際に数えた金額を、どの週の分として持っているか */
+let cashWeekKey = '';
+
 /** その日の現金売上の記録（無ければ null） */
 function cashOf(storeId, dateStr) {
   const v = (Store.getDay(storeId, dateStr).items || {})[CASH_ITEM];
   return v && v.value && typeof v.value === 'object' ? v.value : null;
+}
+
+/** その週（月曜）の、実際に数えた金額の記録（無ければ null） */
+function cashWeekOf(storeId, startStr) {
+  const v = (Store.getDay(storeId, startStr).items || {})[CASH_WEEK_ITEM];
+  return v && v.value && typeof v.value === 'object' ? v.value : null;
+}
+
+/** いま見ている週（月曜）。まだ決めていなければ、選んでいる日の週にします */
+function cashWeekNow() {
+  if (!cashWeek) cashWeek = cashWeekStart(state.y, state.m, state.d);
+  return cashWeek;
 }
 
 /** 数字だけ取り出す（全角で入れても通ります。空なら null） */
@@ -595,11 +620,14 @@ function renderCash() {
     cashEdit.how = '';
     cashEdit.busy = false;
     el.cashSales.value = saved ? cashText(saved.sales) : '';
-    el.cashCounted.value = saved && saved.counted !== null && saved.counted !== undefined
-      ? cashText(saved.counted) : '';
     setCashMsg('');
     showCashPhoto();
   }
+
+  el.cashTabDay.classList.toggle('is-on', cashTab === 'day');
+  el.cashTabWeek.classList.toggle('is-on', cashTab === 'week');
+  el.cashPaneDay.classList.toggle('is-hidden', cashTab !== 'day');
+  el.cashPaneWeek.classList.toggle('is-hidden', cashTab !== 'week');
 
   el.cashDate.textContent = `${state.m}/${state.d}（${DOW[new Date(state.y, state.m - 1, state.d).getDay()]}）`;
   el.cashTakeText.textContent = cashEdit.photo ? '📷 撮り直す' : '📷 ジャーナルを撮る';
@@ -613,23 +641,28 @@ function renderCash() {
     el.cashWho.textContent = '';
   }
 
-  renderCashDiff();
   renderCashList();
+  renderCashWeek();
 }
 
-/** 差額の行。合っていれば緑、ずれていれば赤 */
+/** 「日ごと」と「1週間」を切り替える */
+function setCashTab(tab) {
+  cashTab = tab;
+  if (tab === 'week') cashWeek = cashWeekStart(state.y, state.m, state.d);
+  render();
+}
+
+/** 1週間の差額の行。合っていれば緑、ずれていれば赤 */
 function renderCashDiff() {
-  const sales = cashYen(el.cashSales.value);
+  const total = cashWeekTotal(cashWeekNow()).total;
   const counted = cashYen(el.cashCounted.value);
 
-  if (sales === null || counted === null) {
+  if (counted === null) {
     el.cashDiff.className = 'cash-diff';
-    el.cashDiff.textContent = counted === null && sales !== null
-      ? '封筒に入れた金額を入れると、合っているか出ます'
-      : '';
+    el.cashDiff.textContent = '実際に数えた金額を入れると、合っているか出ます';
     return;
   }
-  const diff = counted - sales;
+  const diff = counted - total;
   if (diff === 0) {
     el.cashDiff.className = 'cash-diff is-ok';
     el.cashDiff.textContent = '✓ 合っています';
@@ -637,8 +670,24 @@ function renderCashDiff() {
   }
   el.cashDiff.className = 'cash-diff is-ng';
   el.cashDiff.textContent = diff > 0
-    ? `封筒の方が ${cashText(diff)}円 多いです`
-    : `封筒の方が ${cashText(-diff)}円 足りません`;
+    ? `数えた方が ${cashText(diff)}円 多いです`
+    : `数えた方が ${cashText(-diff)}円 足りません`;
+}
+
+/** その週の、ジャーナルの合計と「まだ撮っていない日」 */
+function cashWeekTotal(startStr) {
+  let total = 0;
+  const miss = [];
+  cashWeekDays(startStr).forEach((dateStr) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const cash = cashOf(state.storeId, dateStr);
+    if (cash) { total += Number(cash.sales) || 0; return; }
+    // 定休日と、これから来る日は「まだ」に数えません
+    if (Closed.isClosed(state.storeId, y, m, d)) return;
+    if (dateStr > ymd(TODAY.y, TODAY.m, TODAY.d)) return;
+    miss.push(`${m}/${d}`);
+  });
+  return { total, miss };
 }
 
 function setCashMsg(text, kind) {
@@ -724,13 +773,15 @@ async function onCashFile(e) {
 /** 記録に残っている写真を出す（ほかの端末で撮ったものも見られます） */
 async function showCashPhoto() {
   const id = cashEdit.photo;
-  el.cashShotImg.classList.toggle('is-hidden', !id);
-  el.cashShotEmpty.classList.toggle('is-hidden', !!id);
-  el.cashShot.classList.toggle('is-empty', !id);
-  if (!id) { el.cashShotImg.removeAttribute('src'); return; }
+  // ★中身が届くまで、写真の枠は出しません。
+  //   src が空のまま出すと、割れた写真の絵が出てしまいます
+  el.cashShotImg.classList.add('is-hidden');
+  el.cashShotImg.removeAttribute('src');
+  el.cashShotEmpty.classList.remove('is-hidden');
+  el.cashShot.classList.add('is-empty');
+  if (!id) { el.cashShotEmpty.textContent = 'まだ撮っていません'; return; }
 
   el.cashShotEmpty.textContent = '写真を読み込んでいます…';
-  el.cashShotEmpty.classList.remove('is-hidden');
   const res = await Sync.ask('journalImage', { fileId: id });
   if (cashEdit.photo !== id) return;   // 待っているあいだに日を移った
   if (res.ok && res.image) {
@@ -754,7 +805,6 @@ function openShot() {
 function saveCash() {
   const dateStr = ymd(state.y, state.m, state.d);
   const sales = cashYen(el.cashSales.value);
-  const counted = cashYen(el.cashCounted.value);
 
   if (sales === null) {
     setCashMsg('現金売上を入れてください', 'warn');
@@ -765,9 +815,98 @@ function saveCash() {
 
   Store.setItem(state.storeId, dateStr, CASH_ITEM, {
     done: true,
-    value: { sales, counted, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by },
+    value: { sales, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by },
   });
   setCashMsg('記録しました', 'ok');
+  render();
+}
+
+/* -------- 1週間分（月〜日） -------- */
+
+function renderCashWeek() {
+  const start = cashWeekNow();
+  const saved = cashWeekOf(state.storeId, start);
+
+  // 週を移ったら、打ちかけの金額は持ち越しません
+  if (cashWeekKey !== `${state.storeId}/${start}`) {
+    cashWeekKey = `${state.storeId}/${start}`;
+    el.cashCounted.value = saved && saved.counted !== null && saved.counted !== undefined
+      ? cashText(saved.counted) : '';
+  }
+
+  el.cashWeekLabel.textContent = cashWeekLabel(start);
+  el.cashWeekList.innerHTML = '';
+
+  const todayStr = ymd(TODAY.y, TODAY.m, TODAY.d);
+  cashWeekDays(start).forEach((dateStr) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    const cash = cashOf(state.storeId, dateStr);
+    const shut = Closed.isClosed(state.storeId, y, m, d);
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'cash-day'
+      + (dateStr === todayStr ? ' is-today' : '')
+      + (shut ? ' is-closed' : '')
+      + (!cash && !shut && dateStr <= todayStr ? ' is-yet' : '');
+    row.innerHTML =
+      `<span class="cash-day__date">${m}/${d}</span>`
+      + `<span class="cash-day__dow">${DOW[dow]}</span>`
+      + `<span class="cash-day__yen">${
+        cash ? `${cashText(cash.sales)}円` : shut ? '定休日' : dateStr > todayStr ? '' : 'まだ'
+      }</span>`
+      + (cash && cash.photo ? '<span class="cash-day__photo">📷</span>' : '<span class="cash-day__photo"></span>');
+    row.addEventListener('click', () => {
+      state.y = y; state.m = m; state.d = d;
+      cashTab = 'day';
+      writeHash();
+      render();
+    });
+    el.cashWeekList.appendChild(row);
+  });
+
+  const { total, miss } = cashWeekTotal(start);
+  el.cashWeekTotal.textContent = `${cashText(total)}円`;
+  el.cashWeekMiss.classList.toggle('is-hidden', !miss.length);
+  if (miss.length) {
+    el.cashWeekMiss.textContent = `まだ撮っていない日があります：${miss.join('・')}`;
+  }
+
+  if (saved && saved.at) {
+    const t = new Date(saved.at);
+    el.cashWeekWho.textContent = `記録：${t.getMonth() + 1}/${t.getDate()} `
+      + `${pad2(t.getHours())}:${pad2(t.getMinutes())}`
+      + (saved.by ? `　${saved.by}` : '');
+  } else {
+    el.cashWeekWho.textContent = '';
+  }
+
+  renderCashDiff();
+}
+
+/** 週を送る（n = -1 前の週 / +1 次の週 / 0 今週） */
+function moveCashWeek(n) {
+  cashWeek = n === 0
+    ? cashWeekStart(TODAY.y, TODAY.m, TODAY.d)
+    : cashWeekShift(cashWeekNow(), n);
+  render();
+}
+
+function saveCashWeek() {
+  const start = cashWeekNow();
+  const counted = cashYen(el.cashCounted.value);
+  if (counted === null) {
+    el.cashWeekWho.textContent = '実際に数えた金額を入れてください';
+    return;
+  }
+  const { total } = cashWeekTotal(start);
+  const by = (Store.getDay(state.storeId, ymd(TODAY.y, TODAY.m, TODAY.d)).staff || '').trim();
+
+  Store.setItem(state.storeId, start, CASH_WEEK_ITEM, {
+    done: true,
+    value: { counted, total, at: new Date().toISOString(), by },
+  });
   render();
 }
 
@@ -780,7 +919,6 @@ function renderCashList() {
   el.cashList.innerHTML = '';
   let total = 0;
   let days = 0;
-  let ng = 0;
 
   for (let d = last; d >= 1; d--) {
     const dateStr = ymd(state.y, state.m, d);
@@ -791,22 +929,14 @@ function renderCashList() {
 
     days += 1;
     total += Number(cash.sales) || 0;
-    const diff = cash.counted === null || cash.counted === undefined
-      ? null : Number(cash.counted) - Number(cash.sales);
-    if (diff !== null && diff !== 0) ng += 1;
 
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'cash-item' + (diff !== null && diff !== 0 ? ' is-ng' : '');
+    row.className = 'cash-item';
     row.innerHTML =
       `<span class="cash-item__date">${state.m}/${d}（${DOW[new Date(state.y, state.m - 1, d).getDay()]}）</span>`
       + `<span class="cash-item__yen">${cashText(cash.sales)}円</span>`
-      + (diff === null
-        ? '<span class="cash-item__mark">封筒まだ</span>'
-        : diff === 0
-          ? '<span class="cash-item__mark is-ok">✓</span>'
-          : `<span class="cash-item__mark is-ng">${diff > 0 ? '+' : ''}${cashText(diff)}</span>`)
-      + (cash.photo ? '<span class="cash-item__photo">📷</span>' : '');
+      + (cash.photo ? '<span class="cash-item__photo">📷</span>' : '<span class="cash-item__photo"></span>');
     row.addEventListener('click', () => {
       state.d = d;
       writeHash();
@@ -816,9 +946,7 @@ function renderCashList() {
   }
 
   el.cashMonthTitle.textContent = `${state.m}月の現金売上`;
-  el.cashMonthSum.textContent = days
-    ? `${days}日分　合計 ${cashText(total)}円` + (ng ? `　※合わない日 ${ng}日` : '')
-    : '';
+  el.cashMonthSum.textContent = days ? `${days}日分　合計 ${cashText(total)}円` : '';
 
   if (!days) {
     const p = document.createElement('p');
@@ -1054,13 +1182,9 @@ function taskStatus(taskId, storeId) {
   if (taskId === 'cash') {
     if (Closed.isClosed(storeId, TODAY.y, TODAY.m, TODAY.d)) return { text: '本日は定休日', kind: 'closed' };
     const cash = cashOf(storeId, dateStr);
-    if (!cash) return { text: '本日 まだ', kind: 'todo' };
-    // 封筒とジャーナルが合っていないときは、業務を選ぶ画面からでも分かるようにします
-    const diff = cash.counted === null || cash.counted === undefined
-      ? null : Number(cash.counted) - Number(cash.sales);
-    if (diff === null) return { text: '本日 封筒まだ', kind: 'todo' };
-    if (diff !== 0) return { text: `本日 ${diff > 0 ? '+' : ''}${cashText(diff)}円`, kind: 'todo' };
-    return { text: `本日 ${cashText(cash.sales)}円`, kind: 'done' };
+    return cash
+      ? { text: `本日 ${cashText(cash.sales)}円`, kind: 'done' }
+      : { text: '本日 まだ', kind: 'todo' };
   }
 
   if (taskId === 'month') {
@@ -7028,8 +7152,13 @@ function bindEvents() {
   el.cashFile.addEventListener('change', onCashFile);
   el.cashShot.addEventListener('click', openShot);
   el.cashSave.addEventListener('click', saveCash);
-  el.cashSales.addEventListener('input', renderCashDiff);
   el.cashCounted.addEventListener('input', renderCashDiff);
+  el.cashTabDay.addEventListener('click', () => setCashTab('day'));
+  el.cashTabWeek.addEventListener('click', () => setCashTab('week'));
+  el.cashWeekPrev.addEventListener('click', () => moveCashWeek(-1));
+  el.cashWeekNext.addEventListener('click', () => moveCashWeek(1));
+  el.cashWeekThis.addEventListener('click', () => moveCashWeek(0));
+  el.cashWeekSave.addEventListener('click', saveCashWeek);
   bindHalfWidthInput(el.cashSales, 'number');
   bindHalfWidthInput(el.cashCounted, 'number');
   el.shotModal.querySelectorAll('[data-shot-close]').forEach((n) =>
