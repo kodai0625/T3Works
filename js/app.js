@@ -888,7 +888,10 @@ async function onCashFile(e) {
 
     if (got.how === 'read') {
       el.cashSales.value = cashText(got.yen);
-      setCashMsg(`読み取りました：${cashText(got.yen)}円　紙と見くらべて、違っていれば直してください`, 'ok');
+      // ★かかった時間と写真の大きさも出します。遅いと感じたときに、
+      //   どこに時間がかかっているのかを、開かずにそのまま伝えられるようにするためです
+      setCashMsg(`読み取りました：${cashText(got.yen)}円${cashHowLong()}`
+        + '　紙と見くらべて、違っていれば直してください', 'ok');
     } else if (got.how === 'none') {
       el.cashSales.value = '0';
       setCashMsg('現金の行が見当たりませんでした。現金の会計が無かった日は 0円 です。'
@@ -929,6 +932,14 @@ async function showCashPhoto() {
   } else {
     el.cashShotEmpty.textContent = '写真を出せませんでした';
   }
+}
+
+/** かかった時間と写真の大きさ（「（4.2秒・310KB）」の形） */
+function cashHowLong() {
+  const bits = [];
+  if (cashEdit.ms) bits.push(`${(cashEdit.ms / 1000).toFixed(1)}秒`);
+  if (cashEdit.size) bits.push(`${cashEdit.size}KB`);
+  return bits.length ? `（${bits.join('・')}）` : '';
 }
 
 /** 読み取った文字を出す */
@@ -1017,7 +1028,9 @@ async function saveCash() {
     value: { sales, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by },
   });
   cashUnlocked = false;
-  setCashMsg('');
+  setCashMsg(cashEdit.saveMs
+    ? `記録しました（写真を残すのに ${(cashEdit.saveMs / 1000).toFixed(1)}秒）`
+    : '', cashEdit.saveMs ? 'ok' : '');
   render();
 }
 
