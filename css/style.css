@@ -3842,7 +3842,10 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   color: color-mix(in srgb, var(--ok) 85%, var(--text));
 }
 .cash-done__meta { font-size: 12px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
-/* 記録済みのあいだ、金額の欄はさわれません（押しまちがえの上書きを防ぐため） */
-.cash-line__input[readonly] { background: var(--line-2); color: var(--text-sub); }
+/* 担当者の選び欄。金額の欄と同じ幅にそろえます */
+.cash-line__select { width: 152px; font-size: 15px; padding: 10px 10px; }
+/* 記録済みのあいだ、金額と担当者はさわれません（押しまちがえの上書きを防ぐため） */
+.cash-line__input[readonly],
+.cash-line__select:disabled { background: var(--line-2); color: var(--text-sub); }
 /* 「記録し直す」。ふだんは使わないので、真ん中に小さく置きます */
 .cash-box .linkbtn { display: block; margin: 10px auto 0; padding: 4px 10px; }

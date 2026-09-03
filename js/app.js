@@ -78,7 +78,7 @@ const el = {
   viewCash: $('viewCash'), cashDate: $('cashDate'), cashShot: $('cashShot'),
   cashShotImg: $('cashShotImg'), cashShotEmpty: $('cashShotEmpty'),
   cashTake: $('cashTake'), cashTakeText: $('cashTakeText'), cashFile: $('cashFile'),
-  cashMsg: $('cashMsg'), cashSales: $('cashSales'),
+  cashMsg: $('cashMsg'), cashSales: $('cashSales'), cashStaff: $('cashStaff'),
   cashSave: $('cashSave'), cashWho: $('cashWho'),
   cashDone: $('cashDone'), cashRedo: $('cashRedo'),
   cashMonthTitle: $('cashMonthTitle'), cashMonthSum: $('cashMonthSum'), cashList: $('cashList'),
@@ -651,6 +651,9 @@ function renderCash() {
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
+    // 記録した人が残っていればその人。無ければ、その日のクローズの担当者を先に入れておきます
+    fillStaffOptions(el.cashStaff,
+      (saved && saved.by) || (Store.getDay(state.storeId, dateStr).staff || ''));
     setCashMsg('');
     showCashPhoto();
   }
@@ -669,6 +672,7 @@ function renderCash() {
   el.cashSave.classList.toggle('is-hidden', done);
   el.cashRedo.classList.toggle('is-hidden', !done);
   el.cashSales.readOnly = done;
+  el.cashStaff.disabled = done;
 
   if (saved && saved.at) {
     const t = new Date(saved.at);
@@ -807,6 +811,7 @@ async function onCashFile(e) {
   // 撮り直したら、金額も入れ直すことになるので、記録済みの錠をはずします
   cashUnlocked = true;
   el.cashSales.readOnly = false;
+  el.cashStaff.disabled = false;
   el.cashDone.classList.add('is-hidden');
   el.cashRedo.classList.add('is-hidden');
   el.cashSave.classList.remove('is-hidden');
@@ -956,6 +961,14 @@ async function saveCash() {
     setCashMsg('現金売上を入れてください', 'warn');
     return;
   }
+  // ★誰が記録したかを残します。あとで金額が合わないときに、
+  //   その日の紙を出した人に聞けるようにするためです
+  const by = el.cashStaff.value;
+  if (!by) {
+    setCashMsg('担当者を選んでください', 'warn');
+    el.cashStaff.focus();
+    return;
+  }
 
   // ★写真をドライブに残すのは、ここ（記録するを押したとき）です。
   //   同じ日の古い写真はサーバー側でゴミ箱に入るので、残るのは最後の1枚だけです
@@ -989,7 +1002,6 @@ async function saveCash() {
   }
 
   const now = new Date().toISOString();
-  const by = (Store.getDay(state.storeId, dateStr).staff || '').trim();
 
   Store.setItem(state.storeId, dateStr, CASH_ITEM, {
     done: true,
