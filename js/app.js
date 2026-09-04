@@ -195,6 +195,7 @@ const el = {
   settingsBtn: $('settingsBtn'), modal: $('modal'),
   appVersionText: $('appVersionText'), forceUpdate: $('forceUpdate'),
   cashNippouBox: $('cashNippouBox'), cashCheckMark: $('cashCheckMark'),
+  cashToNippou: $('cashToNippou'), cashNippouMsg: $('cashNippouMsg'),
   cashMinus: $('cashMinus'), cashNippou: $('cashNippou'), cashChecks: $('cashChecks'),
   confirmDialog: $('confirmDialog'), confirmItem: $('confirmItem'),
   confirmMessage: $('confirmMessage'), confirmOk: $('confirmOk'),
@@ -760,6 +761,9 @@ function renderNippouBox(done) {
 
   renderNippouTable();
 
+  // 5つとも使えるときだけ、日報へ書けます
+  el.cashToNippou.classList.toggle('is-hidden', !cashEdit.jok);
+
   // 検算の結果。★通らなかったときこそ、何が起きたかを出します
   const checks = cashEdit.checks || [];
   const bad = checks.filter((c) => !c.ok);
@@ -779,6 +783,87 @@ function renderNippouBox(done) {
     }
   }
   el.cashChecks.textContent = say.join('　');
+}
+
+/* ------------------------------------------------------------
+ *  日報へ書く
+ *
+ *  ★かならず「見る → 確かめる → 書く → 検算」の順に通します。
+ *    書き込みは戻せないので、先に今の中身を見て、並べて確かめてもらいます。
+ *  ★書いたあと、日報の「当日総合計」がジャーナルの売上（税込）と
+ *    合うかを見ます。出前館・ウーバー・ロケットナウも書くので、
+ *    ぴったり合うはずです。合わなければ、その場で知らせます。
+ * ---------------------------------------------------------- */
+function nippouSend() {
+  const n = nippouValues(cashEdit.j || {}, cashEdit.m);
+  const values = {};
+  CASH_NIPPOU_ROWS.forEach((r) => {
+    if (n[r.key] !== null && n[r.key] !== undefined) values[NIPPOU_LABELS[r.key]] = n[r.key];
+  });
+  if (NIPPOU_WRITE_DELIVERY) {
+    CASH_MINUS_ROWS.forEach((k) => { values[NIPPOU_LABELS[k]] = Number(cashEdit.m[k]) || 0; });
+  }
+  return values;
+}
+
+function setNippouMsg(text, kind) {
+  el.cashNippouMsg.textContent = text || '';
+  el.cashNippouMsg.className = 'cash-msg' + (kind ? ` is-${kind}` : '') + (text ? '' : ' is-hidden');
+}
+
+async function writeNippou() {
+  if (!cashEdit.jok) return;
+  const folder = NippouFolders.get(state.storeId);
+  if (!folder) {
+    setNippouMsg('日報フォルダが登録されていません。マネージの店舗一覧で登録してください', 'warn');
+    return;
+  }
+  const dateStr = ymd(state.y, state.m, state.d);
+  const values = nippouSend();
+
+  el.cashToNippou.disabled = true;
+  try {
+    // ① まず、今の中身を見に行きます（書きません）
+    setNippouMsg('日報を見に行っています…');
+    const look = await Sync.ask('nippouWrite', { mode: '見る', folder, day: dateStr, values });
+    if (!look.ok) { setNippouMsg(look.error || '日報を開けませんでした', 'warn'); return; }
+
+    // ② 並べて確かめてもらいます
+    const rows = look.rows || [];
+    const already = rows.filter((r) => r.before !== null && r.before !== '' && r.before !== r.after);
+    const ok = await askConfirm({
+      item: `${look.file}　${look.sheet}日のページ`,
+      message: rows.map((r) => `${r.name} ${cashText(r.after)}`).join('／')
+        + (already.length
+          ? `　★${already.map((r) => `${r.name}は いま ${cashText(r.before)}`).join('、')}。上書きします`
+          : ''),
+      okLabel: '書く',
+      danger: already.length > 0,
+    });
+    if (!ok) { setNippouMsg(''); return; }
+
+    // ③ 書きます
+    setNippouMsg('日報に書いています…');
+    const res = await Sync.ask('nippouWrite', { mode: '書く', folder, day: dateStr, values });
+    if (!res.ok) { setNippouMsg(res.error || '書けませんでした', 'warn'); return; }
+
+    // ④ 書いたあとの検算
+    const want = (cashEdit.j || {}).gross;
+    if (res.total === null || res.total === undefined || want === null || want === undefined) {
+      setNippouMsg(`日報に書きました（${res.sheet}日）`, 'ok');
+    } else if (res.total === want) {
+      setNippouMsg(`日報に書きました（${res.sheet}日）　`
+        + `検算OK：当日総合計 ${cashText(res.total)} ＝ ジャーナルの売上`, 'ok');
+    } else {
+      setNippouMsg(`日報には書きましたが、★検算が合いません。`
+        + `当日総合計 ${cashText(res.total)} ／ ジャーナルの売上 ${cashText(want)}。`
+        + '日報を開いて確かめてください', 'warn');
+    }
+  } catch (e) {
+    setNippouMsg(String(e && e.message || e), 'warn');
+  } finally {
+    el.cashToNippou.disabled = false;
+  }
 }
 
 /** 検算の通った数だけを取り出します（通らなかった数は残しません） */
@@ -8112,6 +8197,7 @@ function bindEvents() {
 
   /* 現金売上 */
   el.cashFile.addEventListener('change', onCashFile);
+  el.cashToNippou.addEventListener('click', writeNippou);
   el.cashShot.addEventListener('click', openShot);
   el.cashSave.addEventListener('click', saveCash);
   el.cashTabDay.addEventListener('click', () => setCashTab('day'));
