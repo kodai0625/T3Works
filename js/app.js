@@ -772,8 +772,11 @@ function renderNippouBox(done) {
     say.push(checks.map((c) => c.name).join('　'));
   } else {
     if (cashEdit.jwhy) say.push(cashEdit.jwhy);
-    bad.forEach((c) => say.push(`${c.name}（${c.left} / ${c.right}）`));
-    say.push('下の「読み取った文字を見る」を送っていただければ、読み方を直します');
+    // 写真が切れているだけなら、撮り直せば済みます。式の中身までは出しません
+    if (!cashEdit.jcut) {
+      bad.forEach((c) => say.push(`${c.name}（${c.left} / ${c.right}）`));
+      say.push('下の「読み取った文字を見る」を送っていただければ、読み方を直します');
+    }
   }
   el.cashChecks.textContent = say.join('　');
 }
@@ -1103,6 +1106,7 @@ async function onCashFile(e) {
       cashEdit.checks = jr.checks;
       cashEdit.sure = jr.sure || {};
       cashEdit.jok = jr.ok;
+      cashEdit.jcut = !!jr.cut;
       cashEdit.jwhy = jr.ok ? ''
         : (jr.why || (jr.missing.length ? jr.missing.join('、') + ' を読み取れませんでした' : '読み取れませんでした'));
     }

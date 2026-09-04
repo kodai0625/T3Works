@@ -1015,7 +1015,11 @@ function cashNormalize(line) {
     .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
     .replace(/[，、]/g, ',')
     .replace(/[￥]/g, '¥')
-    .replace(/,\s+(?=\d)/g, ',');   // 「205, 946」のように空きが入ることがあります
+    .replace(/,\s+(?=\d)/g, ',')    // 「205, 946」のように空きが入ることがあります
+    // ★OCRが旧字や似た字で読むことがあります。実際に「消費稅」と出ました
+    .replace(/稅/g, '税')
+    .replace(/賣/g, '売')
+    .replace(/數/g, '数');
 }
 
 /** 文字を数にする（「6,930」「6.930」→ 6930。数でなければ null） */
@@ -1245,7 +1249,11 @@ const JOURNAL_AHEAD = 3;
 function journalLabelCount(line) {
   const p = cashPlain(line);
   if (!p) return 0;
-  return JOURNAL_FIELDS.filter((f) => f.hit.some((h) => p.includes(cashPlain(h)))).length;
+  // ★「その項目ではない」と分かっているもの（skip）は数えません。
+  //   これが無いと「純売上」の行が『売上と純売上の2つ』に見えて、捨ててしまいます
+  return JOURNAL_FIELDS.filter((f) =>
+    f.hit.some((h) => p.includes(cashPlain(h)))
+    && !f.skip.some((ng) => p.includes(cashPlain(ng)))).length;
 }
 
 /** その行が、どれかの項目名に見えるか */
@@ -1263,6 +1271,55 @@ function journalUnitOf(line, units) {
   return m ? cashNumOf(m[1]) : null;
 }
 
+/* ------------------------------------------------------------
+ *  「項目名だけの列 → 値だけの列」で出てきたときの対応づけ
+ *
+ *  紙を斜めから撮ると、OCRが左の列を上から下まで読んでから、
+ *  右の列を上から下まで読むことがあります。実際にこうなりました。
+ *
+ *      客数 / 男性 / 女性 / 選択なし / 客単価(税込) / …      ← 名前だけ
+ *      7318 / 168客 / 50客 / 118客 / 客 / ¥1,696 / …        ← 値だけ
+ *
+ *  ★うしろからそろえます。紙の上のほうは写真から切れやすく、
+ *    名前が1つ足りないことがあるためです（上の例では「組数」が切れています）。
+ * ---------------------------------------------------------- */
+
+/** 名前だけの行（数字も ¥ も無い） */
+function journalWordOnly(line) {
+  const s = cashNormalize(line).trim();
+  if (!s) return false;
+  return !/[\d¥]/.test(s);
+}
+
+/** 値だけの行。数が読めなかった単位だけの行（「客」など）も、場所取りとして数えます */
+function journalValueOnly(line) {
+  const s = cashNormalize(line).trim();
+  if (!s) return false;
+  if (/^[¥\d]/.test(s)) return true;
+  return /^[客人点組件円]$/.test(s);
+}
+
+/** 項目名の行番号 → その値の行 */
+function journalPairs(lines) {
+  const out = {};
+  let i = 0;
+  while (i < lines.length) {
+    let a = i;
+    while (a < lines.length && journalWordOnly(lines[a])) a++;
+    let b = a;
+    while (b < lines.length && journalValueOnly(lines[b])) b++;
+    // 名前が3つ以上ならび、そのあとに値が3つ以上ならんだときだけ、対応づけます
+    if (a - i >= 3 && b - a >= 3) {
+      const n = Math.min(a - i, b - a);
+      for (let k = 0; k < n; k++) out[a - 1 - k] = lines[b - 1 - k];
+      i = b;
+    } else {
+      i = Math.max(i + 1, a);
+    }
+  }
+  return out;
+}
+
 /**
  * 1つの項目の数を探す
  *
@@ -1270,7 +1327,7 @@ function journalUnitOf(line, units) {
  * ★ほかの項目名にぶつかったら、そこで止めます。
  *   よその金額を取ってこないためです。
  */
-function journalFind(lines, field) {
+function journalFind(lines, field, pairs) {
   for (let i = 0; i < lines.length; i++) {
     const p = cashPlain(lines[i]);
     if (!p) continue;
@@ -1299,6 +1356,18 @@ function journalFind(lines, field) {
       if (v !== null) return v;
       if (j > i && journalIsLabel(lines[j])) break;
     }
+    // ④ 最後の手だて。名前の列と値の列に分かれていたときの、対応づけを見ます
+    const paired = pairs && pairs[i];
+    if (paired) {
+      if (field.unit) {
+        const u = journalUnitOf(paired, field.unit);
+        if (u !== null) return u;
+      }
+      const m = cashMarkedOf(paired);
+      if (m !== null) return m;
+      const bare = cashBareOf(paired);
+      if (bare !== null) return bare;
+    }
     return null;
   }
   return null;
@@ -1315,8 +1384,9 @@ function journalFind(lines, field) {
  */
 function parseJournal(text) {
   const lines = String(text || '').split(/\r?\n/);
+  const pairs = journalPairs(lines);
   const v = {};
-  JOURNAL_FIELDS.forEach((f) => { v[f.key] = journalFind(lines, f); });
+  JOURNAL_FIELDS.forEach((f) => { v[f.key] = journalFind(lines, f, pairs); });
 
   const fixed = [];
   const has = (k) => v[k] !== null && v[k] !== undefined;
@@ -1402,12 +1472,20 @@ function parseJournal(text) {
 
   const bad = checks.filter((c) => !c.ok);
   const needed = ['cash', 'credit', 'emoney', 'net', 'guests'];
+
+  // ★写真の下が切れていると、支払の行がそろわず、合計が売上に届きません。
+  //   実際に「クレジットまでしか写っていない」ことがありました。
+  //   ここを言い当てられれば、撮り直すだけで直ります
+  const cut = has('gross') && sumPay() < v.gross && !has('received');
+
   return {
-    v, checks, fixed, sure,
+    v, checks, fixed, sure, cut,
     ok: needed.every((k) => sure[k]),
     missing: needed.filter((k) => !sure[k])
       .map((k) => (JOURNAL_FIELDS.find((f) => f.key === k) || {}).name),
-    why: bad.length ? bad.map((c) => c.name).join('、') + ' が合いません' : '',
+    why: cut
+      ? '紙の下のほうが写っていないようです。おつりの行まで入るように撮り直してください'
+      : bad.length ? bad.map((c) => c.name).join('、') + ' が合いません' : '',
   };
 }
 
