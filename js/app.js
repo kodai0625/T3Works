@@ -661,7 +661,9 @@ function renderCash() {
     cashEdit.j = (saved && saved.j) ? { ...saved.j } : null;
     cashEdit.m = (saved && saved.m) ? { ...saved.m } : {};
     cashEdit.checks = [];
-    cashEdit.sure = {};
+    cashEdit.sure = saved && saved.j ? Object.keys(saved.j).reduce((o, k) => { o[k] = true; return o; }, {}) : {};
+    cashEdit.jok = !!(saved && saved.j);
+    cashEdit.jwhy = '';
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
@@ -758,21 +760,32 @@ function renderNippouBox(done) {
 
   renderNippouTable();
 
-  // 検算の結果
+  // 検算の結果。★通らなかったときこそ、何が起きたかを出します
   const checks = cashEdit.checks || [];
   const bad = checks.filter((c) => !c.ok);
-  if (!checks.length) {
-    el.cashCheckMark.textContent = '';
-    el.cashChecks.textContent = '';
-  } else if (bad.length) {
-    el.cashCheckMark.textContent = '★検算が合いません';
-    el.cashCheckMark.className = 'cash-box__date is-bad';
-    el.cashChecks.textContent = bad.map((c) => `${c.name}（${c.left} / ${c.right}）`).join('　');
+  const ok = cashEdit.jok;
+  el.cashCheckMark.className = 'cash-box__date ' + (ok ? 'is-ok' : 'is-bad');
+  el.cashCheckMark.textContent = ok ? `検算 ${checks.length}つOK` : '★日報には入れません';
+
+  const say = [];
+  if (ok) {
+    say.push(checks.map((c) => c.name).join('　'));
   } else {
-    el.cashCheckMark.textContent = `検算 ${checks.length}つOK`;
-    el.cashCheckMark.className = 'cash-box__date is-ok';
-    el.cashChecks.textContent = checks.map((c) => c.name).join('　');
+    if (cashEdit.jwhy) say.push(cashEdit.jwhy);
+    bad.forEach((c) => say.push(`${c.name}（${c.left} / ${c.right}）`));
+    say.push('下の「読み取った文字を見る」を送っていただければ、読み方を直します');
   }
+  el.cashChecks.textContent = say.join('　');
+}
+
+/** 検算の通った数だけを取り出します（通らなかった数は残しません） */
+function cashSureValues() {
+  if (!cashEdit.j) return null;
+  const out = {};
+  Object.keys(cashEdit.j).forEach((key) => {
+    if ((cashEdit.sure || {})[key] && cashEdit.j[key] !== null) out[key] = cashEdit.j[key];
+  });
+  return Object.keys(out).length ? out : null;
 }
 
 function renderNippouTable() {
@@ -792,9 +805,11 @@ function renderNippouTable() {
     const cut = (NIPPOU_MINUS[row.key] || []).reduce((a, k) => a + (Number(cashEdit.m[k]) || 0), 0);
     const fmt = (v) => (v === null || v === undefined ? '—'
       : row.plain ? String(v) : Number(v).toLocaleString('ja-JP'));
+    const usable = !!(cashEdit.sure || {})[row.key];
     from.textContent = fmt(raw);
     minus.textContent = cut ? `− ${cut.toLocaleString('ja-JP')}` : '';
-    to.textContent = fmt(n[row.key]);
+    to.textContent = usable ? fmt(n[row.key]) : '—';
+    if (!usable) to.classList.add('is-ng');
     tr.append(th, from, minus, to);
     el.cashNippou.appendChild(tr);
   });
@@ -1082,10 +1097,14 @@ async function onCashFile(e) {
     //   検算が通らなければ使いません（現金だけの読み取りは、これまでどおり動きます）
     if (JOURNAL_STORES.includes(state.storeId)) {
       const jr = parseJournal(res.text || '');
-      cashEdit.j = jr.ok ? jr.v : null;
+      // ★検算が通らなくても入れます。ここを null にすると箱ごと消えてしまい、
+      //   うまくいかなかったことすら分からなくなります（実際にそうなりました）
+      cashEdit.j = jr.v;
       cashEdit.checks = jr.checks;
-      cashEdit.sure = jr.sure;
-      cashEdit.jwhy = jr.ok ? '' : (jr.why || ('読めませんでした：' + jr.missing.join('、')));
+      cashEdit.sure = jr.sure || {};
+      cashEdit.jok = jr.ok;
+      cashEdit.jwhy = jr.ok ? ''
+        : (jr.why || (jr.missing.length ? jr.missing.join('、') + ' を読み取れませんでした' : '読み取れませんでした'));
     }
 
     if (res.ocrError) {
@@ -1235,7 +1254,7 @@ async function saveCash() {
     value: {
       sales, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by,
       // ジャーナルから読めた5つと、手で入れた引き算の分。日報へはここから書きます
-      j: cashEdit.j || null,
+      j: cashSureValues(),
       m: cashEdit.m && Object.keys(cashEdit.m).length ? cashEdit.m : null,
     },
   });

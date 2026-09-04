@@ -3987,3 +3987,4 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
 .cash-box__date.is-ok { color: var(--text-weak); }
 .cash-box__date.is-bad { color: #c0392b; font-weight: 800; }
 .cash-checks { color: var(--text-weak); font-size: 11px; margin: 10px 0 0; line-height: 1.6; }
+.cash-nippou td.is-to.is-ng { color: #c0392b; font-weight: 700; }
