@@ -1321,13 +1321,19 @@ function journalPairs(lines) {
 }
 
 /**
- * 1つの項目の数を探す
+ * 1つの項目の数の「候補」を集めます
  *
- * その行にあればそれ、無ければ次の行から探します。
- * ★ほかの項目名にぶつかったら、そこで止めます。
- *   よその金額を取ってこないためです。
+ * ★読み取りは、値が項目名の【下】に来ることも【上】に来ることもあります。
+ *   実際に、同じ紙の中で
+ *     売上 …「¥284,967 → 売上 → ¥240,877」（値が上）
+ *     現金 …「現金 → 46件 → ¥151,967」（値が下）
+ *   と、途中で向きが変わっていました。
+ *   どちらか片方だけ見ていると、必ずどこかで取りちがえます。
+ *
+ *   そこで【上・下・列の対応づけ】を候補として集めておき、
+ *   どれが正しいかは、レシート自身の計算式（検算）に決めてもらいます。
  */
-function journalFind(lines, field, pairs) {
+function journalCandidates(lines, field, pairs) {
   for (let i = 0; i < lines.length; i++) {
     const p = cashPlain(lines[i]);
     if (!p) continue;
@@ -1335,42 +1341,141 @@ function journalFind(lines, field, pairs) {
     if (!field.hit.some((h) => p.includes(cashPlain(h)))) continue;
     if (journalLabelCount(lines[i]) > 1) continue;   // 見出しが2つ並んだ行は使いません
 
-    const last = Math.min(i + JOURNAL_AHEAD, lines.length - 1);
-    // ① 単位つき（客数など）
-    if (field.unit) {
-      for (let j = i; j <= last; j++) {
-        const v = journalUnitOf(lines[j], field.unit);
-        if (v !== null) return v;
-        if (j > i && journalIsLabel(lines[j])) break;
-      }
-    }
-    // ② ¥ か 円 のついた金額。これが一番たしかです
-    for (let j = i; j <= last; j++) {
-      const v = cashMarkedOf(lines[j]);
-      if (v !== null) return v;
-      if (j > i && journalIsLabel(lines[j])) break;
-    }
-    // ③ 目印の無い数字（0 か 1000以上だけ。「46件」を金額と取りちがえないため）
-    for (let j = i; j <= last; j++) {
-      const v = cashBareOf(lines[j]);
-      if (v !== null) return v;
-      if (j > i && journalIsLabel(lines[j])) break;
-    }
-    // ④ 最後の手だて。名前の列と値の列に分かれていたときの、対応づけを見ます
-    const paired = pairs && pairs[i];
-    if (paired) {
+    // ★2まわりします。1まわり目は「¥や単位のついた、たしかな数」だけ。
+    //   2まわり目でようやく、目印の無い数字を見ます。
+    //   こうしないと「46件」が「4614」と崩れたとき、それを金額にしてしまいます
+    const sure1 = (line) => {
       if (field.unit) {
-        const u = journalUnitOf(paired, field.unit);
+        const u = journalUnitOf(line, field.unit);
         if (u !== null) return u;
       }
-      const m = cashMarkedOf(paired);
-      if (m !== null) return m;
-      const bare = cashBareOf(paired);
-      if (bare !== null) return bare;
-    }
-    return null;
+      return cashMarkedOf(line);
+    };
+    const scan = (from, to, step) => {
+      for (let pass = 0; pass < 2; pass++) {
+        for (let j = from; step > 0 ? j <= to : j >= to; j += step) {
+          if (j !== i && journalIsLabel(lines[j])) break;
+          const v = pass === 0 ? sure1(lines[j]) : cashBareOf(lines[j]);
+          if (v !== null) return v;
+        }
+      }
+      return null;
+    };
+
+    // ① その行と、下の行
+    const down = scan(i, Math.min(i + JOURNAL_AHEAD, lines.length - 1), 1);
+    // ② 上の行
+    const up = scan(i - 1, Math.max(0, i - JOURNAL_AHEAD), -1);
+    // ③ 名前の列と値の列に分かれていたときの、対応づけ
+    const pairedLine = pairs && pairs[i];
+    const paired = pairedLine
+      ? (sure1(pairedLine) !== null ? sure1(pairedLine) : cashBareOf(pairedLine))
+      : null;
+
+    // ★「N件」があるときは、上を見ません。
+    //   支払の欄は必ず「項目名 → N件 → 金額」の順に出るので、
+    //   ここで上も候補にすると、1つずつずれた並びでも合計が合ってしまい、
+    //   検算が守りになりません（実際にそうなりました）。
+    const cnt = /(^|[^\d])\d+\s*件/;
+    const next = i + 1 < lines.length ? cashNormalize(lines[i + 1]).trim() : '';
+    const after = i + 2 < lines.length ? cashNormalize(lines[i + 2]) : '';
+    const anchored = cnt.test(cashNormalize(lines[i]))
+      || cnt.test(next)
+      // 「46件」が「4614」のように崩れることがあります。
+      // 数字だけの行のあとに金額が続いていれば、それは件数の行です
+      || (/^\d+$/.test(next) && /¥\s*\d/.test(after));
+
+    const out = [];
+    const push = (v) => { if (v !== null && out.indexOf(v) < 0) out.push(v); };
+    push(down); push(paired);
+    if (!anchored) push(up);
+    // ★下の行から取れなかったときは、当てにならないので「読めず」も候補に入れます。
+    //   実際に「ポイント」で、上にあったクレジットの金額を拾ってしまいました
+    if (down === null && out.length) out.push(null);
+    // 「N件」があるのに金額が読めなかったときは、素直に「読めず」にします
+    if (anchored && down === null) return [];
+    return out;
   }
-  return null;
+  return [];
+}
+
+/** 検算をして、通った数・落ちた数を返します */
+function journalCheck(v) {
+  const has = (k) => v[k] !== null && v[k] !== undefined;
+  const sumPay = () => JOURNAL_PAY.reduce((a, k) => a + (v[k] || 0), 0);
+  const checks = [];
+  const add = (name, left, right, covers) => {
+    checks.push({ name, left, right, ok: left === right, covers });
+  };
+
+  if (has('gross')) add('支払方法の合計 ＝ 売上', sumPay(), v.gross, JOURNAL_PAY.concat(['gross']));
+  if (has('gross') && has('tax') && has('net')) {
+    add('売上 − 消費税 ＝ 純売上', v.gross - v.tax, v.net, ['gross', 'tax', 'net']);
+  }
+  if (has('received') && has('change') && has('cash')) {
+    add('お預かり − おつり ＝ 現金', v.received - v.change, v.cash, ['cash', 'received', 'change']);
+  }
+  if (has('men') && has('women') && has('guests')) {
+    add('男性＋女性＋選択なし ＝ 客数', v.men + v.women + (v.nosel || 0), v.guests,
+      ['guests', 'men', 'women', 'nosel']);
+  }
+  // 客単価が 0 のときは、読めていないだけなので検算しません
+  if (has('per') && v.per > 0 && has('guests') && has('gross') && v.guests) {
+    const calc = Math.round(v.gross / v.guests);
+    checks.push({
+      name: '売上 ÷ 客数 ＝ 客単価（税込）', left: calc, right: v.per,
+      ok: Math.abs(calc - v.per) <= 2, covers: ['guests', 'per', 'gross'],
+    });
+  }
+  if (has('gross') && has('net') && !has('tax')) {
+    const r = v.gross ? v.net / v.gross : 0;
+    checks.push({
+      name: '純売上が売上の88〜95%に入っているか',
+      left: Math.round(r * 1000) / 10, right: '88〜95',
+      ok: r >= 0.88 && r <= 0.95, covers: ['gross', 'net'],
+    });
+  }
+  return checks;
+}
+
+/** 候補の組み合わせを試して、検算がいちばん通るものを選びます */
+function journalPick(cands) {
+  const keys = Object.keys(cands);
+  const pick = {};
+  keys.forEach((k) => { pick[k] = cands[k].length ? cands[k][0] : null; });
+
+  const multi = keys.filter((k) => cands[k].length > 1);
+  let total = 1;
+  multi.forEach((k) => { total *= cands[k].length; });
+  if (total > 100000) return pick;          // 多すぎるときは、最初の候補のまま
+
+  let best = null;
+  const score = (v) => {
+    const cs = journalCheck(v);
+    const ok = cs.filter((c) => c.ok).length;
+    const ng = cs.length - ok;
+    const got = keys.filter((k) => v[k] !== null && v[k] !== undefined).length;
+    // 候補は「下から取れたもの」が先に入っています。
+    // 同じだけ検算が通るなら、先の候補を選びます
+    let far = 0;
+    keys.forEach((k) => {
+      const at = cands[k].indexOf(v[k]);
+      if (at > 0) far += at;
+    });
+    return { ok, ng, got, point: ok * 10 - ng * 25 + got - far * 2 };
+  };
+  const cur = { ...pick };
+  const rec = (i) => {
+    if (i === multi.length) {
+      const sc = score(cur);
+      if (!best || sc.point > best.point) best = { v: { ...cur }, point: sc.point };
+      return;
+    }
+    const k = multi[i];
+    for (let n = 0; n < cands[k].length; n++) { cur[k] = cands[k][n]; rec(i + 1); }
+  };
+  rec(0);
+  return best ? best.v : pick;
 }
 
 /**
@@ -1379,26 +1484,24 @@ function journalFind(lines, field, pairs) {
  *   返すもの
  *     v      … 読めた数（読めなかったものは null）
  *     checks … 検算の結果
- *     ok     … 使ってよいか（合わない検算が1つも無いこと）
- *     fixed  … 計算で埋めた項目の名前
+ *     sure   … その数を使ってよいか（守ってくれる式が通ったか）
+ *     ok     … 5つとも使えるか
  */
 function parseJournal(text) {
   const lines = String(text || '').split(/\r?\n/);
   const pairs = journalPairs(lines);
-  const v = {};
-  JOURNAL_FIELDS.forEach((f) => { v[f.key] = journalFind(lines, f, pairs); });
+  const cands = {};
+  JOURNAL_FIELDS.forEach((f) => { cands[f.key] = journalCandidates(lines, f, pairs); });
 
+  const v = journalPick(cands);
   const fixed = [];
   const has = (k) => v[k] !== null && v[k] !== undefined;
   const sumPay = () => JOURNAL_PAY.reduce((a, k) => a + (v[k] || 0), 0);
 
   /* ---- 足りないものを、計算で埋めます（当てずっぽうではありません）---- */
-
-  // 現金 ＝ お預かり − おつり
   if (!has('cash') && has('received') && has('change')) {
     v.cash = v.received - v.change; fixed.push('現金');
   }
-  // 支払方法のうち1つだけ読めていないなら、売上との差で埋まります
   if (has('gross')) {
     const miss = JOURNAL_PAY.filter((k) => !has(k));
     if (miss.length === 1) {
@@ -1410,59 +1513,12 @@ function parseJournal(text) {
       }
     }
   }
-  // 純売上 ＝ 売上 − 消費税
-  if (!has('net') && has('gross') && has('tax')) {
-    v.net = v.gross - v.tax; fixed.push('純売上');
-  }
-  // 売上 ＝ 純売上 ＋ 消費税
-  if (!has('gross') && has('net') && has('tax')) {
-    v.gross = v.net + v.tax; fixed.push('売上');
-  }
+  if (!has('net') && has('gross') && has('tax')) { v.net = v.gross - v.tax; fixed.push('純売上'); }
+  if (!has('gross') && has('net') && has('tax')) { v.gross = v.net + v.tax; fixed.push('売上'); }
 
-  /* ---- 検算 ----
-     ★ここが要です。1つ1つの数に「守ってくれる式」を結びつけ、
-       その式が通った数だけを使います。式が無い数は使いません。 ---- */
-  const checks = [];
-  const add = (name, left, right, covers) => {
-    if (left === null || right === null || left === undefined || right === undefined) return;
-    checks.push({ name, left, right, ok: left === right, covers });
-  };
-
-  if (has('gross')) {
-    add('支払方法の合計 ＝ 売上', sumPay(), v.gross, JOURNAL_PAY.concat(['gross']));
-  }
-  if (has('gross') && has('tax') && has('net')) {
-    add('売上 − 消費税 ＝ 純売上', v.gross - v.tax, v.net, ['gross', 'tax', 'net']);
-  }
-  if (has('received') && has('change') && has('cash')) {
-    add('お預かり − おつり ＝ 現金', v.received - v.change, v.cash, ['cash', 'received', 'change']);
-  }
-  if (has('men') && has('women') && has('guests')) {
-    add('男性＋女性＋選択なし ＝ 客数', v.men + v.women + (v.nosel || 0), v.guests,
-      ['guests', 'men', 'women', 'nosel']);
-  }
-  // 客単価（税込） × 客数 ＝ 売上。1円のまるめがあるので、ずれ2円までは通します。
-  // ★客数を守れる式はこれだけなので、無いと客数は使えません
-  if (has('per') && has('guests') && has('gross') && v.guests) {
-    const calc = Math.round(v.gross / v.guests);
-    checks.push({
-      name: '売上 ÷ 客数 ＝ 客単価（税込）', left: calc, right: v.per,
-      ok: Math.abs(calc - v.per) <= 2, covers: ['guests', 'per', 'gross'],
-    });
-  }
-  // 消費税の行が無い様式（こじゃれの精算レポート）向け。
-  // 税率は8〜10%なので、純売上は売上の 88〜95% のあいだに入るはずです
-  if (has('gross') && has('net') && !has('tax')) {
-    const r = v.gross ? v.net / v.gross : 0;
-    checks.push({
-      name: '純売上が売上の88〜95%に入っているか',
-      left: Math.round(r * 1000) / 10, right: '88〜95',
-      ok: r >= 0.88 && r <= 0.95, covers: ['gross', 'net'],
-    });
-  }
-
-  /* ---- 使ってよい数を決めます ----
-     通った式に守られていて、落ちた式に巻き込まれていないものだけです */
+  /* ---- 検算。★1つ1つの数に「守ってくれる式」を結びつけ、
+     その式が通った数だけを使います ---- */
+  const checks = journalCheck(v);
   const sure = {};
   Object.keys(v).forEach((k) => {
     if (!has(k)) return;
@@ -1473,9 +1529,7 @@ function parseJournal(text) {
   const bad = checks.filter((c) => !c.ok);
   const needed = ['cash', 'credit', 'emoney', 'net', 'guests'];
 
-  // ★写真の下が切れていると、支払の行がそろわず、合計が売上に届きません。
-  //   実際に「クレジットまでしか写っていない」ことがありました。
-  //   ここを言い当てられれば、撮り直すだけで直ります
+  // 写真の下が切れていると、支払の行がそろわず、合計が売上に届きません
   const cut = has('gross') && sumPay() < v.gross && !has('received');
 
   return {
@@ -1488,7 +1542,6 @@ function parseJournal(text) {
       : bad.length ? bad.map((c) => c.name).join('、') + ' が合いません' : '',
   };
 }
-
 
 /** 日報に5つを自動で入れられる店舗（ジャーナルの様式が同じもの）
  *  ★こじゃれは精算レポートという別の様式で、まだ読めません。
