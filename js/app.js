@@ -5072,6 +5072,15 @@ function renderSyncWarn() {
   const stale = Sync.lastSyncAt && (Date.now() - Sync.lastSyncAt.getTime() > 5 * 60 * 1000);
   const never = !Sync.lastSyncAt;
 
+  // ★これが最優先です。シートに保存できなかった記録があると、
+  //   送れたように見えて中身が入っていません。ほかの知らせより先に出します
+  if (Sync.serverWarn) {
+    el.syncWarn.classList.remove('is-hidden');
+    el.syncWarn.className = 'sync-warn';
+    el.syncWarn.textContent = Sync.serverWarn;
+    return;
+  }
+
   if (waiting) {
     el.syncWarn.classList.remove('is-hidden');
     el.syncWarn.className = 'sync-warn is-waiting';

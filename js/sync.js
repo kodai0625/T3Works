@@ -16,6 +16,9 @@ const Sync = {
   //   「記録は無いのに印は進んだまま」になり、サーバーが何も返さなくなります。
   //   この名前は、古い端末から印を引き継ぐときだけ使います（storage.js の boot）
   _sinceKey: APP.storageKey + ':syncSince',
+
+  /** サーバー側で保存できなかった／上限に近い記録の知らせ */
+  serverWarn: '',
   _pinKey: APP.storageKey + ':pin',
 
   timer: null,
@@ -175,6 +178,8 @@ const Sync = {
 
       this._applyPulled(json.records || [], json.settings);
       Store.setMeta('since', json.now || '');
+      // シートに保存できなかった記録があれば、画面の帯に出します
+      this.serverWarn = json.warn || '';
       this._settingsPulled = true;
       this.lastSyncAt = new Date();
       this.lastError = '';
@@ -282,11 +287,14 @@ const Sync = {
   /** サーバーから届いた内容を端末に取り込む */
   _applyPulled(records, settings) {
     if (records.length) {
-      const all = LocalAdapter.dump();
+      // ★書き先は Store.adapter です。LocalAdapter を名指しにすると、
+      //   保存先が IndexedDB に変わったときに、
+      //   ほかの端末から届いた変更だけ別の場所へ入り、画面に出なくなります
+      const all = Store.adapter.dump();
       records.forEach((row) => {
         all[row.k] = row.r;
       });
-      LocalAdapter.load(all);
+      Store.adapter.load(all);
 
       // まだ送っていない自分の変更は、取り込んだ内容の上に貼り直す
       this.outbox().forEach((op) => {
@@ -297,10 +305,10 @@ const Sync = {
         else if (op.t === 'note') rec.note = op.v;
         else if (op.t === 'submit') { rec.submittedAt = op.v.submittedAt; rec.submittedBy = op.v.submittedBy; }
         else if (op.t === 'unsubmit') { rec.submittedAt = null; rec.submittedBy = ''; }
-        LocalAdapter.set(op.k, rec);
+        Store.adapter.set(op.k, rec);
       });
     }
-    if (settings) {
+    if (settings) try {
       if (settings.checklists) localStorage.setItem(Checklists._key, JSON.stringify(settings.checklists));
       if (settings.weeklies) localStorage.setItem(Weeklies._key, JSON.stringify(settings.weeklies));
       if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
@@ -312,6 +320,9 @@ const Sync = {
       if (settings.nippouFolders) localStorage.setItem(NippouFolders._key, JSON.stringify(settings.nippouFolders));
       if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
       if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
+    } catch (e) {
+      // 設定はまだ localStorage に置いています。ここが満杯でも黙って落とさず知らせます
+      storeFail('設定を端末に保存できませんでした', e);
     }
   },
 
