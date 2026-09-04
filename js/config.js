@@ -1438,7 +1438,7 @@ function journalCheck(v) {
   return checks;
 }
 
-/** 候補の組み合わせを試して、検算がいちばん通るものを選びます */
+/** 候補の組み合わせを試して、検算が一番通るものを選びます */
 function journalPick(cands) {
   const keys = Object.keys(cands);
   const pick = {};
