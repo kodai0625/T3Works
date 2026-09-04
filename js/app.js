@@ -1251,17 +1251,39 @@ let trainPerson = '';
 /** 「終わった人」を開いているか */
 let trainDoneOpen = false;
 
-/** その店舗の教育の記録（1つのレコードに、人ごと・項目ごとに入っています） */
-function trainRec() {
-  return Store.getDay(state.storeId, TRAIN_KEY);
+/** 一度だけ持ってくれば済むので、やった人を覚えておきます */
+const trainCarried = new Set();
+
+/**
+ * その人の教育の記録（★人ごとに1行です。config.js の trainDayKey を見てください）
+ *
+ * 昔は1店舗を1行にまとめていたので、そこに入っているものがあれば
+ * 一度だけ人ごとの行へ持ってきます。元の行は消しません。
+ */
+function trainItems(storeId, personId) {
+  const items = Store.getDay(storeId, trainDayKey(personId)).items || {};
+  const mark = `${storeId}/${personId}`;
+  if (Object.keys(items).length || trainCarried.has(mark)) return items;
+
+  trainCarried.add(mark);
+  const old = Store.getDay(storeId, TRAIN_KEY).items || {};
+  const head = `${personId}::`;
+  let moved = 0;
+  Object.keys(old).forEach((k) => {
+    if (!k.startsWith(head)) return;
+    Store.setItem(storeId, trainDayKey(personId), k.slice(head.length), old[k]);
+    moved++;
+  });
+  if (!moved) return items;
+  return Store.getDay(storeId, trainDayKey(personId)).items || {};
 }
 
 /** その人が終えた項目の数 */
 function trainDoneCount(personId) {
-  const items = trainRec().items || {};
+  const items = trainItems(state.storeId, personId);
   return getTraining(state.storeId)
     .flatMap((sec) => sec.items)
-    .filter((it) => items[trainItemKey(personId, it.id)] && items[trainItemKey(personId, it.id)].done)
+    .filter((it) => (items[it.id] || {}).done)
     .length;
 }
 
@@ -1351,8 +1373,7 @@ function renderTrainOne(personId, total) {
   const person = Trainees.list(state.storeId).find((p) => p.id === personId);
   if (!person) { trainPerson = ''; return; }
 
-  const rec = trainRec();
-  const items = rec.items || {};
+  const items = trainItems(state.storeId, personId);
   const done = trainDoneCount(personId);
 
   el.trainOneName.textContent = person.n;
@@ -1374,7 +1395,7 @@ function renderTrainOne(personId, total) {
     head.appendChild(title);
     const n = document.createElement('span');
     n.className = 'cash-box__date';
-    const secDone = sec.items.filter((it) => (items[trainItemKey(personId, it.id)] || {}).done).length;
+    const secDone = sec.items.filter((it) => (items[it.id] || {}).done).length;
     n.textContent = `${secDone} / ${sec.items.length}`;
     head.appendChild(n);
     card.appendChild(head);
@@ -1385,8 +1406,7 @@ function renderTrainOne(personId, total) {
 }
 
 function trainItemRow(personId, item, items) {
-  const key = trainItemKey(personId, item.id);
-  const on = !!(items[key] && items[key].done);
+  const on = !!(items[item.id] && items[item.id].done);
 
   const row = document.createElement('button');
   row.type = 'button';
@@ -1413,7 +1433,7 @@ function trainItemRow(personId, item, items) {
   row.appendChild(body);
 
   row.addEventListener('click', () => {
-    Store.setItem(state.storeId, TRAIN_KEY, key, { done: !on });
+    Store.setItem(state.storeId, trainDayKey(personId), item.id, { done: !on });
     render();
   });
   return row;
@@ -1694,10 +1714,11 @@ function taskStatus(taskId, storeId) {
     // ★項目を先に見ます。項目が無いのに「みんな終わりました」と出すと嘘になります
     if (!total) return { text: '項目がまだ', kind: 'none' };
     if (!people.length) return { text: '名前がまだ', kind: 'none' };
-    const items = Store.getDay(storeId, TRAIN_KEY).items || {};
     const all = getTraining(storeId).flatMap((sec) => sec.items);
-    const going = people.filter((p) =>
-      all.filter((it) => (items[trainItemKey(p.id, it.id)] || {}).done).length < total).length;
+    const going = people.filter((p) => {
+      const items = trainItems(storeId, p.id);
+      return all.filter((it) => (items[it.id] || {}).done).length < total;
+    }).length;
     return going
       ? { text: `教育中 ${going}人`, kind: 'todo' }
       : { text: 'みんな終わりました', kind: 'done' };

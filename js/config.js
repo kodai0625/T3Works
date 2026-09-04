@@ -1238,8 +1238,26 @@ const CASH_GAS_VERSION = 'f37d4c5e';
 const TRAIN_KEY = 'TRAIN';
 
 /** その人のその項目を入れておく名前 */
+/**
+ * ★昔の作り（1店舗を1行にまとめていたころ）のキーです。
+ *   いまは使いません。前に入れたものを持ってくるときだけ使います。
+ */
 function trainItemKey(personId, itemId) {
   return `${personId}::${itemId}`;
+}
+
+/**
+ * 教育の記録は「人ごとに1行」です（例 `chacoru/TRAIN-tp-abc1234`）。
+ *
+ * ★なぜ分けたか
+ *   1店舗を1行にまとめていると、34項目のお店で19人目に
+ *   Googleスプレッドシートの「1マス5万文字」に届きます。
+ *   そこを超えるとシートへの書き込みが例外になり、
+ *   教育だけでなく【全部の同期】が止まってしまいます。
+ *   人ごとに分ければ1行は2,800文字ほどで頭打ちになり、二度と当たりません。
+ */
+function trainDayKey(personId) {
+  return `${TRAIN_KEY}-${personId}`;
 }
 
 /**
