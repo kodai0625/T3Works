@@ -1554,7 +1554,7 @@ const CASH_PHOTO_MAX = 2000;
  */
 const CASH_PHOTO_MAX_CROP = 2400;
 /** 紙がこれより小さく写っていたら、上の大きさを使います */
-const CASH_CROP_SHARE = 0.5;
+const CASH_CROP_SHARE = 0.75;
 
 /**
  * 送るときの画質

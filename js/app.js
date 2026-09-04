@@ -907,20 +907,22 @@ function cashPaperBox(data, w, h) {
     for (let i = len - 1; i >= 0; i--) if (arr[i] >= need) { b = i; break; }
     return [a, b];
   };
-  const [y0, y1] = edge(rows, h, w * 0.15);
-  const [x0, x1] = edge(cols, w, h * 0.15);
-  if (y0 < 0 || x0 < 0) return null;
+  // ★縦は切りません。上から下まで、そのまま残します。
+  //   紙の下の方が影で暗くなると机と見分けがつかず、
+  //   実際に「ポイントから下が切れて読めない」ことが起きました。
+  //   長いレシートで無駄なのは左右の机だけなので、横だけ切れば足ります。
+  //   数字を失うくらいなら、少し大きいまま送る方がましです。
+  const [x0, x1] = edge(cols, w, h * 0.08);
+  if (x0 < 0) return null;
 
-  const pad = Math.round(Math.min(w, h) * 0.03);
+  const pad = Math.round(w * 0.04);
   const x = Math.max(0, x0 - pad);
-  const y = Math.max(0, y0 - pad);
   const bw = Math.min(w, x1 + pad) - x;
-  const bh = Math.min(h, y1 + pad) - y;
 
-  // 小さすぎる（紙を切ってしまう）／ほとんど変わらない（切る意味がない）ときは、やめます
-  if (bw < w * 0.25 || bh < h * 0.25) return null;
-  if (bw * bh > w * h * 0.92) return null;
-  return { x, y, w: bw, h: bh };
+  // 細すぎる（紙を切ってしまう）／ほとんど変わらない（切る意味がない）ときは、やめます
+  if (bw < w * 0.3) return null;
+  if (bw > w * 0.95) return null;
+  return { x, y: 0, w: bw, h };
 }
 
 /**
@@ -973,7 +975,9 @@ function cashShrink(file, quality) {
         // ★元の写真を基準に縮めます。縮めた絵の四角をそのまま使うと、
         //   せっかく机を落としたのに、字まで小さいままになります
         // 大きく落とせたときだけ、字に余裕を回します
-        const share = (ow * oh) / (img.width * img.height);
+        // ★横だけ切るので、落とせた「幅の割合」で見ます。
+        //   大きく落とせた日は、その分を字の大きさに回します
+        const share = ow / img.width;
         const cap = share < CASH_CROP_SHARE ? CASH_PHOTO_MAX_CROP : CASH_PHOTO_MAX;
         const s2 = Math.min(1, cap / Math.max(ow, oh));
         cut.width = Math.round(ow * s2);
