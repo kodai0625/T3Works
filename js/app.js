@@ -194,6 +194,8 @@ const el = {
   doerGrid: $('doerGrid'), doerClear: $('doerClear'),
   settingsBtn: $('settingsBtn'), modal: $('modal'),
   appVersionText: $('appVersionText'), forceUpdate: $('forceUpdate'),
+  cashNippouBox: $('cashNippouBox'), cashCheckMark: $('cashCheckMark'),
+  cashMinus: $('cashMinus'), cashNippou: $('cashNippou'), cashChecks: $('cashChecks'),
   confirmDialog: $('confirmDialog'), confirmItem: $('confirmItem'),
   confirmMessage: $('confirmMessage'), confirmOk: $('confirmOk'),
 };
@@ -655,6 +657,11 @@ function renderCash() {
     cashEdit.ms = 0;
     cashEdit.saveMs = 0;
     cashEdit.size = 0;
+    // ジャーナルから読めた5つと、手で入れる引き算の分
+    cashEdit.j = (saved && saved.j) ? { ...saved.j } : null;
+    cashEdit.m = (saved && saved.m) ? { ...saved.m } : {};
+    cashEdit.checks = [];
+    cashEdit.sure = {};
     cashUnlocked = false;
     el.cashOcrLink.classList.add('is-hidden');
     el.cashSales.value = saved ? cashText(saved.sales) : '';
@@ -692,8 +699,105 @@ function renderCash() {
     el.cashWho.textContent = '';
   }
 
+  renderNippouBox(done);
   renderCashList();
   renderCashWeek();
+}
+
+/* ------------------------------------------------------------
+ *  日報に入れる5つ
+ *
+ *  ★読んだ数をそのまま信じません。レシート自身が持っている計算式で
+ *    検算し、通らなかった数は使いません（空欄の方が安全です）。
+ *  ★出前館・ウーバー・ロケットナウはジャーナルに出ないので、
+ *    手で入れてもらって引きます（日報でやっている式と同じです）。
+ * ---------------------------------------------------------- */
+const CASH_NIPPOU_ROWS = [
+  { key: 'cash', name: '現金売上' },
+  { key: 'credit', name: 'クレジット' },
+  { key: 'emoney', name: '電子マネー' },
+  { key: 'net', name: '純売上' },
+  { key: 'guests', name: '当日客数', plain: true },
+];
+const CASH_MINUS_ROWS = ['demaeCash', 'demaeCard', 'uberCash', 'uberCard', 'rocket'];
+
+function renderNippouBox(done) {
+  const on = JOURNAL_STORES.includes(state.storeId) && !!cashEdit.j;
+  el.cashNippouBox.classList.toggle('is-hidden', !on);
+  if (!on) return;
+
+  // 手で入れる分（無い日は空のまま）
+  if (el.cashMinus.childElementCount !== CASH_MINUS_ROWS.length) {
+    el.cashMinus.innerHTML = '';
+    CASH_MINUS_ROWS.forEach((k) => {
+      const wrap = document.createElement('label');
+      wrap.className = 'cash-minus__row';
+      const name = document.createElement('span');
+      name.className = 'cash-minus__label';
+      name.textContent = NIPPOU_LABELS[k];
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.autocomplete = 'off';
+      input.className = 'cash-minus__input';
+      input.dataset.k = k;
+      input.addEventListener('input', () => {
+        const n = Number(String(input.value).replace(/[^\d-]/g, ''));
+        cashEdit.m[k] = Number.isFinite(n) ? n : 0;
+        renderNippouTable();          // 表だけ描き直します（入力の位置が飛ばないように）
+      });
+      wrap.append(name, input);
+      el.cashMinus.appendChild(wrap);
+    });
+  }
+  [...el.cashMinus.querySelectorAll('input[data-k]')].forEach((i) => {
+    const v = cashEdit.m[i.dataset.k];
+    if (document.activeElement !== i) i.value = (v === undefined || v === 0) ? '' : String(v);
+    i.readOnly = !!done;
+  });
+
+  renderNippouTable();
+
+  // 検算の結果
+  const checks = cashEdit.checks || [];
+  const bad = checks.filter((c) => !c.ok);
+  if (!checks.length) {
+    el.cashCheckMark.textContent = '';
+    el.cashChecks.textContent = '';
+  } else if (bad.length) {
+    el.cashCheckMark.textContent = '★検算が合いません';
+    el.cashCheckMark.className = 'cash-box__date is-bad';
+    el.cashChecks.textContent = bad.map((c) => `${c.name}（${c.left} / ${c.right}）`).join('　');
+  } else {
+    el.cashCheckMark.textContent = `検算 ${checks.length}つOK`;
+    el.cashCheckMark.className = 'cash-box__date is-ok';
+    el.cashChecks.textContent = checks.map((c) => c.name).join('　');
+  }
+}
+
+function renderNippouTable() {
+  const j = cashEdit.j || {};
+  const n = nippouValues(j, cashEdit.m);
+  el.cashNippou.innerHTML = '';
+  CASH_NIPPOU_ROWS.forEach((row) => {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.textContent = row.name;
+    const from = document.createElement('td');
+    const minus = document.createElement('td');
+    const to = document.createElement('td');
+    to.className = 'is-to';
+
+    const raw = j[row.key];
+    const cut = (NIPPOU_MINUS[row.key] || []).reduce((a, k) => a + (Number(cashEdit.m[k]) || 0), 0);
+    const fmt = (v) => (v === null || v === undefined ? '—'
+      : row.plain ? String(v) : Number(v).toLocaleString('ja-JP'));
+    from.textContent = fmt(raw);
+    minus.textContent = cut ? `− ${cut.toLocaleString('ja-JP')}` : '';
+    to.textContent = fmt(n[row.key]);
+    tr.append(th, from, minus, to);
+    el.cashNippou.appendChild(tr);
+  });
 }
 
 /** 「日ごと」と「1週間」を切り替える */
@@ -974,6 +1078,16 @@ async function onCashFile(e) {
     cashEdit.ocr = got.yen;
     cashEdit.how = got.how;
 
+    // ★同じ文字から、日報に入れる5つも読みます。
+    //   検算が通らなければ使いません（現金だけの読み取りは、これまでどおり動きます）
+    if (JOURNAL_STORES.includes(state.storeId)) {
+      const jr = parseJournal(res.text || '');
+      cashEdit.j = jr.ok ? jr.v : null;
+      cashEdit.checks = jr.checks;
+      cashEdit.sure = jr.sure;
+      cashEdit.jwhy = jr.ok ? '' : (jr.why || ('読めませんでした：' + jr.missing.join('、')));
+    }
+
     if (res.ocrError) {
       setCashMsg(`金額を読み取れませんでした。手で入れてください（${res.ocrError}）`, 'warn');
       return;
@@ -1118,7 +1232,12 @@ async function saveCash() {
 
   Store.setItem(state.storeId, dateStr, CASH_ITEM, {
     done: true,
-    value: { sales, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by },
+    value: {
+      sales, photo: cashEdit.photo || '', ocr: cashEdit.ocr, at: now, by,
+      // ジャーナルから読めた5つと、手で入れた引き算の分。日報へはここから書きます
+      j: cashEdit.j || null,
+      m: cashEdit.m && Object.keys(cashEdit.m).length ? cashEdit.m : null,
+    },
   });
   cashUnlocked = false;
   setCashMsg(cashEdit.saveMs

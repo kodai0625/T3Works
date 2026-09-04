@@ -3953,3 +3953,37 @@ body.print-shift .shift-sheet__name.is-full .shift-sheet__who::after { font-size
   text-align: center;
 }
 .store-error.is-hidden { display: none; }
+
+/* ============================================================
+ *  日報に入れる5つ（現金売上のページ）
+ * ============================================================ */
+.cash-hint { color: var(--text-weak); font-size: 12px; margin: 0 0 10px; line-height: 1.6; }
+
+.cash-minus { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-bottom: 14px; }
+@media (max-width: 420px) { .cash-minus { grid-template-columns: 1fr; } }
+.cash-minus__row { display: flex; align-items: center; gap: 8px; }
+.cash-minus__label {
+  flex: 1 1 auto; font-size: 12px; font-weight: 700; color: var(--text-weak);
+}
+.cash-minus__input {
+  flex: 0 0 88px; width: 88px; text-align: right;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 14px; font-variant-numeric: tabular-nums;
+  padding: 7px 9px;
+}
+.cash-minus__input[readonly] { background: var(--surface-2); color: var(--text-weak); }
+
+.cash-nippou {
+  width: 100%; border-collapse: collapse;
+  font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.cash-nippou th,
+.cash-nippou td { border-top: 1px solid var(--line); padding: 8px 6px; }
+.cash-nippou th { text-align: left; font-weight: 700; white-space: nowrap; }
+.cash-nippou td { text-align: right; color: var(--text-weak); }
+.cash-nippou td.is-to { color: var(--text); font-weight: 800; }
+
+.cash-box__date.is-ok { color: var(--text-weak); }
+.cash-box__date.is-bad { color: #c0392b; font-weight: 800; }
+.cash-checks { color: var(--text-weak); font-size: 11px; margin: 10px 0 0; line-height: 1.6; }

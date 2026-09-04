@@ -13,8 +13,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="img/works-icon-512.png?v=dddd764f">
 <link rel="icon" type="image/png" sizes="64x64" href="img/works-icon-64.png?v=0f9cbed2">
 <title>T3 Works｜T3Dining株式会社</title>
-<link rel="stylesheet" href="css/style.css?v=2abdab62">
-<meta name="app-version" content="7c6cd5a3">
+<link rel="stylesheet" href="css/style.css?v=be001e57">
+<meta name="app-version" content="cecca99b">
 </head>
 <body>
 
@@ -293,6 +293,20 @@
       </label>
       <p class="cash-msg is-hidden" id="cashMsg"></p>
       <button type="button" class="cash-ocr-link is-hidden" id="cashOcrLink">読み取った文字を見る</button>
+    </div>
+
+    <!-- ジャーナルから読めた5つと、日報に入れる値。
+         ★出前館・ウーバー・ロケットナウはジャーナルに出ないので、
+           ここで手で入れて引きます（日報の式と同じです） -->
+    <div class="cash-box is-hidden" id="cashNippouBox">
+      <div class="cash-box__head">
+        <h2 class="cash-box__title">日報に入れる</h2>
+        <span class="cash-box__date" id="cashCheckMark"></span>
+      </div>
+      <p class="cash-hint">ジャーナルに出ない分だけ入れてください。無い日は空のままで大丈夫です。</p>
+      <div class="cash-minus" id="cashMinus"></div>
+      <table class="cash-nippou"><tbody id="cashNippou"></tbody></table>
+      <p class="cash-checks" id="cashChecks"></p>
     </div>
 
     <div class="cash-box">
@@ -1464,7 +1478,7 @@
   </div>
 </div>
 
-<script src="js/config.js?v=59496885"></script>
+<script src="js/config.js?v=8c0395ae"></script>
 <script src="js/storage.js?v=a6579d0c"></script>
 <script src="js/sync.js?v=2544bf43"></script>
 <script src="js/update.js?v=c530219e"></script>
@@ -1472,6 +1486,6 @@
 <script src="js/meeting-data.js?v=78ed94da"></script>
 <!-- シフト表を絵に描くところ。提出ページ（shift/）でも同じものを使います -->
 <script src="js/shift-sheet.js?v=28f6c733"></script>
-<script src="js/app.js?v=ec98d387"></script>
+<script src="js/app.js?v=4a58593e"></script>
 </body>
 </html>

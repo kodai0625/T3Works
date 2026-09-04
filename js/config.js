@@ -1177,6 +1177,287 @@ function parseJournalCash(text) {
   return { yen: 0, how: 'none' };
 }
 
+/* ------------------------------------------------------------
+ *  ジャーナル（日計レポート／精算レポート）から、日報に入れる数を読む
+ *
+ *  ★考え方
+ *    OCRは必ずまちがえます。実際に「46件」が「4614」、
+ *    「電子マネー」が「電子又一」と読まれた例があります。
+ *    そこで、読んだ数をそのまま信じません。
+ *    レシート自身が持っている計算式で検算し、
+ *    合わないものは【入れません】。空欄の方が安全です。
+ *
+ *    さらに、1つだけ読めなかったときは、
+ *    ほかの数から【計算で埋めます】（当てずっぽうではなく引き算です）。
+ * ---------------------------------------------------------- */
+
+/** 読む行。OCRで名前が崩れるので、短い手がかりをいくつも並べます */
+const JOURNAL_FIELDS = [
+  { key: 'guests', name: '客数',
+    hit: ['客数'], skip: ['組数', '客単価', '男性', '女性', '選択なし'], unit: '客人名' },
+  { key: 'men', name: '男性',
+    hit: ['男性'], skip: [], unit: '客人名' },
+  { key: 'women', name: '女性',
+    hit: ['女性'], skip: [], unit: '客人名' },
+  { key: 'nosel', name: '選択なし',
+    hit: ['選択なし'], skip: [], unit: '客人名' },
+  { key: 'per', name: '客単価（税込）',
+    hit: ['客単価(税込)', '客単価（税込）', '客単価'], skip: ['税抜'] },
+  { key: 'gross', name: '売上',
+    hit: ['総売上', '売上'], skip: ['純売上', '売上点数', '控除', '点'] },
+  { key: 'tax', name: '消費税',
+    hit: ['消費税'], skip: ['内消費税', '(内'] },
+  { key: 'net', name: '純売上',
+    hit: ['純売上'], skip: ['控除後純売上'] },
+  { key: 'cash', name: '現金',
+    hit: ['現金'], skip: ['現金以外', '現金売上', '預かり現金', '現金釣銭', '現金約銭', '現金有高', '現金過不足'] },
+  { key: 'credit', name: 'クレジット',
+    hit: ['クレジット', 'クレシ', 'カード'], skip: ['明細'] },
+  { key: 'point', name: 'ポイント',
+    hit: ['ポイント'], skip: ['明細'] },
+  { key: 'emoney', name: '電子マネー',
+    hit: ['電子マネー', '電子マネ', '電子又', '電子'], skip: ['明細'] },
+  { key: 'voucher1', name: '商品券（釣無し）',
+    hit: ['商品券(釣無', '商品券（釣無', '商品券(釣無し'], skip: ['未使用'] },
+  { key: 'voucher2', name: '商品券（釣有り）',
+    hit: ['商品券(釣有', '商品券（釣有'], skip: ['釣銭', '約銭'] },
+  { key: 'kake', name: '掛売',
+    hit: ['掛売', '売掛'], skip: [] },
+  { key: 'received', name: 'お預かり現金',
+    hit: ['お預かり現金', '預かり現金', 'お預り現金'], skip: [] },
+  { key: 'change', name: 'おつり',
+    hit: ['おつり', 'お釣り', '釣銭合計'], skip: ['商品券'] },
+];
+
+/** 支払方法（合計すると売上になるもの） */
+const JOURNAL_PAY = ['cash', 'credit', 'point', 'emoney', 'voucher1', 'voucher2', 'kake'];
+
+/** 金額を探すとき、何行先まで見るか */
+const JOURNAL_AHEAD = 3;
+
+/**
+ * その行に、ちがう項目名がいくつ入っているか
+ *
+ * ★「総売上 純売上」のように2つ並んだ見出し行から金額を取ると、
+ *   よその数を取りちがえます（実際にこじゃれで起きました）。
+ *   2つ以上あったら、その行は使いません。
+ */
+function journalLabelCount(line) {
+  const p = cashPlain(line);
+  if (!p) return 0;
+  return JOURNAL_FIELDS.filter((f) => f.hit.some((h) => p.includes(cashPlain(h)))).length;
+}
+
+/** その行が、どれかの項目名に見えるか */
+function journalIsLabel(line) {
+  const p = cashPlain(line);
+  if (!p) return false;
+  return JOURNAL_FIELDS.some((f) => f.hit.some((h) => p.includes(cashPlain(h))));
+}
+
+/** 「168客」「85人」のように、単位のついた数を取り出す */
+function journalUnitOf(line, units) {
+  const s = cashNormalize(line);
+  const re = new RegExp(`([\\d][\\d,.]*)\\s*[${units}]`);
+  const m = re.exec(s);
+  return m ? cashNumOf(m[1]) : null;
+}
+
+/**
+ * 1つの項目の数を探す
+ *
+ * その行にあればそれ、無ければ次の行から探します。
+ * ★ほかの項目名にぶつかったら、そこで止めます。
+ *   よその金額を取ってこないためです。
+ */
+function journalFind(lines, field) {
+  for (let i = 0; i < lines.length; i++) {
+    const p = cashPlain(lines[i]);
+    if (!p) continue;
+    if (field.skip.some((ng) => p.includes(cashPlain(ng)))) continue;
+    if (!field.hit.some((h) => p.includes(cashPlain(h)))) continue;
+    if (journalLabelCount(lines[i]) > 1) continue;   // 見出しが2つ並んだ行は使いません
+
+    const last = Math.min(i + JOURNAL_AHEAD, lines.length - 1);
+    // ① 単位つき（客数など）
+    if (field.unit) {
+      for (let j = i; j <= last; j++) {
+        const v = journalUnitOf(lines[j], field.unit);
+        if (v !== null) return v;
+        if (j > i && journalIsLabel(lines[j])) break;
+      }
+    }
+    // ② ¥ か 円 のついた金額。これが一番たしかです
+    for (let j = i; j <= last; j++) {
+      const v = cashMarkedOf(lines[j]);
+      if (v !== null) return v;
+      if (j > i && journalIsLabel(lines[j])) break;
+    }
+    // ③ 目印の無い数字（0 か 1000以上だけ。「46件」を金額と取りちがえないため）
+    for (let j = i; j <= last; j++) {
+      const v = cashBareOf(lines[j]);
+      if (v !== null) return v;
+      if (j > i && journalIsLabel(lines[j])) break;
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
+ * ジャーナルの文字から、日報に入れる数を読み取ります。
+ *
+ *   返すもの
+ *     v      … 読めた数（読めなかったものは null）
+ *     checks … 検算の結果
+ *     ok     … 使ってよいか（合わない検算が1つも無いこと）
+ *     fixed  … 計算で埋めた項目の名前
+ */
+function parseJournal(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const v = {};
+  JOURNAL_FIELDS.forEach((f) => { v[f.key] = journalFind(lines, f); });
+
+  const fixed = [];
+  const has = (k) => v[k] !== null && v[k] !== undefined;
+  const sumPay = () => JOURNAL_PAY.reduce((a, k) => a + (v[k] || 0), 0);
+
+  /* ---- 足りないものを、計算で埋めます（当てずっぽうではありません）---- */
+
+  // 現金 ＝ お預かり − おつり
+  if (!has('cash') && has('received') && has('change')) {
+    v.cash = v.received - v.change; fixed.push('現金');
+  }
+  // 支払方法のうち1つだけ読めていないなら、売上との差で埋まります
+  if (has('gross')) {
+    const miss = JOURNAL_PAY.filter((k) => !has(k));
+    if (miss.length === 1) {
+      const rest = JOURNAL_PAY.filter((k) => k !== miss[0]).reduce((a, k) => a + v[k], 0);
+      const d = v.gross - rest;
+      if (d >= 0) {
+        v[miss[0]] = d;
+        fixed.push((JOURNAL_FIELDS.find((f) => f.key === miss[0]) || {}).name);
+      }
+    }
+  }
+  // 純売上 ＝ 売上 − 消費税
+  if (!has('net') && has('gross') && has('tax')) {
+    v.net = v.gross - v.tax; fixed.push('純売上');
+  }
+  // 売上 ＝ 純売上 ＋ 消費税
+  if (!has('gross') && has('net') && has('tax')) {
+    v.gross = v.net + v.tax; fixed.push('売上');
+  }
+
+  /* ---- 検算 ----
+     ★ここが要です。1つ1つの数に「守ってくれる式」を結びつけ、
+       その式が通った数だけを使います。式が無い数は使いません。 ---- */
+  const checks = [];
+  const add = (name, left, right, covers) => {
+    if (left === null || right === null || left === undefined || right === undefined) return;
+    checks.push({ name, left, right, ok: left === right, covers });
+  };
+
+  if (has('gross')) {
+    add('支払方法の合計 ＝ 売上', sumPay(), v.gross, JOURNAL_PAY.concat(['gross']));
+  }
+  if (has('gross') && has('tax') && has('net')) {
+    add('売上 − 消費税 ＝ 純売上', v.gross - v.tax, v.net, ['gross', 'tax', 'net']);
+  }
+  if (has('received') && has('change') && has('cash')) {
+    add('お預かり − おつり ＝ 現金', v.received - v.change, v.cash, ['cash', 'received', 'change']);
+  }
+  if (has('men') && has('women') && has('guests')) {
+    add('男性＋女性＋選択なし ＝ 客数', v.men + v.women + (v.nosel || 0), v.guests,
+      ['guests', 'men', 'women', 'nosel']);
+  }
+  // 客単価（税込） × 客数 ＝ 売上。1円のまるめがあるので、ずれ2円までは通します。
+  // ★客数を守れる式はこれだけなので、無いと客数は使えません
+  if (has('per') && has('guests') && has('gross') && v.guests) {
+    const calc = Math.round(v.gross / v.guests);
+    checks.push({
+      name: '売上 ÷ 客数 ＝ 客単価（税込）', left: calc, right: v.per,
+      ok: Math.abs(calc - v.per) <= 2, covers: ['guests', 'per', 'gross'],
+    });
+  }
+  // 消費税の行が無い様式（こじゃれの精算レポート）向け。
+  // 税率は8〜10%なので、純売上は売上の 88〜95% のあいだに入るはずです
+  if (has('gross') && has('net') && !has('tax')) {
+    const r = v.gross ? v.net / v.gross : 0;
+    checks.push({
+      name: '純売上が売上の88〜95%に入っているか',
+      left: Math.round(r * 1000) / 10, right: '88〜95',
+      ok: r >= 0.88 && r <= 0.95, covers: ['gross', 'net'],
+    });
+  }
+
+  /* ---- 使ってよい数を決めます ----
+     通った式に守られていて、落ちた式に巻き込まれていないものだけです */
+  const sure = {};
+  Object.keys(v).forEach((k) => {
+    if (!has(k)) return;
+    const mine = checks.filter((c) => c.covers.indexOf(k) >= 0);
+    sure[k] = mine.length > 0 && mine.every((c) => c.ok);
+  });
+
+  const bad = checks.filter((c) => !c.ok);
+  const needed = ['cash', 'credit', 'emoney', 'net', 'guests'];
+  return {
+    v, checks, fixed, sure,
+    ok: needed.every((k) => sure[k]),
+    missing: needed.filter((k) => !sure[k])
+      .map((k) => (JOURNAL_FIELDS.find((f) => f.key === k) || {}).name),
+    why: bad.length ? bad.map((c) => c.name).join('、') + ' が合いません' : '',
+  };
+}
+
+
+/** 日報に5つを自動で入れられる店舗（ジャーナルの様式が同じもの）
+ *  ★こじゃれは精算レポートという別の様式で、まだ読めません。
+ *    読み取り全文をもらえれば足せます。おいでんテラスも未確認です。 */
+const JOURNAL_STORES = ['sumimaro', 'chacoru', 'baguru', 'popo'];
+
+/** 日報のA列にある項目名。★行番号ではなく、この名前で行を探します
+ *  （店舗によって行がずれています。popoは商品券の行が1つ多く、
+ *    ロケットナウが18行目、バグるは17行目でした） */
+const NIPPOU_LABELS = {
+  cash:      '現金売上',
+  credit:    'クレジット',
+  emoney:    '電子マネー',
+  net:       '純売上',
+  guests:    '当日客数',
+  total:     '当日総合計',        // 書いたあとの検算に使います
+  demaeCash: '出前館現金',
+  demaeCard: '出前館クレジット',
+  uberCash:  'ウーバー現金',
+  uberCard:  'ウーバークレジット',
+  rocket:    'ロケットナウ',
+};
+
+/** 日報に書く前の引き算。手で入れてもらう分を差し引きます */
+const NIPPOU_MINUS = {
+  cash:   ['demaeCash', 'uberCash'],
+  credit: ['demaeCard', 'uberCard', 'rocket'],
+  emoney: [],
+  net:    [],
+  guests: [],
+};
+
+/**
+ * ジャーナルの読み取りと、手で入れた分から、日報に入れる5つを作ります。
+ *   j … parseJournal の v（ジャーナルから読めた数）
+ *   m … 手入力（出前館・ウーバー・ロケットナウ）
+ */
+function nippouValues(j, m) {
+  const out = {};
+  ['cash', 'credit', 'emoney', 'net', 'guests'].forEach((k) => {
+    if (j[k] === null || j[k] === undefined) { out[k] = null; return; }
+    out[k] = NIPPOU_MINUS[k].reduce((a, x) => a - (Number(m && m[x]) || 0), j[k]);
+  });
+  return out;
+}
+
+
 /**
  * 写真は長い辺をこの大きさまで小さくしてから送ります（文字が読める大きさ）
  *
