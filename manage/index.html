@@ -14,7 +14,7 @@
 <title>T3 Works Manage｜T3Dining株式会社</title>
 <link rel="stylesheet" href="../css/style.css?v=34f4bfc4">
 <link rel="stylesheet" href="css/admin.css?v=e0496ad4">
-<meta name="app-version" content="0cec335f">
+<meta name="app-version" content="7a189b7b">
 </head>
 <body class="no-daytabs">
 
@@ -112,6 +112,25 @@
       <button type="button" class="btn btn--primary" id="saveNippou">フォルダを保存</button>
       <span class="admin-saved is-hidden" id="nippouSaved">保存しました</span>
     </div>
+
+    <details class="admin-tool">
+      <summary>テスト用の日報へ書く（この端末だけ）</summary>
+      <p class="admin-note">
+        ここに<b>テスト用の日報のURL</b>を入れておくと、現金売上の「日報に書く」が
+        <b>本番ではなく、こちらへ書きます</b>。まとめて試すときに使ってください。<br>
+        <b>この端末の中だけの設定です。</b>ほかの端末には広がりません。
+        <b>空にすれば本番に戻ります。</b>試し終わったら必ず空にしてください。
+      </p>
+      <label class="field">
+        <span class="field__label">テスト用の日報</span>
+        <input type="text" class="field__input" id="nippouTest" autocomplete="off"
+               placeholder="https://docs.google.com/spreadsheets/d/…">
+      </label>
+      <div class="admin-actions">
+        <button type="button" class="btn" id="saveNippouTest">書き先を保存</button>
+        <span class="admin-saved is-hidden" id="nippouTestSaved">保存しました</span>
+      </div>
+    </details>
   </section>
 
   <!-- ===== レジのCSVから日報へ（全店舗分が1ファイルに入るので、ここに置きます） ===== -->
@@ -540,13 +559,13 @@
 </div>
 
 <script src="../js/config.js?v=6f135e60"></script>
-<script src="../js/storage.js?v=a6579d0c"></script>
+<script src="../js/storage.js?v=7c15f65c"></script>
 <script src="../js/sync.js?v=2544bf43"></script>
 <script src="../js/update.js?v=c530219e"></script>
 <!-- Numbers / スプレッドシートから持ってきた2026年分の記録
      （取り込みが済んだら、この2つと上の取り込み欄は消してOK） -->
 <script src="js/drive-import.js?v=c87d5902"></script>
 <script src="js/expense-import.js?v=6ebef9a0"></script>
-<script src="js/admin.js?v=50b17193"></script>
+<script src="js/admin.js?v=1f022c91"></script>
 </body>
 </html>

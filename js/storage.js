@@ -1073,6 +1073,30 @@ const Drivers = {
  *  取り込みのときは、このフォルダの中（と、1つ下の年フォルダの中）から
  *  「年月」で始まるファイルを探します。
  */
+/* ------------------------------------------------------------
+ *  テスト用の日報（この端末の中だけ）
+ *
+ *  ★入れておくと、「日報に書く」がこちらへ書きます。
+ *    本番の日報を汚さずに、まとめて試すためのものです。
+ *  ★わざと同期しません。ほかの端末に広がると、
+ *    現場が知らないうちにテスト先へ書いてしまうためです。
+ *  ★空にすれば、いつもの本番に戻ります。
+ * ---------------------------------------------------------- */
+const NippouTest = {
+  _key: APP.storageKey + ':nippouTest',
+  get() {
+    try { return localStorage.getItem(this._key) || ''; } catch (e) { return ''; }
+  },
+  save(url) {
+    const clean = String(url || '').trim();
+    try {
+      if (clean) localStorage.setItem(this._key, clean);
+      else localStorage.removeItem(this._key);
+    } catch (e) { /* 入らなくても困りません */ }
+    return clean;
+  },
+};
+
 const NippouFolders = {
   _key: APP.storageKey + ':nippouFolders',
 

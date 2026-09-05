@@ -763,6 +763,11 @@ function renderNippouBox(done) {
 
   // 5つとも使えるときだけ、日報へ書けます
   el.cashToNippou.classList.toggle('is-hidden', !cashEdit.jok);
+  // ★テスト用の書き先が入っているときは、ひと目で分かるようにします。
+  //   本番に書いたつもりでテストに入っていた、が一番こわいためです
+  const test = NippouTest.get();
+  el.cashToNippou.textContent = test ? '★テスト用の日報に書く' : '日報に書く';
+  el.cashToNippou.classList.toggle('btn--danger', !!test);
 
   // 検算の結果。★通らなかったときこそ、何が起きたかを出します
   const checks = cashEdit.checks || [];
@@ -813,8 +818,10 @@ function setNippouMsg(text, kind) {
 
 async function writeNippou() {
   if (!cashEdit.jok) return;
-  const folder = NippouFolders.get(state.storeId);
-  if (!folder) {
+  // ★テスト用の書き先が入っていれば、そちらへ書きます（この端末の中だけの設定です）
+  const test = NippouTest.get();
+  const folder = test ? '' : NippouFolders.get(state.storeId);
+  if (!test && !folder) {
     setNippouMsg('日報フォルダが登録されていません。マネージの店舗一覧で登録してください', 'warn');
     return;
   }
@@ -825,7 +832,8 @@ async function writeNippou() {
   try {
     // ① まず、今の中身を見に行きます（書きません）
     setNippouMsg('日報を見に行っています…');
-    const look = await Sync.ask('nippouWrite', { mode: '見る', folder, day: dateStr, values });
+    const look = await Sync.ask('nippouWrite',
+      { mode: '見る', file: test, folder, day: dateStr, values });
     if (!look.ok) { setNippouMsg(look.error || '日報を開けませんでした', 'warn'); return; }
 
     // ② 並べて確かめてもらいます
@@ -844,7 +852,8 @@ async function writeNippou() {
 
     // ③ 書きます
     setNippouMsg('日報に書いています…');
-    const res = await Sync.ask('nippouWrite', { mode: '書く', folder, day: dateStr, values });
+    const res = await Sync.ask('nippouWrite',
+      { mode: '書く', file: test, folder, day: dateStr, values });
     if (!res.ok) { setNippouMsg(res.error || '書けませんでした', 'warn'); return; }
 
     // ④ 書いたあとの検算

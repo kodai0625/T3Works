@@ -46,6 +46,7 @@ const el = {};
   'viewTrain', 'trainStoreName', 'trainCount', 'trainInput', 'saveTrain', 'trainSaved',
   'trainItemsStore', 'trainItemsCount', 'trainEditor', 'trainAddSection',
   'nippouFields', 'saveNippou', 'nippouCount', 'nippouSaved',
+  'nippouTest', 'saveNippouTest', 'nippouTestSaved',
   'uregiFile', 'uregiCount', 'uregiNote', 'uregiResult',
   'driveImport', 'driveImportLast', 'driveImportNote',
   'expImport', 'expImportLast', 'expImportNote',
@@ -1375,6 +1376,7 @@ function saveShiftStaff() {
  *    ないので出しません。
  */
 function renderNippouFolders() {
+  el.nippouTest.value = NippouTest.get();
   const map = NippouFolders.all();
   const n = STORES.filter((s) => map[s.id]).length;
   el.nippouCount.textContent = n ? `${n}店舗` : 'まだ登録なし';
@@ -1396,6 +1398,15 @@ function renderNippouFolders() {
     wrap.append(label, input);
     el.nippouFields.appendChild(wrap);
   });
+}
+
+/** テスト用の日報の書き先（この端末の中だけ） */
+function saveNippouTest() {
+  NippouTest.save(el.nippouTest.value);
+  el.nippouTestSaved.textContent = NippouTest.get()
+    ? '保存しました（テスト用に書きます）' : '空にしました（本番に書きます）';
+  el.nippouTestSaved.classList.remove('is-hidden');
+  setTimeout(() => el.nippouTestSaved.classList.add('is-hidden'), 3000);
 }
 
 function saveNippouFolders() {
@@ -2264,6 +2275,7 @@ function bindEvents() {
   el.saveTrain.addEventListener('click', saveTrainees);
   el.trainAddSection.addEventListener('click', addSection);
   el.saveNippou.addEventListener('click', saveNippouFolders);
+  el.saveNippouTest.addEventListener('click', saveNippouTest);
   el.driveImportLast.addEventListener('click', () => importDriveRecords(true));
   el.driveImport.addEventListener('click', () => importDriveRecords(false));
   el.expImportLast.addEventListener('click', () => importExpenseRecords(true));
