@@ -1242,12 +1242,81 @@ function saveCatchStaff() {
  *  提出ページ（…/shift/）の名前選びに出る人です。
  *  シフトを組む店舗（config.js の SHIFT_STORES）だけを並べます。
  */
+/**
+ * 名簿を出している店舗（空なら出していません）
+ *
+ * ★名前も番号も、**ふだんは出しません。**開きっぱなしの端末で
+ *   誰でも読めてしまわないようにするためです。押したときだけ出します。
+ * ★店舗を変えたら閉じます。アプリを裏に回したときも閉じます。
+ */
+let shiftRosterOpenFor = '';
+
+/** 「他店舗にも所属」を開いている人の番号 */
+let shiftLinkOpen = '';
+
+function shiftRosterClose() {
+  shiftRosterOpenFor = '';
+  shiftLinkOpen = '';
+}
+
+/** 裏に回ったら閉じる、の一度だけの仕掛け */
+let shiftRosterHooked = false;
+function shiftRosterHook() {
+  if (shiftRosterHooked) return;
+  shiftRosterHooked = true;
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden || !shiftRosterOpenFor) return;
+    shiftRosterClose();
+    if (state.view === 'shift') renderShiftStaff();
+  });
+}
+
 function renderShiftStaff() {
+  shiftRosterHook();
   const store = getStore(state.storeId);
   const people = ShiftStaff.people(store.id);
+  if (shiftRosterOpenFor && shiftRosterOpenFor !== store.id) shiftRosterClose();
+  const 出す = shiftRosterOpenFor === store.id;
+
   el.shiftStaffCount.textContent = people.length ? `${people.length}人` : 'まだ登録なし';
-  el.shiftStaffInput.value = people.map((p) => p.n).join('\n');
-  renderShiftCodes();
+  // ★閉じているあいだは、名前を入れません（隠すだけだと画面の中に残ります）
+  el.shiftStaffInput.value = 出す ? people.map((p) => p.n).join('\n') : '';
+  el.shiftStaffInput.classList.toggle('is-hidden', !出す);
+  el.saveShiftStaff.classList.toggle('is-hidden', !出す);
+  renderShiftRosterGate(出す, people.length);
+  renderShiftCodes(出す);
+}
+
+/** 「名前と番号を出す」／「隠す」のボタン */
+function renderShiftRosterGate(出す, 人数) {
+  let box = document.getElementById('shiftRosterGate');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'shiftRosterGate';
+    box.className = 'admin-actions';
+    el.shiftStaffInput.parentNode.insertBefore(box, el.shiftStaffInput);
+  }
+  box.innerHTML = '';
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn' + (出す ? '' : ' btn--primary');
+  b.textContent = 出す ? '隠す' : (人数 ? '名前と番号を出す' : '名前を登録する');
+  b.addEventListener('click', () => {
+    if (出す) shiftRosterClose();
+    else shiftRosterOpenFor = state.storeId;
+    renderShiftStaff();
+  });
+  box.appendChild(b);
+
+  if (!出す) {
+    const note = document.createElement('span');
+    note.className = 'admin-note';
+    note.style.margin = '0';
+    note.textContent = 人数
+      ? `${人数}人が登録されています。名前と番号は、押したときだけ出します。`
+      : 'まだ登録されていません。';
+    box.appendChild(note);
+  }
 }
 
 /**
@@ -1256,10 +1325,12 @@ function renderShiftStaff() {
  * 番号は1人に1つで、これが提出ページの入口になります。
  * 「コピー」で番号だけが取れます（URLは全員おなじなので、上に1つ出しています）。
  */
-function renderShiftCodes() {
+function renderShiftCodes(出す) {
   const storeId = state.storeId;
   const people = ShiftStaff.people(storeId);
   el.shiftCodeList.innerHTML = '';
+  // ★閉じているあいだは、番号も名前も作りません
+  if (!出す) return;
   // 提出ページのURL。マネージは1つ下の階層にあるので ../ で戻ります
   el.shiftSubmitUrl.textContent = new URL('../' + SHIFT_SUBMIT_PATH, location.href).href;
 
@@ -1359,9 +1430,6 @@ function renderShiftCodes() {
   });
   el.shiftCodeList.appendChild(box);
 }
-
-/** 「他店舗にも所属」を開いている人の番号 */
-let shiftLinkOpen = '';
 
 /**
  * その人が入る店舗を選ぶところ

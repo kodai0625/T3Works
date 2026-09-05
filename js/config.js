@@ -1682,6 +1682,132 @@ const NIPPOU_LABELS = {
   rocket:    'ロケットナウ',
 };
 
+/* ------------------------------------------------------------
+ *  手で入れる分は「＝で始まる計算式」でも入れられます
+ *
+ *  出前館・ウーバー・ロケットナウは、1日に何件も出るので
+ *  「=1000+2000+3000」と足し算のまま入れたいことがあります。
+ *  そのまま日報のマスにも計算式として入るので、
+ *  あとから日報を開いたときに「何件でいくらだったか」が残ります。
+ *
+ *  ★eval は使いません。入れた文字がそのまま動いてしまうためです。
+ *    数と ＋−×÷ と かっこ だけを、自分で読んで計算します。
+ *    読めない形（文字が混ざっている、かっこが合わない）は null を返し、
+ *    画面で「計算できません」と出します。**まちがった数は使いません。**
+ * ---------------------------------------------------------- */
+
+/**
+ * 計算式に使う文字を半角にします
+ *
+ * ★iPhone や iPad の日本語キーボードだと「＝１０００＋２０００」と全角になります。
+ *   cashNormalize は数字しか直さない（記号を直すとOCRの読み取りに響く）ので、
+ *   計算式のところだけ、ここで記号もそろえます。
+ */
+function cashFormulaPlain(text) {
+  return cashNormalize(text)
+    .replace(/[＝]/g, '=')
+    .replace(/[＋]/g, '+')
+    .replace(/[－ー−–—]/g, '-')
+    .replace(/[＊×✕]/g, '*')
+    .replace(/[／÷]/g, '/')
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')')
+    .replace(/[．]/g, '.')
+    .replace(/[　]/g, ' ');
+}
+
+/** 「=1000+2000」の形か */
+function cashIsFormula(text) {
+  return /^\s*=/.test(cashFormulaPlain(text));
+}
+
+/**
+ * 計算式を計算します。読めなければ null
+ *
+ * 使えるのは 数字 ＋ − × ÷ ( ) と、見やすさのためのカンマだけです。
+ */
+function cashFormulaEval(text) {
+  let s = cashFormulaPlain(text).replace(/^\s*=/, '');
+  s = s.replace(/[,\s]/g, '');
+  if (!s) return null;
+  // ★ここに無い文字が1つでもあれば、計算しません
+  if (!/^[\d+\-*/().]+$/.test(s)) return null;
+
+  let at = 0;
+  const peek = () => s[at];
+  const eat = (c) => { if (s[at] === c) { at++; return true; } return false; };
+
+  //  式 … 項（＋か− 項）*
+  function expr() {
+    let v = term();
+    if (v === null) return null;
+    for (;;) {
+      if (eat('+')) { const r = term(); if (r === null) return null; v += r; }
+      else if (eat('-')) { const r = term(); if (r === null) return null; v -= r; }
+      else return v;
+    }
+  }
+  //  項 … 数（×か÷ 数）*
+  function term() {
+    let v = unary();
+    if (v === null) return null;
+    for (;;) {
+      if (eat('*')) { const r = unary(); if (r === null) return null; v *= r; }
+      else if (eat('/')) {
+        const r = unary();
+        if (r === null || r === 0) return null;   // 0で割るのは読めない扱いにします
+        v /= r;
+      } else return v;
+    }
+  }
+  //  頭についた ＋ −
+  function unary() {
+    if (eat('+')) return unary();
+    if (eat('-')) { const v = unary(); return v === null ? null : -v; }
+    return atom();
+  }
+  //  数、または かっこ
+  function atom() {
+    if (eat('(')) {
+      const v = expr();
+      if (v === null || !eat(')')) return null;
+      return v;
+    }
+    const from = at;
+    while (at < s.length && /[\d.]/.test(peek())) at++;
+    if (at === from) return null;
+    const n = Number(s.slice(from, at));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  const v = expr();
+  if (v === null || at !== s.length || !Number.isFinite(v)) return null;
+  return Math.round(v);
+}
+
+/**
+ * 手で入れた分を数にします
+ *
+ * ★数でも「=1000+2000」でも受け取ります。
+ *   前に記録した日は数で残っているので、どちらも読めないといけません。
+ *   計算できないものは 0 ではなく null を返します。
+ *   0 にすると、入れまちがえた日を「0円だった日」として記録してしまいます。
+ */
+function cashMinusNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v);
+  if (cashIsFormula(s)) return cashFormulaEval(s);
+  const n = Number(cashFormulaPlain(s).replace(/[,\s]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 引き算に使う数。入れていない欄は 0 として扱います */
+function cashMinusOr0(v) {
+  const n = cashMinusNum(v);
+  return n === null ? 0 : n;
+}
+
 /** 日報に書く前の引き算。手で入れてもらう分を差し引きます */
 const NIPPOU_MINUS = {
   cash:   ['demaeCash', 'uberCash'],
@@ -1700,7 +1826,7 @@ function nippouValues(j, m) {
   const out = {};
   ['cash', 'credit', 'emoney', 'net', 'guests'].forEach((k) => {
     if (j[k] === null || j[k] === undefined) { out[k] = null; return; }
-    out[k] = NIPPOU_MINUS[k].reduce((a, x) => a - (Number(m && m[x]) || 0), j[k]);
+    out[k] = NIPPOU_MINUS[k].reduce((a, x) => a - cashMinusOr0(m && m[x]), j[k]);
   });
   return out;
 }

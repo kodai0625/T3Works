@@ -794,7 +794,12 @@ const CASH_NIPPOU_ROWS = [
 const CASH_MINUS_ROWS = ['demaeCash', 'demaeCard', 'uberCash', 'uberCard', 'rocket'];
 
 function renderNippouBox(done) {
-  const on = JOURNAL_STORES.includes(state.storeId) && !!cashEdit.j;
+  // ★箱は、日報に書ける店舗なら**写真の前から**出します。
+  //   出前館・ウーバー・ロケットナウは紙に出ない数なので、
+  //   ジャーナルを撮る前・撮っている間に入れておけるようにするためです。
+  const on = JOURNAL_STORES.includes(state.storeId);
+  // 読み取りの5つの表と検算は、写真を読んでからです
+  const yomi = !!cashEdit.j;
   el.cashNippouBox.classList.toggle('is-hidden', !on);
   if (!on) {
     // ★隠すときは中身も消します。残しておくと、次に出たときに
@@ -821,9 +826,12 @@ function renderNippouBox(done) {
       input.autocomplete = 'off';
       input.className = 'cash-minus__input';
       input.dataset.k = k;
+      // ★入れた文字を、そのまま覚えます（数に直しません）。
+      //   「=1000+2000+3000」と入れたら、日報のマスにも計算式のまま入れるためです。
+      //   数に直してしまうと、あとから日報を開いても内わけが分かりません。
       input.addEventListener('input', () => {
-        const n = Number(String(input.value).replace(/[^\d-]/g, ''));
-        cashEdit.m[k] = Number.isFinite(n) ? n : 0;
+        cashEdit.m[k] = input.value;
+        renderNippouMinusNote();
         renderNippouTable();          // 表だけ描き直します（入力の位置が飛ばないように）
       });
       wrap.append(name, input);
@@ -832,10 +840,17 @@ function renderNippouBox(done) {
   }
   [...el.cashMinus.querySelectorAll('input[data-k]')].forEach((i) => {
     const v = cashEdit.m[i.dataset.k];
-    if (document.activeElement !== i) i.value = (v === undefined || v === 0) ? '' : String(v);
+    // ★入れた文字をそのまま戻します。計算式は計算式のまま見えます
+    if (document.activeElement !== i) {
+      i.value = (v === undefined || v === null || v === '' || v === 0) ? '' : String(v);
+    }
     i.readOnly = !!done;
+    // 計算できない式は、その欄自身を赤くします
+    const ng = String(i.value).trim() !== '' && cashMinusNum(i.value) === null;
+    i.classList.toggle('is-bad', ng);
   });
 
+  renderNippouMinusNote();
   renderNippouTable();
 
   // 5つとも使えるときだけ、日報へ書けます
@@ -1011,7 +1026,7 @@ function renderNippouTable() {
     to.className = 'is-to';
 
     const raw = j[row.key];
-    const cut = (NIPPOU_MINUS[row.key] || []).reduce((a, k) => a + (Number(cashEdit.m[k]) || 0), 0);
+    const cut = (NIPPOU_MINUS[row.key] || []).reduce((a, k) => a + cashMinusOr0(cashEdit.m[k]), 0);
     const fmt = (v) => (v === null || v === undefined ? '—'
       : row.plain ? String(v) : Number(v).toLocaleString('ja-JP'));
     const usable = !!(cashEdit.sure || {})[row.key];
@@ -6492,7 +6507,41 @@ let shiftCodeOpen = new Set();
 /** 「他店舗にも所属」を開いている人の番号（1人分だけ開きます） */
 let shiftLinkOpen = '';
 
+/**
+ * 名簿を出している店舗（空なら出していません）
+ *
+ * ★名前も番号も、**ふだんは出しません。**ワークスはお店の端末で開きっぱなしに
+ *   なることがあり、誰がいつ見るか分からないためです。押したときだけ出します。
+ * ★店舗を変えたら閉じます（別の店舗の名簿が、そのまま出たままにならないように）。
+ * ★アプリを裏に回したときも閉じます（置いたまま離れたとき用）。
+ */
+let shiftRosterOpenFor = '';
+
+/** 名簿を閉じる（出していたものは全部忘れます） */
+function shiftRosterClose() {
+  shiftRosterOpenFor = '';
+  shiftCodeOpen = new Set();
+  shiftLinkOpen = '';
+}
+
+/**
+ * 裏に回ったら閉じる、の一度だけの仕掛け
+ *
+ * ★起動のところ（共通）には足さず、名簿を初めて描くときに1回だけ付けます。
+ */
+let shiftRosterHooked = false;
+function shiftRosterHook() {
+  if (shiftRosterHooked) return;
+  shiftRosterHooked = true;
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden || !shiftRosterOpenFor) return;
+    shiftRosterClose();
+    if (state.view === 'shift') renderKeepScroll();
+  });
+}
+
 function renderShiftRoster(組む) {
+  shiftRosterHook();
   let box = document.getElementById('shiftRoster');
   if (!box) {
     box = document.createElement('section');
@@ -6503,12 +6552,41 @@ function renderShiftRoster(組む) {
   const store = getStore(state.storeId);
   const people = ShiftStaff.people(state.storeId);
   const 見本 = people.find((p) => isShiftTester(p.n));
+  // ★店舗を変えたら閉じます
+  if (shiftRosterOpenFor && shiftRosterOpenFor !== state.storeId) shiftRosterClose();
+  const 出す = shiftRosterOpenFor === state.storeId;
   box.innerHTML = '';
 
   const h = document.createElement('h2');
   h.className = 'card__title';
   h.textContent = 'シフトに入る人';
   box.appendChild(h);
+
+  /* ★閉じているあいだは、名前も番号も**作りません**。
+     隠すだけだと、画面の中には残ってしまうためです */
+  if (!出す) {
+    const note = document.createElement('p');
+    note.className = 'card__note';
+    note.innerHTML = people.length
+      ? `${people.length}人が登録されています。`
+        + '<b>名前と番号は、押したときだけ出します。</b>'
+      : 'まだ登録されていません。';
+    box.appendChild(note);
+
+    const row = document.createElement('div');
+    row.className = 'card__actions';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'btn btn--primary';
+    open.textContent = people.length ? '名前と番号を出す' : '名前を登録する';
+    open.addEventListener('click', () => {
+      shiftRosterOpenFor = state.storeId;
+      renderKeepScroll();
+    });
+    row.appendChild(open);
+    box.appendChild(row);
+    return;
+  }
 
   const note = document.createElement('p');
   note.className = 'card__note';
@@ -6538,6 +6616,16 @@ function renderShiftRoster(組む) {
     renderKeepScroll();
   });
   row.appendChild(save);
+
+  const hide = document.createElement('button');
+  hide.type = 'button';
+  hide.className = 'btn';
+  hide.textContent = '隠す';
+  hide.addEventListener('click', () => {
+    shiftRosterClose();
+    renderKeepScroll();
+  });
+  row.appendChild(hide);
 
   if (!見本) {
     const demo = document.createElement('button');
