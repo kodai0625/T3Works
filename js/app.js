@@ -908,7 +908,7 @@ function renderNippouBox(done) {
   });
 
   renderNippouMinusNote();
-  renderGridBox(done);
+  renderGridBox();
 
   // ★写真をまだ読んでいないときは、読み取りの表と検算は出しません。
   //   手で入れる欄だけが出ている状態です（先に入れておけます）。
@@ -1008,8 +1008,16 @@ async function cashGridLoad() {
   }
 }
 
-/** 仕入・人件費の入力欄を作ります */
-function renderGridBox(done) {
+/**
+ * 仕入・人件費の入力欄を作ります
+ *
+ * ★ここは「現金売上を記録したか」では固めません。
+ *   仕入と人件費は現金売上の記録とは別のもので、書き先も別のマスです。
+ *   記録したとたんに直せなくなると、**同じ日に入れ直せません**
+ *   （実際にそうなっていました）。
+ *   固めるのは「日報がそのマスを計算しているとき」だけです。
+ */
+function renderGridBox() {
   if (!el.cashGrid) {
     // ★入れ物は index.html ではなく、ここで作って差し込みます
     const box = document.createElement('div');
@@ -1034,17 +1042,35 @@ function renderGridBox(done) {
     if (!行.length) return;
     const h = document.createElement('p');
     h.className = 'cash-minus__head';
+    h.style.margin = '14px 0 8px';
+    h.style.fontWeight = '700';
     h.textContent = `${見出し}（${F名} ／ ${G名}）`;
     el.cashGrid.appendChild(h);
 
     const wrap = document.createElement('div');
-    wrap.className = 'cash-minus';
+    // ★1行に1件です。
+    //   はじめ 'cash-minus'（2列のグリッド）を使い回したところ、
+    //   1行に「名前＋入力2つ」が入るのに2列並べたため画面からはみ出し、
+    //   仕入先の名前が縦書きになりました。ここは横に1件だけ並べます。
+    //   ★css/style.css は本部のファイルなので、見た目はここで指定します。
+    wrap.style.display = 'grid';
+    wrap.style.gridTemplateColumns = '1fr';
+    wrap.style.gap = '8px';
+    wrap.style.marginBottom = '14px';
     行.forEach((r) => {
       const row = document.createElement('label');
       row.className = 'cash-minus__row';
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
       const name = document.createElement('span');
       name.className = 'cash-minus__label';
       name.textContent = r.name;
+      // 名前は幅を決めて折り返します。長い仕入先（八興食糧（米）など）でも
+      // 入力欄を押しつぶさないようにします
+      name.style.flex = '0 0 6.5em';
+      name.style.whiteSpace = 'normal';
+      name.style.wordBreak = 'break-word';
       row.appendChild(name);
       [['f', r.fx, F名], ['g', r.gx, G名]].forEach(([which, 式か, ラベル]) => {
         const i = document.createElement('input');
@@ -1053,20 +1079,24 @@ function renderGridBox(done) {
         i.autocomplete = 'off';
         i.className = 'cash-minus__input';
         i.placeholder = ラベル;
+        // ★min-width:0 が肝心です。これが無いと、入力欄が縮まずに
+        //   親からはみ出します（flex の初期値は min-width:auto のため）
+        i.style.flex = '1 1 0';
+        i.style.minWidth = '0';
         i.dataset.grid = 入れ先;
         i.dataset.name = r.name;
         i.dataset.col = which;
         const 持ち = (cashEdit[入れ先] || {})[r.name] || {};
         if (document.activeElement !== i) i.value = 持ち[which] === undefined ? '' : String(持ち[which]);
         // ★日報が計算しているマスには入れられません（式を壊さないため）
-        i.readOnly = !!done || !!式か;
+        i.readOnly = !!式か;
         if (式か) { i.placeholder = '日報が計算'; i.title = 'ここは日報の計算式です'; }
         i.addEventListener('input', () => {
           if (!cashEdit[入れ先][r.name]) cashEdit[入れ先][r.name] = {};
           cashEdit[入れ先][r.name][which] = i.value;
           cashHandSave();
           renderGridNote();
-          renderGridButton(done);
+          renderGridButton();
         });
         i.addEventListener('blur', () => cashHandSave(true));
         row.appendChild(i);
@@ -1080,7 +1110,7 @@ function renderGridBox(done) {
   節('⑤人件費', w.jinken, 'jinken', '人数', '金額');
   renderGridNote();
 
-  renderGridButton(done);
+  renderGridButton();
 }
 
 /**
@@ -1092,10 +1122,10 @@ function renderGridBox(done) {
  * ★このボタンがあるのは、仕入と人件費がジャーナルの写真と関係ないからです。
  *   読み取りが通らなかった日でも、ここだけは書けるようにします。
  */
-function renderGridButton(done) {
+function renderGridButton() {
   if (!el.cashGrid) return;
   let b = el.cashGrid.querySelector('.cash-grid__go');
-  const 出す = !done && cashGridSend().length > 0;
+  const 出す = cashGridSend().length > 0;
   if (!出す) { if (b) b.remove(); return; }
   if (!b) {
     b = document.createElement('button');
