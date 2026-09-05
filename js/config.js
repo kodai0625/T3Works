@@ -1,4 +1,63 @@
 /* ============================================================
+ *  ★画面が止まったことを、その場で知らせる
+ *
+ *  2026年9月5日、消し忘れた1行でマネージのトップが止まりました。
+ *  画面は途中まで描いて終わり、**どこにも何も出ませんでした**。
+ *  出ていたのは、ふだん誰も開かない開発者ツールの中だけです。
+ *  たまたま別件でそこを見た人がいたから見つかりました。
+ *
+ *  CLAUDE.md の「黙って失敗しない」は、保存には効いていましたが
+ *  （storeFail → showStoreError）、**コードの止まりには効いていません**でした。
+ *  ここでそろえます。
+ *
+ *  ★見た目は CSS に頼りません。シフトの提出ページは style.css を読まないので、
+ *    そこでも必ず出るように、字と色をこの中に書いています。
+ *  ★このファイルは4つのアプリすべてが一番はじめに読みます。
+ *    だから、ここに置けば全部に効きます。
+ * ============================================================ */
+(function () {
+  var 出したもの = '';
+
+  function 知らせる(なに, どこ) {
+    try {
+      var 印 = String(なに) + '|' + String(どこ);
+      if (印 === 出したもの) return;      // 同じものを何度も出しません
+      出したもの = 印;
+
+      var 帯 = document.getElementById('appError');
+      if (!帯) {
+        var 親 = document.body || document.documentElement;
+        if (!親) return;
+        帯 = document.createElement('div');
+        帯.id = 'appError';
+        帯.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9500;'
+          + 'background:#c0392b;color:#fff;font-size:14px;font-weight:700;'
+          + 'line-height:1.5;text-align:center;'
+          + 'padding:12px 16px calc(12px + env(safe-area-inset-bottom));';
+        親.appendChild(帯);
+      }
+      帯.textContent = '⚠ アプリで問題が起きました。この画面を見せてください。'
+        + '（' + なに + ' ／ ' + どこ + '）';
+    } catch (e) {
+      /* 知らせる側で転ばないこと。ここで投げると、また黙って終わります */
+    }
+  }
+
+  window.addEventListener('error', function (e) {
+    // 画像の読み込み失敗などは e.message を持ちません。そこは拾いません
+    if (!e || !e.message) return;
+    var どこ = (e.filename || '').split('/').pop() + ':' + (e.lineno || '?');
+    知らせる(e.message, どこ);
+  });
+
+  window.addEventListener('unhandledrejection', function (e) {
+    if (!e) return;
+    var r = e.reason;
+    知らせる((r && r.message) || String(r), '待っていた処理');
+  });
+})();
+
+/* ============================================================
  *  設定ファイル
  *  ここだけ編集すれば「店舗」「確認項目」を変更できます。
  *  他のファイルは触らなくてOKです。

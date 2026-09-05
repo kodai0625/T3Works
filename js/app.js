@@ -1066,6 +1066,7 @@ function renderGridBox(done) {
           cashEdit[入れ先][r.name][which] = i.value;
           cashHandSave();
           renderGridNote();
+          renderGridButton(done);
         });
         i.addEventListener('blur', () => cashHandSave(true));
         row.appendChild(i);
@@ -1079,18 +1080,33 @@ function renderGridBox(done) {
   節('⑤人件費', w.jinken, 'jinken', '人数', '金額');
   renderGridNote();
 
-  // ★仕入と人件費だけを書くボタン。
-  //   これらはジャーナルの写真と関係ないので、読み取りが通らなかった日でも
-  //   書けるようにします（写真が読めないと仕入まで書けない、では困ります）
-  if (!done && cashGridSend().length) {
-    const b = document.createElement('button');
+  renderGridButton(done);
+}
+
+/**
+ * 「仕入・人件費だけ書く」ボタンの出し入れ
+ *
+ * ★入力のたびに呼びます。1つでも入っていれば出て、全部消せば引っ込みます。
+ *   ここで欄ごと作り直すと、打っている途中で入力の位置が飛ぶので、
+ *   ボタンだけを出し入れします。
+ * ★このボタンがあるのは、仕入と人件費がジャーナルの写真と関係ないからです。
+ *   読み取りが通らなかった日でも、ここだけは書けるようにします。
+ */
+function renderGridButton(done) {
+  if (!el.cashGrid) return;
+  let b = el.cashGrid.querySelector('.cash-grid__go');
+  const 出す = !done && cashGridSend().length > 0;
+  if (!出す) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement('button');
     b.type = 'button';
-    b.className = 'btn btn--sub';
-    b.textContent = NippouTest.get() ? '★テスト用の日報に 仕入・人件費だけ書く' : '仕入・人件費だけ書く';
-    if (NippouTest.get()) b.classList.add('btn--danger');
+    b.className = 'btn btn--sub cash-grid__go';
     b.addEventListener('click', writeGridOnly);
     el.cashGrid.appendChild(b);
   }
+  const test = NippouTest.get();
+  b.textContent = test ? '★テスト用の日報に 仕入・人件費だけ書く' : '仕入・人件費だけ書く';
+  b.classList.toggle('btn--danger', !!test);
 }
 
 /**
