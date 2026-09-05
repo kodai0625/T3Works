@@ -1026,6 +1026,18 @@ function renderGridBox() {
     el.cashGrid = box;
   }
   const w = cashGridNow();
+
+  /* ★作り直すのは、並びが変わったときだけです。
+     打つたびに作り直すと、**打っている最中の欄が消えて作られ、
+     スマホのキーボードが閉じます**（実際にそうなりました）。
+     同期が終わるたびに render() が呼ばれる（js/sync.js）ので、
+     打っているあいだにも何度も通ります。
+     出前館の欄が平気なのは、そちらが作り直していないからです。 */
+  const 印 = !w ? 'なし'
+    : `${state.storeId}/${ymd(state.y, state.m, state.d)}/`
+      + w.shiire.map((r) => r.name).join(',') + '|' + w.jinken.map((r) => r.name).join(',');
+  if (el.cashGrid.dataset.sign === 印) { renderGridFill(); return; }
+  el.cashGrid.dataset.sign = 印;
   el.cashGrid.innerHTML = '';
 
   if (!w) {
@@ -1110,6 +1122,23 @@ function renderGridBox() {
   節('⑤人件費', w.jinken, 'jinken', '人数', '金額');
   renderGridNote();
 
+  renderGridButton();
+}
+
+/**
+ * 作り直さずに、欄の中身と固まり具合だけを入れ直します
+ *
+ * ★打っている最中の欄には触りません。触ると入力の位置が飛びます。
+ */
+function renderGridFill() {
+  if (!el.cashGrid) return;
+  [...el.cashGrid.querySelectorAll('input[data-grid]')].forEach((i) => {
+    if (document.activeElement === i) return;      // ★打っている欄は、そのまま
+    const 持ち = (cashEdit[i.dataset.grid] || {})[i.dataset.name] || {};
+    const v = 持ち[i.dataset.col];
+    i.value = (v === undefined || v === null) ? '' : String(v);
+  });
+  renderGridNote();
   renderGridButton();
 }
 
