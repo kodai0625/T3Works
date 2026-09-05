@@ -1206,7 +1206,11 @@ function parseJournalCash(text) {
 /** 読む行。OCRで名前が崩れるので、短い手がかりをいくつも並べます */
 const JOURNAL_FIELDS = [
   { key: 'guests', name: '客数',
-    hit: ['客数'], skip: ['組数', '客単価', '男性', '女性', '選択なし'], unit: '客人名' },
+    // ★exact … その行そのものがこの字だけのときも、その項目とみなします。
+    //   「客数」の「数」が落ちて「客」だけになることがありました。
+    //   hit に入れると「111客」まで項目名に見えてしまうので、分けています
+    hit: ['客数'], exact: ['客'],
+    skip: ['組数', '客単価', '男性', '女性', '選択なし'], unit: '客人名' },
   { key: 'men', name: '男性',
     hit: ['男性'], skip: [], unit: '客人名' },
   { key: 'women', name: '女性',
@@ -1346,8 +1350,9 @@ function journalCandidates(lines, field, pairs) {
     const p = cashPlain(lines[i]);
     if (!p) continue;
     if (field.skip.some((ng) => p.includes(cashPlain(ng)))) continue;
-    if (!field.hit.some((h) => p.includes(cashPlain(h)))) continue;
-    if (journalLabelCount(lines[i]) > 1) continue;   // 見出しが2つ並んだ行は使いません
+    const same = (field.exact || []).some((e) => p === cashPlain(e));
+    if (!same && !field.hit.some((h) => p.includes(cashPlain(h)))) continue;
+    if (!same && journalLabelCount(lines[i]) > 1) continue;   // 見出しが2つ並んだ行は使いません
 
     // ★2まわりします。1まわり目は「¥や単位のついた、たしかな数」だけ。
     //   2まわり目でようやく、目印の無い数字を見ます。
