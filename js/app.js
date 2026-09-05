@@ -679,7 +679,7 @@ async function cashResume() {
       cashEdit.jok = true;
       render();
       setNippouMsg('前の書き込みが途中でした。続きからやり直します…');
-      await nippouSendNow(job.values, job.date, job.test, job.folder, job.extra);
+      await nippouSendNow(job.values, job.date, job.test, job.folder, job.extra, job.calc);
     }
   } finally {
     cashResuming = false;
@@ -975,37 +975,88 @@ const GridCache = {
   },
 };
 
-/** いま見ている日の、仕入先と人件費の並び */
+/**
+ * いま見ている日の、仕入先と人件費の並び
+ *
+ * ★その月のものが無ければ、**前の月のものを使います。**
+ *   仕入先は月をまたいでもほとんど変わらないので、
+ *   月が替わるたびに6店舗ぶん押してもらうのは手間だからです。
+ *   ずれていても危なくありません。書くときはA列・E列の**名前で探す**ので、
+ *   無い名前は「行が見つかりません」と出て**書かれません**。
+ *   新しく増えた仕入先を出したいときは「読み直す」を押してもらいます。
+ */
 function cashGridNow() {
   const g = GridCache.get(state.storeId, state.y, state.m);
-  return g ? nippouGridSplit(g) : null;
+  if (g) return nippouGridSplit(g);
+  // 前の月をさかのぼって探します（12か月ぶんまで）
+  let y = state.y;
+  let m = state.m;
+  for (let i = 0; i < 12; i++) {
+    m -= 1;
+    if (m < 1) { m = 12; y -= 1; }
+    const old = GridCache.get(state.storeId, y, m);
+    if (old) return nippouGridSplit(old);
+  }
+  return null;
 }
 
 /** 日報から、仕入先と人件費の並びを読んできます（書きません） */
-async function cashGridLoad() {
+async function cashGridLoad(しずかに) {
+  const 言 = (t, k) => { if (!しずかに) setNippouMsg(t, k); };
+  const store = state.storeId;
+  const y = state.y;
+  const m = state.m;
   const test = NippouTest.get();
-  const folder = test ? '' : NippouFolders.get(state.storeId);
+  const folder = test ? '' : NippouFolders.get(store);
   if (!test && !folder) {
-    setNippouMsg('日報フォルダが登録されていません。マネージの店舗一覧で登録してください', 'warn');
+    言('日報フォルダが登録されていません。マネージの店舗一覧で登録してください', 'warn');
     return;
   }
-  setNippouMsg('日報から仕入先を読んでいます…');
+  言('日報から仕入先を読んでいます…');
   try {
     const res = await Sync.ask('nippouWrite', {
-      mode: '見る', file: test, folder, day: ymd(state.y, state.m, state.d), values: {},
+      mode: '見る', file: test, folder, day: ymd(y, m, state.d), values: {},
     });
-    if (!res.ok && !res.grid) { setNippouMsg(res.error || '日報を開けませんでした', 'warn'); return; }
-    if (!nippouGasOk(res)) return;
+    if (!res.ok && !res.grid) { 言(res.error || '日報を開けませんでした', 'warn'); return; }
+    // ★静かに読んでいるときは、版が古くても画面に出しません。
+    //   日報へ書こうとしたときに、あらためて出ます
+    if (!res.v || res.v !== NIPPOU_GAS_VERSION) { if (!しずかに) nippouGasOk(res); return; }
     if (!res.grid || !res.grid.length) {
-      setNippouMsg('日報のE列に、仕入先が見つかりませんでした', 'warn'); return;
+      言('日報のE列に、仕入先が見つかりませんでした', 'warn'); return;
     }
-    GridCache.save(state.storeId, state.y, state.m, res.grid);
+    // ★読んでいるあいだに別の日・別の店舗へ移っているかもしれません。
+    //   そのときは、読んだときの店舗と月に入れます（いまの画面には混ぜません）
+    GridCache.save(store, y, m, res.grid);
     const w = nippouGridSplit(res.grid);
-    setNippouMsg(`日報から読みました（仕入先 ${w.shiire.length}件・人件費 ${w.jinken.length}件）`, 'ok');
+    言(`日報から読みました（仕入先 ${w.shiire.length}件・人件費 ${w.jinken.length}件）`, 'ok');
     render();
   } catch (e) {
-    setNippouMsg(String(e && e.message || e), 'warn');
+    言(String(e && e.message || e), 'warn');
   }
+}
+
+/** この画面を開いてから、自動で読みにいった店舗と月 */
+const gridAuto = {};
+
+/**
+ * 仕入先を、自動で読み直します
+ *
+ * ★押さなくてもよくするためのものです。
+ *   その月ぶんをまだ読んでいないときだけ、裏で1回だけ読みにいきます
+ *   （前の月の並びを出したまま読むので、待たされません。
+ *     読めたら、増えた仕入先がそのまま欄に出ます）。
+ * ★合言葉が入っていない・日報フォルダが未登録・通信できない、
+ *   のときは**黙って何もしません**。押すボタンは残してあります。
+ */
+function cashGridAuto() {
+  const key = `${state.storeId}/${state.y}-${state.m}`;
+  if (gridAuto[key]) return;                                  // この画面では1回だけ
+  if (GridCache.get(state.storeId, state.y, state.m)) return; // その月ぶんは、もうある
+  if (!Sync.enabled || !Sync.enabled() || !Sync.pin()) return;
+  const test = NippouTest.get();
+  if (!test && !NippouFolders.get(state.storeId)) return;
+  gridAuto[key] = true;
+  cashGridLoad(true);
 }
 
 /**
@@ -1036,7 +1087,10 @@ function renderGridBox() {
   const 印 = !w ? 'なし'
     : `${state.storeId}/${ymd(state.y, state.m, state.d)}/`
       + w.shiire.map((r) => r.name).join(',') + '|' + w.jinken.map((r) => r.name).join(',');
-  if (el.cashGrid.dataset.sign === 印) { renderGridFill(); return; }
+  if (el.cashGrid.dataset.sign === 印) { renderGridFill(); cashGridAuto(); return; }
+  // ★打っている最中は作り直しません（キーボードが閉じます）。
+  //   印を覚えないので、欄から離れたときに作り直されます
+  if (el.cashGrid.contains(document.activeElement)) { renderGridFill(); return; }
   el.cashGrid.dataset.sign = 印;
   el.cashGrid.innerHTML = '';
 
@@ -1045,8 +1099,9 @@ function renderGridBox() {
     b.type = 'button';
     b.className = 'btn btn--sub';
     b.textContent = '日報から仕入先を読む';
-    b.addEventListener('click', cashGridLoad);
+    b.addEventListener('click', () => cashGridLoad());
     el.cashGrid.appendChild(b);
+    cashGridAuto();          // ★はじめての店舗でも、裏で読みにいきます
     return;
   }
 
@@ -1120,9 +1175,22 @@ function renderGridBox() {
 
   節('④仕入明細', w.shiire, 'shiire', '当日現金', '掛仕入');
   節('⑤人件費', w.jinken, 'jinken', '人数', '金額');
+
+  // ★仕入先が増えたときのために、読み直せるようにしておきます。
+  //   これが無いと、増えた業者が**いつまでも出てきません**
+  const 再 = document.createElement('button');
+  再.type = 'button';
+  再.className = 'btn btn--sub';
+  再.style.fontSize = '12px';
+  再.style.padding = '6px 12px';
+  再.textContent = '日報から読み直す（仕入先が増えたとき）';
+  再.addEventListener('click', () => cashGridLoad());
+  el.cashGrid.appendChild(再);
+
   renderGridNote();
 
   renderGridButton();
+  cashGridAuto();
 }
 
 /**
@@ -1347,6 +1415,9 @@ function nippouSend() {
   const n = nippouValues(cashEdit.j || {}, cashEdit.m);
   const values = {};
   CASH_NIPPOU_ROWS.forEach((r) => {
+    // ★引くものがある行（現金売上・クレジット）は、答えではなく
+    //   **引き算の式**を入れます。nippouCalc() の方で作ります
+    if ((NIPPOU_MINUS[r.key] || []).length) return;
     if (n[r.key] !== null && n[r.key] !== undefined) values[NIPPOU_LABELS[r.key]] = n[r.key];
   });
   if (NIPPOU_WRITE_DELIVERY) {
@@ -1363,6 +1434,33 @@ function nippouSend() {
     });
   }
   return values;
+}
+
+/**
+ *  現金売上とクレジットは、答えではなく「引き算の式」で入れます
+ *
+ *      B3（現金売上）  =151967-B5-B11
+ *      B4（クレジット）=52447-B6-B12-B18
+ *
+ *  ★なぜ式にするか。ko-dai さんが日報でやっている計算そのものだからです。
+ *    あとから出前館の数字を直せば、現金売上も日報の中でひとりでに直ります。
+ *    答えだけ入れると、直したときに food が合わなくなります。
+ *  ★行番号（B5・B11）はここでは決めません。**Apps Script がA列の名前から引きます。**
+ *    ロケットナウはバグるが17行、popo が18行と、店舗でずれているためです。
+ */
+function nippouCalc() {
+  const j = cashEdit.j || {};
+  const calc = {};
+  CASH_NIPPOU_ROWS.forEach((r) => {
+    const 引く = NIPPOU_MINUS[r.key] || [];
+    if (!引く.length) return;
+    if (j[r.key] === null || j[r.key] === undefined) return;
+    calc[NIPPOU_LABELS[r.key]] = {
+      base: j[r.key],                                   // ジャーナルから読めた数
+      minus: 引く.map((k) => NIPPOU_LABELS[k]),          // 引く行の「名前」
+    };
+  });
+  return calc;
 }
 
 function setNippouMsg(text, kind) {
@@ -1421,8 +1519,9 @@ async function writeNippou() {
     // ① まず、今の中身を見に行きます（書きません）
     setNippouMsg('日報を見に行っています…');
     const extra = cashGridSend();
+    const calc = nippouCalc();
     const look = await Sync.ask('nippouWrite',
-      { mode: '見る', file: test, folder, day: dateStr, values, extra });
+      { mode: '見る', file: test, folder, day: dateStr, values, extra, calc });
     if (!look.ok) { setNippouMsg(look.error || '日報を開けませんでした', 'warn'); return; }
     // ★書く前に、Apps Script が新しい版かを見ます。
     //   ここで止めないと、古いGASが知らない書き方（計算式など）を
@@ -1448,10 +1547,10 @@ async function writeNippou() {
     cashJobSave({
       kind: 'send', store: state.storeId, date: dateStr, values, test, folder,
       sales: cashYen(el.cashSales.value), by: el.cashStaff.value,
-      j: cashEdit.j, m: cashEdit.m, sure: cashEdit.sure, extra,
+      j: cashEdit.j, m: cashEdit.m, sure: cashEdit.sure, extra, calc,
       at: new Date().toISOString(),
     });
-    await nippouSendNow(values, dateStr, test, folder, extra);
+    await nippouSendNow(values, dateStr, test, folder, extra, calc);
   } catch (e) {
     setNippouMsg(String(e && e.message || e), 'warn');
   } finally {
@@ -1465,7 +1564,7 @@ async function writeNippou() {
  *  ★writeNippou からも、続きからやり直すとき（cashResume）からも呼びます。
  *    最後まで行けたら控えを消します。
  */
-async function nippouSendNow(values, dateStr, test, folder, extra) {
+async function nippouSendNow(values, dateStr, test, folder, extra, calc) {
   // ① ★先に現金売上を確定させます（写真もドライブへ）。
   //    こちらが失敗したら日報には書きません。書いてから記録に失敗すると、
   //    日報にだけ数字が入って、手元に証拠が残らない形になってしまいます
@@ -1479,7 +1578,7 @@ async function nippouSendNow(values, dateStr, test, folder, extra) {
   // ② 書きます
   setNippouMsg('日報に書いています…');
   const res = await Sync.ask('nippouWrite',
-    { mode: '書く', file: test, folder, day: dateStr, values, extra: extra || [] });
+    { mode: '書く', file: test, folder, day: dateStr, values, extra: extra || [], calc: calc || {} });
   if (!res.ok) {
     // ★控えは消しません。通信が切れただけなら、次に開いたときに続きからやり直します
     setNippouMsg((res.error || '書けませんでした') + '　アプリを開き直すと、続きからやり直します', 'warn');
