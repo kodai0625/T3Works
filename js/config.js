@@ -2877,6 +2877,37 @@ function isShiftTester(name) {
   return String(name || '').indexOf('テスト') >= 0;
 }
 
+/** 見本（テスト用）の人の名前。店舗ごとに1人ずつ作ります */
+const SHIFT_TESTER_NAME = 'テスト';
+
+/**
+ * その店舗で「シフトに入る人」（名簿と番号）を出すか
+ *
+ * ★名簿は**全店舗**に出します。まだシフトを組んでいない店舗でも、
+ *   名前と番号を先に用意でき、見本（テスト用）も作れるようにするためです。
+ * ★シフトを**組む**ところ（希望の取り込み・表・印刷）は
+ *   SHIFT_STORES の店舗だけです（shiftBuilds）。
+ */
+function shiftRosterShows() {
+  return true;
+}
+
+/** その店舗でシフトを組むか（名簿だけの店舗と見分けます） */
+function shiftBuilds(storeId) {
+  return SHIFT_STORES.includes(storeId);
+}
+
+/**
+ * ワークスとマインの業務一覧に「シフト」を出すか
+ *
+ * ★`js/config.js` の「5) 業務の一覧」は本部のものなので、
+ *   あちらからはこの関数を呼んでもらいます。出す条件を変えたくなったら、
+ *   **ここだけ**直せば済むようにしてあります。
+ */
+function shiftTaskShows(storeId) {
+  return shiftBuilds(storeId) || shiftRosterShows(storeId);
+}
+
 /** シフトを組むときに出す人だけ（見本は外します） */
 function shiftBuildNames(storeId) {
   return ShiftStaff.list(storeId).filter((n) => !isShiftTester(n));

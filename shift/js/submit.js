@@ -33,11 +33,40 @@ const el = (id) => document.getElementById(id);
  * （こちらで名前を持っていても、送るときには使いません。
  *   なりすましの余地をなくすため、サーバーは番号だけを見ます）
  */
+/**
+ * 社員が「アルバイトの画面を見る」から開いたときの番号
+ *
+ * ★`…/shift/?見本=123456` の形で来ます。**その場かぎり**で、
+ *   端末には覚えません（社員の端末に見本の番号が残ると、
+ *   次にその人が自分の番号で開けなくなります）。
+ */
+const 見本の番号 = (() => {
+  try {
+    const v = new URL(location.href).searchParams.get('見本');
+    return v ? String(v).trim() : '';
+  } catch (e) {
+    return '';
+  }
+})();
+
 const me = {
-  code: localStorage.getItem(`${SAVE}:code`) || '',
+  code: 見本の番号 || localStorage.getItem(`${SAVE}:code`) || '',
   name: '',
   store: '',
+  // その人が入っている店舗を全部（2つ以上なら切り替えられます）
+  stores: [],
+  // 見本（テスト用）で入っているか
+  demo: false,
 };
+
+/**
+ * 見本のとき、どちらの画面を見ているか
+ *
+ * ★見本は「募集の状態にかかわらず、入力も確定後も見られる」ようにします。
+ *   社員が操作感を確かめるためのものなので、お店の都合で見えたり
+ *   見えなかったりしては用をなしません。
+ */
+let demoView = 'entry';   // 'entry'（希望を入れる）／'built'（確定後）
 
 /** サーバーが決めた、いま出す半月。null なら募集していません */
 let period = null;
@@ -65,7 +94,9 @@ async function call(body) {
     const res = await fetch(APP.syncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ code: me.code, action: 'shift', ...body }),
+      // ★見ている店舗も送ります。2店舗以上に入っている人だけ効きます
+      //   （サーバーは、その人が入っている店舗しか見ません）
+      body: JSON.stringify({ code: me.code, action: 'shift', store: me.store, ...body }),
     });
     return await res.json();
   } catch (e) {
@@ -124,6 +155,8 @@ async function submitPin() {
 function applyOpen(res) {
   me.name = res.name || '';
   me.store = res.store || '';
+  me.stores = Array.isArray(res.stores) && res.stores.length ? res.stores : [me.store];
+  me.demo = !!res.demo;
   // ★枠（立ち上げ・ランチ…）は店舗ごとに違い、マネージで直せます。
   //   このページは Store を持たないので、Apps Script が渡してくれたものを控えます。
   //   渡ってこなければ config.js の初めの形で動きます
@@ -173,10 +206,129 @@ function signOut() {
   show('gate');
 }
 
+/**
+ * 切り替えのボタンを置く場所
+ *
+ * ★index.html には足さず、ここで作って差し込みます。
+ *   出るのは「2店舗以上に入っている人」と「見本」だけなので、
+ *   ふだんの画面には何も増えません。
+ */
+function switchBox(id, before) {
+  let box = document.getElementById(id);
+  if (box) return box;
+  box = document.createElement('div');
+  box.id = id;
+  box.className = 'day__slots';
+  box.style.cssText = 'margin:10px 0;';
+  const at = el('periodMain').parentNode;
+  at.parentNode.insertBefore(box, before ? at : at.nextSibling);
+  return box;
+}
+
+/**
+ * 店舗の切り替え（2店舗以上に入っている人だけ）
+ *
+ * ★同じ番号で、入っている店舗を行き来できます。
+ *   押すとサーバーに聞き直して、その店舗の募集と枠に入れかわります。
+ */
+function renderStoreSwitch() {
+  const box = switchBox('storeSwitch', true);
+  const 出す = me.stores.length > 1;
+  box.classList.toggle('is-hidden', !出す);
+  if (!出す) return;
+  box.innerHTML = '';
+  me.stores.forEach((id) => {
+    const store = getStore(id);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'slot' + (id === me.store ? ' is-on' : '');
+    b.textContent = (store && store.name) || id;
+    b.addEventListener('click', async () => {
+      if (id === me.store) return;
+      me.store = id;
+      // 選びかけの希望は持ち越しません（店舗ごとに別のシフトなので）
+      picked = {};
+      notes = {};
+      built = null;
+      const res = await call({ mode: 'open' });
+      if (res.ok) applyOpen(res);
+      else setErr('gateErr', res.error || 'つながりませんでした');
+    });
+    box.appendChild(b);
+  });
+}
+
+/**
+ * 見本のときの「希望を入れる／確定後」の切り替え
+ *
+ * ★見本で入った人は、お店が募集していてもいなくても、
+ *   どちらの画面も見られます。操作感を確かめるためのものだからです。
+ */
+function renderDemoSwitch() {
+  const box = switchBox('demoSwitch', false);
+  box.classList.toggle('is-hidden', !me.demo);
+  if (!me.demo) return;
+  box.innerHTML = '';
+  const cap = document.createElement('span');
+  cap.textContent = '見本';
+  cap.style.cssText = 'align-self:center;font-size:12px;color:var(--text-sub);margin-right:4px;';
+  box.appendChild(cap);
+  [
+    { id: 'entry', name: '希望を入れる' },
+    { id: 'built', name: '確定後' },
+  ].forEach((v) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'slot' + (demoView === v.id ? ' is-on' : '');
+    b.textContent = v.name;
+    b.addEventListener('click', () => {
+      demoView = v.id;
+      // 確定後の見本が無ければ、その場で作ります（お店がまだ組んでいないとき）
+      if (v.id === 'built' && !(built && Object.keys(built).length)) built = demoBuilt();
+      renderPeriod();
+    });
+    box.appendChild(b);
+  });
+}
+
+/**
+ * 確定後の画面を見せるための、見本のシフト
+ *
+ * ★お店がまだ組んでいなくても「確定後に何が見えるか」を確かめられるように、
+ *   その場で作ります。**送りも保存もしません。**画面に出すだけです。
+ */
+function demoBuilt() {
+  const out = {};
+  const slots = shiftSlotsOf(me.store);
+  const 時刻で入れる = shiftUsesRange(me.store);
+  shiftDays(period.y, period.m, period.half).forEach((d, i) => {
+    if (isClosedOn(d)) return;
+    const day = { open: [], lunch: [], dinner: [], memo: i === 0 ? '見本です' : '', patty: '', short: {} };
+    slots.forEach((slot, si) => {
+      // 自分を1日おきに入れて、「自分が入っている日」も見えるようにします
+      const 入る = (i + si) % 2 === 0;
+      const t = 時刻で入れる ? ['10', '11', '17'][si % 3] : (slot.pick || slot.times[0] || '');
+      const one = { n: 入る ? me.name : '見本 花子', t, p: si % 2 ? 'h' : 'k' };
+      if (時刻で入れる) one.e = ['15', '22', '22'][si % 3];
+      day[slot.id].push(one);
+    });
+    out[d] = day;
+  });
+  return out;
+}
+
 /* -------- 2. 希望を入れる -------- */
 function renderPeriod() {
-  const canSend = !!period && phase === 'open';
-  const hasBuilt = !!(built && Object.keys(built).length);
+  renderStoreSwitch();
+  renderDemoSwitch();
+
+  // ★見本は、押した方の画面だけを出します（募集の状態は見ません）
+  const canSend = me.demo
+    ? demoView === 'entry'
+    : (!!period && phase === 'open');
+  const hasBuilt = me.demo
+    ? demoView === 'built'
+    : !!(built && Object.keys(built).length);
   el('entry').classList.toggle('is-hidden', !canSend);
   el('closedBox').classList.toggle('is-hidden', canSend || hasBuilt);
   el('builtBox').classList.toggle('is-hidden', !hasBuilt);

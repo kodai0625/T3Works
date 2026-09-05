@@ -6474,7 +6474,181 @@ function shiftOtherOpen() {
 
 /* -------- 描画 -------- */
 
+/* ============================================================
+ *  シフトに入る人（名簿と、配る番号）
+ *
+ *  ★ワークスにもマインにも、**全店舗**に出します。
+ *    名前の登録と番号の配布を、各店長にまかせるためです（ko-dai の指示・2026-09-05）。
+ *  ★番号は**伏せて**出します。ワークスはアルバイトも同じPINで入るので、
+ *    そのまま出すと「番号で本人を決める」仕組みが崩れます
+ *    （他人の番号で出せてしまいます）。「見る」を押した人の分だけ出します。
+ *  ★マネージにも同じものがあります。あちらは管理用PINの内側なので、
+ *    番号をはじめから出しています。
+ * ============================================================ */
+
+/** 番号を出している人（押した分だけ。画面を離れると忘れます） */
+let shiftCodeOpen = new Set();
+
+function renderShiftRoster(組む) {
+  let box = document.getElementById('shiftRoster');
+  if (!box) {
+    box = document.createElement('section');
+    box.id = 'shiftRoster';
+    box.className = 'card';
+    el.viewShift.insertBefore(box, el.viewShift.firstChild);
+  }
+  const store = getStore(state.storeId);
+  const people = ShiftStaff.people(state.storeId);
+  const 見本 = people.find((p) => isShiftTester(p.n));
+  box.innerHTML = '';
+
+  const h = document.createElement('h2');
+  h.className = 'card__title';
+  h.textContent = 'シフトに入る人';
+  box.appendChild(h);
+
+  const note = document.createElement('p');
+  note.className = 'card__note';
+  note.innerHTML = '1行に1人。保存すると<b>1人ずつに番号</b>が作られます。'
+    + 'その番号を本人に送ってください。<br>'
+    + '<b>番号は本人だけのもの</b>です。ほかの人に見せないでください'
+    + '（番号を知っていれば、その人として出せてしまいます）。<br>'
+    + '名前を消しても、<b>組みおわったシフトはそのまま残ります</b>。'
+    + (組む ? '' : '<br>この店舗は、まだシフトを組んでいません。名前と番号だけ先に用意できます。');
+  box.appendChild(note);
+
+  const area = document.createElement('textarea');
+  area.className = 'field__input field__input--area';
+  area.rows = Math.max(6, people.length + 2);
+  area.value = people.map((p) => p.n).join('\n');
+  area.placeholder = 'ほのか\nわかな\nそう';
+  box.appendChild(area);
+
+  const row = document.createElement('div');
+  row.className = 'card__actions';
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'btn btn--primary';
+  save.textContent = '名前を保存';
+  save.addEventListener('click', () => {
+    ShiftStaff.saveFromText(state.storeId, area.value);
+    renderKeepScroll();
+  });
+  row.appendChild(save);
+
+  if (!見本) {
+    const demo = document.createElement('button');
+    demo.type = 'button';
+    demo.className = 'btn';
+    demo.textContent = '見本（テスト用）を作る';
+    demo.title = 'アルバイトの画面を見るための、この店舗の見本を作ります';
+    demo.addEventListener('click', () => {
+      const now = ShiftStaff.people(state.storeId).map((p) => p.n);
+      ShiftStaff.saveFromText(state.storeId, now.concat([SHIFT_TESTER_NAME]).join('\n'));
+      renderKeepScroll();
+    });
+    row.appendChild(demo);
+  }
+  box.appendChild(row);
+
+  box.appendChild(shiftCodeList(store, people));
+}
+
+/** 配る番号の一覧。番号は押した人の分だけ出します */
+function shiftCodeList(store, people) {
+  const wrap = document.createElement('div');
+  if (!people.length) {
+    const p = document.createElement('p');
+    p.className = 'card__note';
+    p.textContent = '名前を保存すると、ここに番号が出ます。';
+    wrap.appendChild(p);
+    return wrap;
+  }
+
+  const h = document.createElement('h3');
+  h.className = 'card__sub';
+  h.textContent = '配る番号';
+  wrap.appendChild(h);
+
+  const url = document.createElement('p');
+  url.className = 'card__note';
+  url.innerHTML = `提出ページのURLは <b>${new URL(SHIFT_SUBMIT_PATH, location.href).href}</b>（全員おなじです）。<br>`
+    + '<b>ほかの店舗にも同じ名前</b>があると、その人は<b>同じ人</b>として、'
+    + '提出ページで店舗を切り替えられます。別人なら、名前を変えて分けてください。';
+  wrap.appendChild(url);
+
+  people.forEach((p) => {
+    const line = document.createElement('div');
+    line.className = 'shift-code';
+    // ★見た目は css/style.css（本部のもの）に足さず、ここで持たせます
+    line.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;'
+      + 'padding:8px 0;border-bottom:1px solid var(--line);';
+    const name = document.createElement('b');
+    name.textContent = p.n + (isShiftTester(p.n) ? '（見本）' : '');
+    line.appendChild(name);
+
+    const code = document.createElement('span');
+    code.className = 'shift-code__num';
+    code.style.cssText = 'font-family:ui-monospace,monospace;letter-spacing:.08em;'
+      + 'color:var(--text-sub);min-width:6.5em;';
+    const 出す = shiftCodeOpen.has(p.c);
+    code.textContent = 出す ? p.c : '••••••';
+    line.appendChild(code);
+
+    const see = document.createElement('button');
+    see.type = 'button';
+    see.className = 'btn btn--small';
+    see.textContent = 出す ? '隠す' : '見る';
+    see.addEventListener('click', () => {
+      if (出す) shiftCodeOpen.delete(p.c); else shiftCodeOpen.add(p.c);
+      renderKeepScroll();
+    });
+    line.appendChild(see);
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn--small';
+    copy.textContent = 'コピー';
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(p.c);
+        copy.textContent = 'コピーしました';
+        setTimeout(() => { copy.textContent = 'コピー'; }, 1500);
+      } catch (e) {
+        // コピーできない端末では、代わりに番号を出します
+        shiftCodeOpen.add(p.c);
+        renderKeepScroll();
+      }
+    });
+    line.appendChild(copy);
+
+    // ★見本は、社員がその場でアルバイトの画面を開けるようにします
+    if (isShiftTester(p.n)) {
+      const open = document.createElement('a');
+      open.className = 'btn btn--small';
+      open.href = `${SHIFT_SUBMIT_PATH}?見本=${encodeURIComponent(p.c)}`;
+      open.target = '_blank';
+      open.rel = 'noopener';
+      open.textContent = 'アルバイトの画面を見る';
+      line.appendChild(open);
+    }
+    wrap.appendChild(line);
+  });
+  return wrap;
+}
+
 function renderShift() {
+  // ★名簿（シフトに入る人）は全店舗に出します。シフトを組むところは
+  //   SHIFT_STORES の店舗だけです。組まない店舗では、名簿だけを出して
+  //   あとは隠します（空の表を見せても、できることが無いためです）
+  const 組む = shiftBuilds(state.storeId);
+  renderShiftRoster(組む);
+  [...el.viewShift.children].forEach((c) => {
+    if (c.id === 'shiftRoster') return;
+    c.classList.toggle('is-hidden', !組む);
+  });
+  if (!組む) return;
+
   el.shiftNavMain.textContent = `${shiftRangeLabel(state.y, state.m, shiftHalf)}`;
   el.shiftNavSub.textContent = `${state.y}年${state.m}月 ${shiftHalf === 1 ? '前半' : '後半'}`;
 
