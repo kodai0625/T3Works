@@ -1017,9 +1017,17 @@ function cashNormalize(line) {
     .replace(/[￥]/g, '¥')
     .replace(/,\s+(?=\d)/g, ',')    // 「205, 946」のように空きが入ることがあります
     // ★OCRが旧字や似た字で読むことがあります。実際に「消費稅」と出ました
+    // ★旧字・異体字をそろえます。実際に出たもの：
+    //   「消費稅」／「(內消費税」（内ではなく內）。
+    //   一文字ちがうだけで「内消費税を除く」が効かなくなり、
+    //   8%の内消費税を合計と取りちがえました
     .replace(/稅/g, '税')
+    .replace(/內/g, '内')
     .replace(/賣/g, '売')
-    .replace(/數/g, '数');
+    .replace(/數/g, '数')
+    .replace(/當/g, '当')
+    .replace(/營/g, '営')
+    .replace(/圓/g, '円');
 }
 
 /** 文字を数にする（「6,930」「6.930」→ 6930。数でなければ null） */
@@ -2907,19 +2915,43 @@ function makeShiftCode(used) {
  *  読むのは日報の「まとめ」ページの5か所だけ。残り（客単価・原価率・F/L・
  *  累計）は、この5つからアプリが計算します。光熱費は日報に無いので手入力です。
  *
- *  ★バグるだけ日報の様式が6行上にずれています（店舗で項目が違うため）。
- *    様式が変わったときは、ここを直してアプリを入れ直せば直ります
- *    （Apps Script は「言われたセルを読むだけ」なので、貼り直しは要りません）。
+ *  ★日報の様式は途中で変わります。バグるは2026年8月まで6行上にずれていて
+ *    （店舗で項目が違うため）、9月からほかの店舗と同じ行になり、
+ *    原価が F24 と G24 の2つに分かれました。
+ *
+ *  ★取り込みでは、去年の同じ月も一緒に読みます。様式が変わった年は
+ *    「今年は新しい配置・去年は古い配置」になるので、配置は店舗ごとに
+ *    「この年月から」を並べて持ち、読む年月で選び分けます。
+ *    様式が変わったら NIPPOU_LAYOUTS に1つ足して、アプリを入れ直せば直ります
+ *    （Apps Script は「言われたマスを読むだけ」なので、貼り直しは要りません）。
  * ---------------------------------------------------------- */
-const NIPPOU_CELLS_DEFAULT = {
-  inc: 'B24',      // 売上の税込累計
-  ex: 'B25',       // 売上の税抜累計
-  guests: 'B28',   // 客数累計
-  cost: 'G24',     // 仕入の税込累計＝原価
-  labor: 'G32',    // 人件費の当月累計
-};
-const NIPPOU_CELLS = {
-  baguru: { inc: 'B18', ex: 'B19', guests: 'B22', cost: 'G18', labor: 'G26' },
+
+/**
+ * 日報の「まとめ」の、どこを読むか
+ *
+ *   from  … この年月（YYYYMM）から、この配置になります。0 は「ずっと前から」
+ *   cells … 読むところ。1つのマスなら文字列、足すなら配列で書きます
+ */
+const NIPPOU_LAYOUTS_DEFAULT = [
+  {
+    from: 0,
+    cells: {
+      inc: 'B24',      // 売上の税込累計
+      ex: 'B25',       // 売上の税抜累計
+      guests: 'B28',   // 客数累計
+      cost: 'G24',     // 仕入の税込累計＝原価
+      labor: 'G32',    // 人件費の当月累計
+    },
+  },
+];
+
+const NIPPOU_LAYOUTS = {
+  baguru: [
+    // 2026年8月まで。ほかの店舗より6行上にずれていました
+    { from: 0, cells: { inc: 'B18', ex: 'B19', guests: 'B22', cost: 'G18', labor: 'G26' } },
+    // 2026年9月から。行はほかの店舗と同じになり、原価が F24 と G24 に分かれました
+    { from: 202609, cells: { inc: 'B24', ex: 'B25', guests: 'B28', cost: ['F24', 'G24'], labor: 'G32' } },
+  ],
 };
 /** 日報から取り込む項目（光熱費とキャッチは入りません） */
 const NIPPOU_FIELDS = ['inc', 'ex', 'guests', 'cost', 'labor'];
@@ -2941,8 +2973,76 @@ const MEETING_UTIL_ROWS = [
 const MEETING_UTIL_FIELDS = MEETING_UTIL_ROWS
   .reduce((a, r) => a.concat([r.key, r.use]), []);
 
-function nippouCells(storeId) {
-  return NIPPOU_CELLS[storeId] || NIPPOU_CELLS_DEFAULT;
+/** 年と月を YYYYMM の数にします */
+function nippouYm(y, m) {
+  return (Number(y) || 0) * 100 + (Number(m) || 0);
+}
+
+/** その年月（YYYYMM）の日報を読むときの配置 */
+function nippouCells(storeId, ym) {
+  const list = NIPPOU_LAYOUTS[storeId] || NIPPOU_LAYOUTS_DEFAULT;
+  const n = Number(ym) || 0;
+  let hit = list[0];
+  list.forEach((l) => { if (n >= l.from && l.from >= hit.from) hit = l; });
+  return hit.cells;
+}
+
+/**
+ * GAS に「読んでほしいマス」を渡す形にします
+ *
+ * ★キーをマスの名前そのものにしています。こうしておくと、今年と去年で
+ *   様式が違っても、GAS は言われたマスを読んで同じ名前で返すだけで済みます
+ *   （どちらの年の配置なのかは、返ってきてからアプリが組み立てます）。
+ */
+function nippouAsk(storeId, y, m) {
+  const want = {};
+  [y, y - 1].forEach((year) => {
+    const cells = nippouCells(storeId, nippouYm(year, m));
+    NIPPOU_FIELDS.forEach((f) => {
+      [].concat(cells[f] || []).forEach((a) => { want[a] = a; });
+    });
+  });
+  return want;
+}
+
+/** 読んだ数（マスの名前で入っています）から、その年月の5項目を組み立てます */
+function nippouPick(storeId, ym, got) {
+  const cells = nippouCells(storeId, ym);
+  const out = {};
+  NIPPOU_FIELDS.forEach((f) => {
+    let sum = 0;
+    let ok = false;
+    [].concat(cells[f] || []).forEach((a) => {
+      if (typeof got[a] === 'number') { sum += got[a]; ok = true; }
+    });
+    if (ok) out[f] = sum;
+  });
+  return out;
+}
+
+/**
+ * 読んだ数が、日報としてありえる形かを見ます
+ *
+ * ★様式が変わったのに配置が古いままだと、まるで別のマスを読みます。
+ *   0 になるとは限らず、それらしい数が入ってしまうことがあります。
+ *   まちがった数を会議資料に入れるくらいなら、入れずに知らせます。
+ *
+ * 返すのは、おかしいときだけ理由の文です。問題なければ空です。
+ */
+function nippouCheck(o) {
+  const yen = (n) => '¥' + Math.round(Number(n) || 0).toLocaleString('ja-JP');
+  const inc = o.inc || 0;
+  const ex = o.ex || 0;
+  if (inc <= 0 || ex <= 0) return '売上が読めません';
+  if (ex > inc) return `税抜 ${yen(ex)} が税込 ${yen(inc)} より大きいです`;
+  if (ex < inc * 0.8) return `税抜 ${yen(ex)} が税込 ${yen(inc)} に対して小さすぎます`;
+  const guests = o.guests || 0;
+  if (guests <= 0) return '客数が読めません';
+  const per = ex / guests;
+  if (per < 500 || per > 20000) return `客単価が ${yen(per)} になります`;
+  if ((o.cost || 0) > inc) return `原価 ${yen(o.cost)} が売上より大きいです`;
+  if ((o.labor || 0) > inc) return `人件費 ${yen(o.labor)} が売上より大きいです`;
+  return '';
 }
 
 /** 店舗ごとの日報フォルダ（マネージで登録するまでは空） */

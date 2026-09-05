@@ -3943,7 +3943,7 @@ async function pullNippou() {
     y,
     m,
     stores: targets.map((s) => ({
-      id: s.id, folder: NippouFolders.idOf(s.id), cells: nippouCells(s.id),
+      id: s.id, folder: NippouFolders.idOf(s.id), cells: nippouAsk(s.id, y, m),
     })),
   });
 
@@ -3958,19 +3958,23 @@ async function pullNippou() {
       const got = (res.stores || {})[s.id] || {};
       const val = {};
       const parts = [];
+      let ng = false;
       [['now', y], ['last', y - 1]].forEach(([side, year]) => {
         const g = got[side];
         if (!g || g.error) { parts.push(`${year}年 ${(g && g.error) || '読めません'}`); return; }
-        const o = {};
-        NIPPOU_FIELDS.forEach((f) => { if (typeof g[f] === 'number') o[f] = g[f]; });
+        // 年ごとに配置が違うことがあるので、その年月の配置で組み立てます
+        const o = nippouPick(s.id, nippouYm(year, m), g);
         // 売上が0の日報は、まだ書きこまれていないものとして入れません
         if (!o.inc && !o.ex) { parts.push(`${g.name || year} まだ数字が入っていません`); return; }
+        // ★検算。日報としてありえない数なら、入れずに知らせます
+        const hen = nippouCheck(o);
+        if (hen) { ng = true; parts.push(`${g.name || `${year}年`} ★${hen}`); return; }
         val[side] = o;
         // どのファイルを読んだかを出します（月がずれていないか、ここで分かります）
         parts.push(`${g.name || `${year}年`} ✓`);
       });
       if (val.now || val.last) Store.setItem(MEETING_STORE, key, `num:${s.id}`, { value: val });
-      lines.push({ ok: !!val.now, name: s.name, text: parts.join('　') });
+      lines.push({ ok: !ng && !!val.now, name: s.name, text: parts.join('　') });
     });
     meetingSeq += 1;
   }
