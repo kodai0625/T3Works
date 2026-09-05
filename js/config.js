@@ -936,6 +936,23 @@ const ANYTIME_KEY = 'ANYTIME';
 /** その日の記録の中で、現金売上を入れておく項目名（チェック項目とはぶつかりません） */
 const CASH_ITEM = '__cash';
 
+/**
+ * 手で入れる分の「書きかけ」を入れておく項目名
+ *
+ * ★なぜ CASH_ITEM と分けるか。
+ *   CASH_ITEM は「記録した日」の印にもなっていて、月の一覧や週の表が
+ *   それを見て『記録ずみ』を数えます。書きかけをそこに混ぜると、
+ *   まだ記録していない日が記録ずみに見えてしまいます。
+ *
+ * ★中身
+ *   m      … 出前館・ウーバー・ロケットナウ（NIPPOU_LABELS のキー）
+ *   shiire … 仕入明細   { '仕入先の名前': { f: 当日現金, g: 掛仕入 } }
+ *   jinken … 人件費     { '社員': { f: 人数, g: 金額 } }
+ *
+ *   どれも「入れた文字そのまま」です（計算式のまま覚えます）。
+ */
+const CASH_HAND = '__cashHand';
+
 /** その日が入る週の月曜（'YYYY-MM-DD'）を返します */
 function cashWeekStart(y, m, d) {
   const t = new Date(y, m - 1, d);
@@ -1808,6 +1825,72 @@ function cashMinusOr0(v) {
   return n === null ? 0 : n;
 }
 
+/* ------------------------------------------------------------
+ *  仕入明細と人件費（日報のE列）
+ *
+ *  日報の日別ページは、右半分がこうなっています。
+ *
+ *      E列（名前）      F列        G列
+ *      ④仕入明細
+ *      仕入先          当日現金    掛仕入     ← 見出し
+ *      酒のシバタ       …          …
+ *      （…仕入先が並ぶ…）
+ *      買い出し
+ *      当日総合計       0          74,852     ← ここから下は日報の計算
+ *      ⑤人件費
+ *      区分            人数        金額       ← 見出し
+ *      社員                        26,666
+ *      アルバイト                  34,647
+ *      交通費           6          1,800
+ *
+ *  ★仕入先はアプリに持ちません。日報のE列にあるものが正です。
+ *    店舗ごとに違い、業者が増えることもあるので、
+ *    持たせるとすぐ古くなります（行番号で覚えないのと同じ考えです）。
+ * ---------------------------------------------------------- */
+
+/** 見出しの名前（空きや全角を落として見くらべます） */
+const NIPPOU_E_MARKS = {
+  shiireHead: '仕入先',
+  jinkenHead: '区分',
+};
+
+/** そこで打ち切る行（ここから下は日報が計算する所です） */
+function nippouEStop(name) {
+  const p = String(name || '').replace(/[\s　]/g, '');
+  if (/合計|累計|税抜/.test(p)) return true;
+  // 「⑤人件費」「⑥来店経路」のような、次の節の見出し
+  if (/^[①-⑳]/.test(p)) return true;
+  return false;
+}
+
+/**
+ * 日報から返ってきたE列の並びを、仕入と人件費に切り分けます
+ *
+ *   grid … [{ row, name, f, g, fx, gx }, …]
+ *   返り … { shiire: [...], jinken: [...] }
+ *
+ * ★見出し（「仕入先」「区分」）の次の行から、合計・累計・次の節の手前までを取ります。
+ *   行番号は使いません。様式が変わってもついていけます。
+ */
+function nippouGridSplit(grid) {
+  const rows = Array.isArray(grid) ? grid : [];
+  const out = { shiire: [], jinken: [] };
+  const 拾う = (見出し) => {
+    const at = rows.findIndex((r) =>
+      String(r.name || '').replace(/[\s　]/g, '') === 見出し);
+    if (at < 0) return [];
+    const got = [];
+    for (let i = at + 1; i < rows.length; i++) {
+      if (nippouEStop(rows[i].name)) break;
+      got.push(rows[i]);
+    }
+    return got;
+  };
+  out.shiire = 拾う(NIPPOU_E_MARKS.shiireHead);
+  out.jinken = 拾う(NIPPOU_E_MARKS.jinkenHead);
+  return out;
+}
+
 /** 日報に書く前の引き算。手で入れてもらう分を差し引きます */
 const NIPPOU_MINUS = {
   cash:   ['demaeCash', 'uberCash'],
@@ -1886,7 +1969,7 @@ const CASH_GAS_VERSION = 'be61a736';
  *   古いGASのままだと「入れた式を次の日に書き直せない」状態になりました。
  *   そこで書く前に版を見くらべ、食いちがっていれば**書かせません**。
  */
-const NIPPOU_GAS_VERSION = 'dc416a66';
+const NIPPOU_GAS_VERSION = '6529c91d';
 
 
 /* ------------------------------------------------------------
