@@ -11,9 +11,23 @@
  *  使い方
  *    渡すのは「モデル」だけです（どこからデータを持ってくるかは、
  *    呼ぶ側それぞれの都合にまかせます）。
- *      { title, blocks: [ { head:[…], rows:[…], memo:[…] } ] }
+ *      { title, slots:[…], blocks: [ { head:[…], rows:[…], memo:[…] } ] }
  *    drawShiftSheet(canvas, model) で canvas に描きます。
  * ============================================================ */
+
+/**
+ * この表の枠（立ち上げ・ランチ・ディナー…）
+ *
+ * ★店舗ごとに枠が違うので、**呼ぶ側がモデルに入れて渡します**。
+ *   この絵を描くところは店舗を知りません（提出ページからも呼ばれ、
+ *   そちらは Store を持たないためです）。
+ *   入っていなければ、行の数から数えます（古い呼び方への備えです）。
+ */
+function sheetSlots(model) {
+  if (model && Array.isArray(model.slots) && model.slots.length) return model.slots;
+  const rows = (model && model.blocks && model.blocks[0] && model.blocks[0].rows) || [];
+  return rows.map((r, i) => ({ id: i === 0 ? 'open' : `row${i}`, name: r.label || '' }));
+}
 
 /**
  * 名前1人分の幅を、実際の字で測ります（名前の大きさの何倍か）
@@ -123,7 +137,7 @@ function shiftPrintEm(model) {
  * ★足りない印の赤いあきも、1人分の場所を取るので数に入れます。
  */
 function shiftSlotNeed(model) {
-  return SHIFT_SLOTS.map((slot, si) => {
+  return sheetSlots(model).map((slot, si) => {
     let n = 0;
     model.blocks.forEach((b) => {
       const row = b.rows[si];
@@ -382,14 +396,14 @@ function drawShiftSheet(canvas, model, scale) {
   // ★ランチとディナーは、多い方に合わせて同じ高さにします
   //   （どちらにも同じ人数を入れられるように）
   const share = Math.max(3, need[1] || 0, need[2] || 0);
-  const weight = SHIFT_SLOTS.map((slot, si) => (slot.id === 'open'
+  const weight = sheetSlots(model).map((slot, si) => (slot.id === 'open'
     // 立ち上げは1人分で足りますが、低すぎると縦書きの枠名が入らないので
     // 少しだけ多めに取ります
     ? Math.max(need[si] || 0, 1.6)
     : share));
   const unit = weight.reduce((a, b) => a + b, 0);
   const room = Math.max(unit * (lh + 8), H - y - pad - fixed);
-  const slotH = SHIFT_SLOTS.map((slot, i) => (room / blocks) * (weight[i] / unit));
+  const slotH = sheetSlots(model).map((slot, i) => (room / blocks) * (weight[i] / unit));
 
   model.blocks.forEach((block, bi) => {
     const top = y;

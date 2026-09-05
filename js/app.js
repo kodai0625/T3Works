@@ -6083,7 +6083,7 @@ function shiftDayOf(rec, dateStr) {
     .filter((e) => e && !isShiftTester(e.n))
     .map((e) => (
       e.t === '' || e.t === undefined || e.t === null
-        ? { ...e, t: shiftDefaultTime(id) }
+        ? { ...e, t: shiftDefaultTime(state.storeId, id) }
         : e
     )));
   return {
@@ -6224,7 +6224,7 @@ function shiftSort(list) {
 function shiftPlacedOn(rec, dateStr, name) {
   const day = shiftDayOf(rec, dateStr);
   const out = [];
-  SHIFT_SLOTS.forEach((slot) => {
+  shiftSlotsOf(state.storeId).forEach((slot) => {
     day[slot.id].forEach((e) => {
       if (e.n === name) out.push({ slot: slot.id, t: e.t, f: !!e.f });
     });
@@ -6326,7 +6326,7 @@ function shiftTake() {
       });
     }
 
-    SHIFT_SLOTS.forEach((slot) => {
+    shiftSlotsOf(state.storeId).forEach((slot) => {
       shiftWishInto(wishes, dateStr, slot.id).forEach((w) => {
         // 立ち上げで出している人の、そのあとの分（ランチ／F）は入れません
         if (slot.id !== 'open' && openWish.has(w.name)) return;
@@ -6339,7 +6339,7 @@ function shiftTake() {
         //   決めていない人は、ひとまず左の持ち場（キッチン）です
         const entry = {
           n: w.name,
-          t: w.t || shiftDefaultTime(w.s),
+          t: w.t || shiftDefaultTime(state.storeId, w.s),
           p: ShiftStaff.laneOf(state.storeId, w.name) || SHIFT_LANES[0].id,
         };
         if (w.full || (slot.id === 'open' && pairFull.has(w.name))) entry.f = true;
@@ -6350,7 +6350,7 @@ function shiftTake() {
     });
 
     if (touched) {
-      SHIFT_SLOTS.forEach((slot) => { day[slot.id] = shiftSort(day[slot.id]); });
+      shiftSlotsOf(state.storeId).forEach((slot) => { day[slot.id] = shiftSort(day[slot.id]); });
       saveShiftDay(dateStr, day);
     }
   });
@@ -6415,7 +6415,7 @@ async function buildShiftDone() {
     .filter((s) => !shiftClosedOn(s))
     .reduce((sum, s) => {
       const day = shiftDayOf(rec, s);
-      return sum + SHIFT_SLOTS.reduce((k, slot) => k + day[slot.id].length, 0);
+      return sum + shiftSlotsOf(state.storeId).reduce((k, slot) => k + day[slot.id].length, 0);
     }, 0);
 
   const ok = await askConfirm({
@@ -6556,7 +6556,7 @@ function shiftGridBlock(rec, wishes, days) {
   table.appendChild(lanes);
 
   /* 枠ごとの行 */
-  SHIFT_SLOTS.forEach((slot, si) => {
+  shiftSlotsOf(state.storeId).forEach((slot, si) => {
     const tr = document.createElement('tr');
     const th = document.createElement('th');
     th.className = `shift-grid__slot shift-grid__slot--${slot.id}`;
@@ -6570,7 +6570,7 @@ function shiftGridBlock(rec, wishes, days) {
           const td = document.createElement('td');
           td.className = 'is-closed';
           td.colSpan = SHIFT_LANES.length;
-          td.rowSpan = SHIFT_SLOTS.length;
+          td.rowSpan = shiftSlotsOf(state.storeId).length;
           td.textContent = '定休日';
           tr.appendChild(td);
         }
@@ -6657,7 +6657,7 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     chip.dataset.n = e.n;
     chip.addEventListener('pointerdown', (ev) => startShiftDrag(ev, chip));
     chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
-    chip.textContent = shiftNameText(slot.id, e);
+    chip.textContent = shiftNameText(state.storeId, slot.id, e);
     // ★通しの人は名前のうしろに F。塗りだけだと、ぱっと見て分かりません
     if (e.f) {
       const mark = document.createElement('b');
@@ -6692,7 +6692,7 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
   // 左の持ち場にだけ出します（両方に出すと二重に数えたように見えます）。
   // ★数えるのは「その日のどこにも入っていない人」です。立ち上げから
   //   ランチへ回した人まで数えると、いつまでも減らないためです
-  const inDay = (n) => SHIFT_SLOTS.some((sl) => day[sl.id].some((e) => e.n === n));
+  const inDay = (n) => shiftSlotsOf(state.storeId).some((sl) => day[sl.id].some((e) => e.n === n));
   const rest = first
     ? shiftWishInto(wishes, dateStr, slot.id).filter((w) => !inDay(w.name)).length
     : 0;
@@ -6755,7 +6755,7 @@ function shiftPattyBox(day, dateStr) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'shift-patty' + (now ? ' is-on' : '');
-    b.textContent = now ? `パティ：${getShiftSlot(now).name}` : 'パティ';
+    b.textContent = now ? `パティ：${getShiftSlot(state.storeId, now).name}` : 'パティ';
     b.title = 'この日のパティの枠を選ぶ';
     b.addEventListener('click', () => { pattyOpen = dateStr; render(); });
     box.appendChild(b);
@@ -6767,7 +6767,7 @@ function shiftPattyBox(day, dateStr) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'shift-patty' + (now === id ? ' is-on' : '');
-    b.textContent = id ? getShiftSlot(id).name : 'なし';
+    b.textContent = id ? getShiftSlot(state.storeId, id).name : 'なし';
     b.addEventListener('click', () => {
       const fresh = shiftDayOf(shiftRec(), dateStr);
       fresh.patty = id;
@@ -6959,7 +6959,7 @@ function moveShiftChip(from, to) {
 
   const moved = { ...entry, p: to.lane };
   // 枠が変わったら、時刻はその枠のふだんの時刻に入れかえます
-  if (from.slot !== to.slot) moved.t = shiftDefaultTime(to.slot);
+  if (from.slot !== to.slot) moved.t = shiftDefaultTime(state.storeId, to.slot);
 
   if (from.date === to.date) {
     dayFrom[from.slot].splice(at, 1);
@@ -6982,7 +6982,7 @@ function moveShiftChip(from, to) {
 
 function openShiftPick(dateStr, slotId, laneId, index) {
   shiftPickAt = { dateStr, slotId, laneId, index, time: '', full: undefined };
-  const slot = getShiftSlot(slotId);
+  const slot = getShiftSlot(state.storeId, slotId);
   const lane = SHIFT_LANES.find((l) => l.id === laneId) || SHIFT_LANES[0];
   const [, m, d] = dateStr.split('-').map(Number);
   const dow = new Date(dateStr.replace(/-/g, '/')).getDay();
@@ -7001,7 +7001,7 @@ function closeShiftPick() {
 function renderShiftPick() {
   if (!shiftPickAt) return;
   const { dateStr, slotId, index } = shiftPickAt;
-  const slot = getShiftSlot(slotId);
+  const slot = getShiftSlot(state.storeId, slotId);
   const rec = shiftRec();
   const day = shiftDayOf(rec, dateStr);
   const entry = index === null ? null : day[slotId][index];
@@ -7092,7 +7092,7 @@ function renderShiftPick() {
   if (index === null) {
     // その日のどこかに入っている人は、もう出しません（二重に入れないため）
     const already = [];
-    SHIFT_SLOTS.forEach((sl) => day[sl.id].forEach((e) => already.push(e.n)));
+    shiftSlotsOf(state.storeId).forEach((sl) => day[sl.id].forEach((e) => already.push(e.n)));
     const wish = shiftWishInto(shiftWishes(rec), dateStr, slotId)
       .filter((w) => !already.includes(w.name));
     const others = shiftBuildNames(state.storeId)
@@ -7115,7 +7115,7 @@ function renderShiftPick() {
         b.textContent = (isWish && item.full ? 'F ' : '') + name + when;
         b.addEventListener('click', () => {
           const now = shiftDayOf(shiftRec(), dateStr);
-          const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(slotId);
+          const t = shiftPickAt.time || (isWish && item.t) || shiftDefaultTime(state.storeId, slotId);
           // 通しかどうかは、押した切り替え → その人の希望、の順で決めます
           const full = shiftPickAt.full !== undefined ? shiftPickAt.full : !!(isWish && item.full);
           const add = { n: name, t, p: shiftPickAt.laneId };
@@ -7130,9 +7130,10 @@ function renderShiftPick() {
         grid.appendChild(b);
 
         // 立ち上げに希望を出した人には、時間をずらして入れる道も出します。
-        // 立ち上げが多い日に、押すだけでランチへ回せるようにするためです
-        if (slotId === 'open' && isWish) {
-          const to = shiftSpillTo();
+        // 立ち上げが多い日に、押すだけでランチへ回せるようにするためです。
+        // ★ランチを使っていない店舗（夜だけのお店）では、回し先が無いので出しません
+        const to = slotId === 'open' && isWish ? shiftSpillTo(state.storeId) : null;
+        if (to) {
           const spill = document.createElement('button');
           spill.type = 'button';
           spill.className = 'shift-spill';
@@ -7380,7 +7381,7 @@ function openShiftWishes() {
 
       // 実際に入っている分。こちらが本物なので、濃い色で出します
       mine.forEach((e) => {
-        const slot = getShiftSlot(e.slot);
+        const slot = getShiftSlot(state.storeId, e.slot);
         const chip = document.createElement('span');
         // F（通し）は、ランチの枠にいても F の色で出します
         const kind = e.f ? SHIFT_FULL_ID : e.slot;
@@ -7395,7 +7396,7 @@ function openShiftWishes() {
       // 出したのに入っていない日。薄く出して、拾い残しが見えるようにします
       if (!mine.length) {
         list.forEach((e) => {
-          const slot = getShiftSlot(e.s);
+          const slot = getShiftSlot(state.storeId, e.s);
           if (!slot) return;
           const chip = document.createElement('span');
           chip.className = `wish-chip wish-chip--${e.s} is-yet`;
@@ -7428,7 +7429,7 @@ function openShiftWishes() {
   legend.className = 'wish-legend';
   legend.innerHTML =
     '<p class="wish-legend__slots">'
-    + shiftWishSlots()
+    + shiftWishSlots(state.storeId)
       .map((sl) => `<span class="wish-chip wish-chip--${sl.id}">${sl.name}</span>`).join('')
     + '</p>'
     + [
@@ -7473,7 +7474,7 @@ function shiftSheetModel() {
       };
     });
 
-    const rows = SHIFT_SLOTS.map((slot) => ({
+    const rows = shiftSlotsOf(state.storeId).map((slot) => ({
       label: slot.name,
       cells: part.flatMap((s) => {
         const day = shiftDayOf(rec, s);
@@ -7484,8 +7485,8 @@ function shiftSheetModel() {
           names: shiftClosedOn(s) ? [] : day[slot.id]
             .filter((e) => shiftLaneOf(e) === lane.id)
             .map((e) => ({
-              text: shiftNameText(slot.id, e),
-              parts: shiftNameParts(slot.id, e),
+              text: shiftNameText(state.storeId, slot.id, e),
+              parts: shiftNameParts(state.storeId, slot.id, e),
               full: !!e.f, early: !!e.early,
             })),
         }));
@@ -7498,6 +7499,8 @@ function shiftSheetModel() {
 
   return {
     title: `${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト表`,
+    // ★枠は店舗ごとに違います。絵を描くところは店舗を知らないので、ここで渡します
+    slots: shiftSlotsOf(state.storeId),
     blocks,
   };
 }
@@ -7718,7 +7721,7 @@ async function loadShiftSeed() {
 
   const one = (a, slot) => ({
     n: a[0],
-    t: a[2] || shiftDefaultTime(slot),
+    t: a[2] || shiftDefaultTime(state.storeId, slot),
     p: a[1],
     ...(a[3] === 'F' ? { f: true } : {}),
   });

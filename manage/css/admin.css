@@ -343,3 +343,22 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 .uregi__table tfoot th { font-weight: 800; }
 .uregi__ok { color: var(--text-weak); font-size: 12px; margin: 8px 0 0; }
 .uregi__error { color: #c0392b; font-size: 13px; font-weight: 700; margin: 8px 0 0; }
+
+/* -------- シフトの枠と時刻 --------
+   1つの枠を1かたまりにして、「使う」のチェックを頭に置きます。
+   枠を使わない設定にしたときは、中の入力をうすくして分かるようにします */
+.shift-slot {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px 2px;
+  margin-bottom: 10px;
+}
+.shift-slot__use {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.shift-slot__use b { font-size: 13.5px; }
+.shift-slot .field { margin-bottom: 10px; }

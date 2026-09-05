@@ -16,7 +16,8 @@
  *    募集していない先の月は出ませんし、確定したあとは出せなくなります。
  *
  *  枠と時刻の決まりは、アプリ本体と同じ config.js から読んでいます。
- *  ★時刻を足したいときは js/config.js の SHIFT_SLOTS を直せば、
+ *  ★時刻はマネージの「シフトの枠と時刻」で店舗ごとに直せます。
+ *    初めの形は js/config.js の SHIFT_SLOTS_DEFAULT です。そこを直せば、
  *    この画面にも組む画面にも同時に反映されます。
  * ============================================================ */
 
@@ -123,6 +124,10 @@ async function submitPin() {
 function applyOpen(res) {
   me.name = res.name || '';
   me.store = res.store || '';
+  // ★枠（立ち上げ・ランチ…）は店舗ごとに違い、マネージで直せます。
+  //   このページは Store を持たないので、Apps Script が渡してくれたものを控えます。
+  //   渡ってこなければ config.js の初めの形で動きます
+  setShiftSlots(me.store, res.slots);
   period = res.period || null;
   phase = res.phase || '';
   due = res.due || '';
@@ -218,7 +223,7 @@ function renderPeriod() {
     ? `提出済み（${on}日）。直したら、もう一度出してください`
     : `${days.length}日のうち ${on}日 選んでいます`;
 
-  el('slotHint').innerHTML = shiftWishSlots()
+  el('slotHint').innerHTML = shiftWishSlots(me.store)
     .map((s) => `<b>${s.name}</b>＝${s.hint}`).join('<br>')
     + '<br>入れる日の枠を押してください。押していない日は「入れない日」です。'
     // ★連絡の例は、ここにまとめて出します。マスの中の薄い字（placeholder）に
@@ -266,7 +271,7 @@ function renderBuilt() {
       body.appendChild(p2);
     } else {
       let any = false;
-      SHIFT_SLOTS.forEach((slot) => {
+      shiftSlotsOf(me.store).forEach((slot) => {
         // 見本（テスト用）の人は、決まったシフトにも出しません
         const list = ((day && day[slot.id]) || []).filter((e) => !isShiftTester(e.n));
         if (!list.length) return;
@@ -284,7 +289,7 @@ function renderBuilt() {
           one.className = 'built-name'
             + (e.n === me.name ? ' is-me' : '')
             + (e.f ? ' is-full' : '');
-          one.textContent = shiftNameText(slot.id, e);
+          one.textContent = shiftNameText(me.store, slot.id, e);
           line.appendChild(one);
         });
         body.appendChild(line);
@@ -336,7 +341,7 @@ function builtSheetModel() {
       };
     });
 
-    const rows = SHIFT_SLOTS.map((slot) => ({
+    const rows = shiftSlotsOf(me.store).map((slot) => ({
       label: slot.name,
       cells: part.flatMap((s) => {
         const day = built[s] || {};
@@ -344,7 +349,7 @@ function builtSheetModel() {
         const list = (day[slot.id] || [])
           .filter((e) => e && !isShiftTester(e.n))
           .map((e) => (e.t === '' || e.t === undefined || e.t === null
-            ? { ...e, t: shiftDefaultTime(slot.id) } : e))
+            ? { ...e, t: shiftDefaultTime(me.store, slot.id) } : e))
           .sort((a, b) => Number(a.t) - Number(b.t));
         const short = shiftShortMap(day.short);
         return SHIFT_LANES.map((lane) => ({
@@ -354,8 +359,8 @@ function builtSheetModel() {
           names: isClosedOn(s) ? [] : list
             .filter((e) => (SHIFT_LANES.some((l) => l.id === e.p) ? e.p : SHIFT_LANES[0].id) === lane.id)
             .map((e) => ({
-              text: shiftNameText(slot.id, e),
-              parts: shiftNameParts(slot.id, e),
+              text: shiftNameText(me.store, slot.id, e),
+              parts: shiftNameParts(me.store, slot.id, e),
               full: !!e.f,
               early: !!e.early,
             })),
@@ -368,7 +373,11 @@ function builtSheetModel() {
   }
 
   return {
-    title: `${shiftRangeLabel(period.y, period.m, period.half)} バグる シフト表`,
+    // ★店舗の名前は焼き込みません。前は「バグる」と書いてあったので、
+    //   ほかの店舗の人にも「バグる シフト表」と出るところでした
+    title: `${shiftRangeLabel(period.y, period.m, period.half)} `
+      + `${(getStore(me.store) || {}).name || ''} シフト表`,
+    slots: shiftSlotsOf(me.store),
     blocks,
   };
 }
@@ -455,7 +464,7 @@ function dayCard(dateStr) {
 
   const slots = document.createElement('div');
   slots.className = 'day__slots';
-  shiftWishSlots().forEach((slot) => {
+  shiftWishSlots(me.store).forEach((slot) => {
     const on = slot.id === main;
     const b = document.createElement('button');
     b.type = 'button';
@@ -498,7 +507,7 @@ function dayCard(dateStr) {
   // 選んだ枠だけ、開始時刻を出します。
   // F と立ち上げは、こちらで決めるので出しません（askTime: false）
   mine.forEach((entry) => {
-    const slot = getShiftSlot(entry.s);
+    const slot = getShiftSlot(me.store, entry.s);
     if (!slot || !slot.times.length || slot.askTime === false) return;
     // ★立ち上げから続けて入る人は、ランチの時刻を聞きません。
     //   10時に来ているので、そのまま続くだけだからです
@@ -560,10 +569,10 @@ function toggleSlot(dateStr, slotId) {
     return;
   }
 
-  const list = [{ s: slotId, t: shiftDefaultTime(slotId) }];
+  const list = [{ s: slotId, t: shiftDefaultTime(me.store, slotId) }];
   // 立ち上げは、一番多い「そのままランチ」を先に入れておきます。
   // 通しの人は、下の「F（通し）」を押せば入れかわります
-  if (slotId === 'open') list.push({ s: 'lunch', t: shiftDefaultTime('lunch') });
+  if (slotId === 'open') list.push({ s: 'lunch', t: shiftDefaultTime(me.store, 'lunch') });
 
   picked[dateStr] = list;
   renderPeriod();
@@ -572,8 +581,8 @@ function toggleSlot(dateStr, slotId) {
 /** 立ち上げのあと、ランチだけか通しかを決める */
 function setAfterOpen(dateStr, pickId) {
   picked[dateStr] = [
-    { s: 'open', t: shiftDefaultTime('open') },
-    { s: pickId, t: shiftDefaultTime(pickId) },
+    { s: 'open', t: shiftDefaultTime(me.store, 'open') },
+    { s: pickId, t: shiftDefaultTime(me.store, pickId) },
   ];
   renderPeriod();
 }
@@ -621,7 +630,7 @@ function renderDone() {
     const body = document.createElement('span');
     body.className = 'done-row__body';
     const marks = (picked[s] || []).map((e) => {
-      const slot = getShiftSlot(e.s);
+      const slot = getShiftSlot(me.store, e.s);
       if (!slot) return '';
       // ★F は時刻を出しません。何時からになるかはお店が決めるので、
       //   ここに時刻を出すと「その時間で決まった」と読めてしまいます

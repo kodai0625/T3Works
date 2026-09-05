@@ -2345,9 +2345,10 @@ const SHIFT_STORE = '_shift';
 /**
  * シフトを組む店舗。ここに書いた店舗にだけ「シフト」の業務が出ます
  *
- * ★1店舗ずつ足していきます。足す前に、その店舗の枠（下の SHIFT_SLOTS）が
- *   合っているか確かめてください。バグると popo は同じ形ですが、
- *   こじゃれ・炭まろ・ちゃこる・おいでんは「仕込み／営業」の2つで違います。
+ * ★1店舗ずつ足していきます。足す前に、その店舗の枠（マネージの
+ *   「シフトの枠と時刻」）が合っているか確かめてください。
+ *   バグると popo は初めの形のままですが、こじゃれ・炭まろ・ちゃこる・
+ *   おいでんは「仕込み／営業」の2つなので、先に直す必要があります。
  * ★名簿はマネージの「シフトに入る人」で店舗ごとに登録します。
  *   ここに足しただけでは、まだ誰も番号を持っていません。
  * ★足してもアルバイトには出ません。こちらが「募集をはじめる」を
@@ -2367,12 +2368,17 @@ const SHIFT_STORES = ['baguru', 'popo'];
  *
  *  時刻は '17' = 17時、'17.5' = 17時半 の書き方です。
  *
- *  ★Openの時刻（下の start: '9'）は、今のシフト表に時刻が
- *    書かれていないので分かりませんでした。実際の時刻に直してください。
- *    Openは times が空なので、ここを直しても表の見ためは変わりません
- *    （提出ページの説明文にだけ出ます）。
+ *  ★ここに書いてあるのは**初めの形**だけです。
+ *    実際に使う枠は、**マネージの「シフトの枠と時刻」で店舗ごとに直せます**
+ *    （定休日や名簿と同じで、コードを直さなくても変えられます）。
+ *    読むときは必ず shiftSlotsOf(店舗id) を通してください。
+ *
+ *  ★id だけは直せません。記録に残るのは id なので、変えると
+ *    過去に組んだ分が読めなくなります。画面に出る名前（name）は自由です。
+ *    例）夜だけのお店は open を「仕込み」、dinner を「営業」と呼び、
+ *        lunch を使わない設定にします。記録の形は変わりません。
  */
-const SHIFT_SLOTS = [
+const SHIFT_SLOTS_DEFAULT = [
   {
     id: 'open', name: '立ち上げ', hint: '開店の準備から（10:00）',
     // 9:00〜10:30 を15分ごと。ふだんは10:00です。
@@ -2386,6 +2392,95 @@ const SHIFT_SLOTS = [
   { id: 'dinner', name: 'ディナー', hint: '夜の営業（ラストまで）',
     times: ['17', '17.5', '18', '18.5', '19'], pick: '17' },
 ];
+
+/**
+ * 店舗ごとの「枠と時刻」の入れ先
+ *
+ *  1店舗が1行です（`_shiftset/popo`）。中身は枠ごとの直しだけを持ちます。
+ *
+ *    slot:open   { use: true,  name: '仕込み', hint: '…',
+ *                  times: ['16','16.5'], pick: '16' }
+ *    slot:lunch  { use: false }                       ← 使わない枠
+ *
+ *  ★上の SHIFT_SLOTS_DEFAULT に**重ねて**読みます。書いていないところは
+ *    初めの形のままです。あとで項目を足しても、前の設定が壊れません。
+ *  ★入れ先を分けてあるのは、Apps Script が `_shift/店舗id-` で半月を
+ *    数えているためです（→ SHIFT_WISH_STORE と同じ理由）。
+ */
+const SHIFT_SET_STORE = '_shiftset';
+
+/** 枠1つ分の設定の入れ先（'slot:open'） */
+function shiftSlotSetKey(slotId) {
+  return `slot:${slotId}`;
+}
+
+/**
+ * 提出ページ用の受け皿
+ *
+ * ★提出ページ（shift/）は Store を持ちません（アプリのPINと切り離すため）。
+ *   そこでは Apps Script が渡してくれた枠を、ここに入れてから使います。
+ *   **店舗idも一緒に控えます。**別の店舗の枠を取りちがえないためです。
+ */
+let shiftSlotsGiven = null;
+
+/**
+ * 設定（枠ごとの直し）を、初めの形に**重ねて**1つの並びにします
+ *
+ * ★重ねる所はここ1つだけです。組む画面（記録から読む）と
+ *   提出ページ（Apps Script からもらう）で別々に組み立てると、
+ *   片方だけ直したときに見た目が食い違います。
+ * ★空にはなりません。全部「使わない」にしても初めの形に戻します
+ *   （枠が1つも無いと、シフトの画面が真っ白になってしまうため）。
+ */
+function shiftMergeSlots(items) {
+  const src = items && typeof items === 'object' ? items : {};
+  const out = [];
+  SHIFT_SLOTS_DEFAULT.forEach((slot) => {
+    const v = src[shiftSlotSetKey(slot.id)] || {};
+    if (v.use === false) return;
+    out.push({
+      ...slot,
+      name: v.name || slot.name,
+      hint: v.hint === undefined ? slot.hint : v.hint,
+      times: Array.isArray(v.times) && v.times.length ? v.times : slot.times,
+      pick: v.pick || slot.pick,
+    });
+  });
+  return out.length ? out : SHIFT_SLOTS_DEFAULT.slice();
+}
+
+/**
+ * Apps Script から受け取った設定を控える（提出ページだけが呼びます）
+ *
+ * ★渡すのは**設定そのもの**（`{ 'slot:open': {…} }`）です。
+ *   組み立てた並びではありません。重ねるのは上の1か所にまかせます。
+ */
+function setShiftSlots(storeId, items) {
+  shiftSlotsGiven = storeId ? { storeId, list: shiftMergeSlots(items) } : null;
+}
+
+/** その店舗の枠（★枠を読むときは、必ずここを通してください） */
+function shiftSlotsOf(storeId) {
+  // 提出ページ。Apps Script からもらったものを使います
+  if (shiftSlotsGiven && shiftSlotsGiven.storeId === storeId) {
+    return shiftSlotsGiven.list;
+  }
+  // ★Store はこのファイルより後に読み込まれます。呼ばれるのは
+  //   読み込みが全部おわってからなので、ここで見れば間に合います
+  try {
+    if (typeof Store !== 'undefined' && storeId) {
+      return shiftMergeSlots(Store.getDay(SHIFT_SET_STORE, storeId).items);
+    }
+  } catch (e) {
+    // 設定が読めなくても、初めの形で動かします
+  }
+  return SHIFT_SLOTS_DEFAULT.slice();
+}
+
+/** その店舗で、その枠を使っているか */
+function shiftHasSlot(storeId, slotId) {
+  return shiftSlotsOf(storeId).some((s) => s.id === slotId);
+}
 
 /**
  * その時刻なら、どの枠に入るか
@@ -2414,9 +2509,15 @@ function shiftSlotByTime(t) {
  */
 const SHIFT_PATTY_SLOTS = ['lunch', 'dinner'];
 
-/** 立ち上げからあふれた人を回す先（ランチの、一番早い時刻） */
-function shiftSpillTo() {
-  const lunch = SHIFT_SLOTS.find((x) => x.id === 'lunch');
+/**
+ * 立ち上げからあふれた人を回す先（ランチの、一番早い時刻）
+ *
+ * ★ランチを使っていない店舗（夜だけのお店）では null を返します。
+ *   呼ぶ側は、null なら回し先を出しません。
+ */
+function shiftSpillTo(storeId) {
+  const lunch = shiftSlotsOf(storeId).find((x) => x.id === 'lunch');
+  if (!lunch) return null;
   return { slot: lunch.id, time: lunch.pick, label: `${shiftTimeText(lunch.pick)}から入れる` };
 }
 
@@ -2432,24 +2533,40 @@ function shiftSpillTo() {
  */
 const SHIFT_FULL_ID = 'full';
 
-/** 提出ページで選べる枠。立ち上げ → F → ランチ → ディナー の並びです */
-function shiftWishSlots() {
-  const lunch = SHIFT_SLOTS.find((s) => s.id === 'lunch');
+/**
+ * 提出ページで選べる枠。立ち上げ → F → ランチ → ディナー の並びです
+ *
+ * ★F（通し）は「ランチからディナーまで」という意味なので、
+ *   **ランチとディナーの両方を使っている店舗にだけ**出します。
+ *   夜だけのお店（仕込み／営業）には F がありません。
+ */
+function shiftWishSlots(storeId) {
+  const slots = shiftSlotsOf(storeId);
+  const lunch = slots.find((s) => s.id === 'lunch');
+  const dinner = slots.find((s) => s.id === 'dinner');
+  if (!lunch || !dinner) return slots.slice();
+
   const full = {
     id: SHIFT_FULL_ID,
     name: 'F',
-    hint: 'ランチからディナーまで通し（時間はお店が決めます）',
+    hint: `${lunch.name}から${dinner.name}まで通し（時間はお店が決めます）`,
     // 時刻はランチと同じものから。ふだんはランチの始まりに入ります。
     // ★askTime: false … 提出ページでは選ばせません。通しで入る人の
     //   開始時刻は、その日の人の入りぐあいを見てこちらで決めるためです
     times: lunch.times, pick: lunch.pick, askTime: false,
   };
-  return [SHIFT_SLOTS[0], full, SHIFT_SLOTS[1], SHIFT_SLOTS[2]];
+  // F はランチのすぐ前に入れます（立ち上げ → F → ランチ → ディナー）
+  const out = [];
+  slots.forEach((s) => {
+    if (s.id === 'lunch') out.push(full);
+    out.push(s);
+  });
+  return out;
 }
 
 /** id から枠を引く（F も引けます） */
-function getShiftSlot(id) {
-  return shiftWishSlots().find((s) => s.id === id) || null;
+function getShiftSlot(storeId, id) {
+  return shiftWishSlots(storeId).find((s) => s.id === id) || null;
 }
 
 /**
@@ -2639,8 +2756,8 @@ function shiftClashes(slotId) {
  * ★どの枠にも必ず時刻があります。時刻なしでシフトに入れられると、
  *   表を見たときに「何時から来るのか分からない人」ができてしまうためです。
  */
-function shiftDefaultTime(slotId) {
-  const slot = getShiftSlot(slotId);
+function shiftDefaultTime(storeId, slotId) {
+  const slot = getShiftSlot(storeId, slotId);
   if (!slot || !slot.times.length) return '';
   return slot.pick && slot.times.includes(slot.pick) ? slot.pick : slot.times[0];
 }
@@ -2718,18 +2835,18 @@ function shiftTimeKey(hours) {
  * ★以前は ⑰ や (17.5) と書いていましたが、読みちがえるので
  *   全部「時:分」にそろえました。
  */
-function shiftTimeMark(slotId, t) {
+function shiftTimeMark(storeId, slotId, t) {
   const v = String(t === null || t === undefined ? '' : t);
   // ★入っている時刻は、必ず全部書きます。
   //   前は「ふだんの時刻の人は書かない」ことにしていましたが、
   //   11時の人だけ時刻が出ないのは、かえって分かりにくいためです
-  if (!getShiftSlot(slotId) || v === '') return '';
+  if (!getShiftSlot(storeId, slotId) || v === '') return '';
   return shiftTimeText(v);
 }
 
 /** 表に出す1人分（'18:00 そう' のような形） */
-function shiftNameText(slotId, entry) {
-  const mark = shiftTimeMark(slotId, entry && entry.t);
+function shiftNameText(storeId, slotId, entry) {
+  const mark = shiftTimeMark(storeId, slotId, entry && entry.t);
   const name = String((entry && entry.n) || '');
   return mark ? `${mark} ${name}` : name;
 }
@@ -2752,9 +2869,9 @@ const SHIFT_TIME_SCALE = 1;
 /** F（通し）の人の名前のうしろに付く「 F」の分の幅 */
 const SHIFT_FULL_MARK_EM = 0.9;
 
-function shiftNameParts(slotId, entry) {
+function shiftNameParts(storeId, slotId, entry) {
   return {
-    time: shiftTimeMark(slotId, entry && entry.t),
+    time: shiftTimeMark(storeId, slotId, entry && entry.t),
     name: String((entry && entry.n) || ''),
     // ★F の人は名前のうしろに「 F」が付きます。この幅も数に入れないと、
     //   その人だけマスからはみ出ます
@@ -3162,9 +3279,13 @@ function makeShiftCode(used) {
  *  読むのは日報の「まとめ」ページの5か所だけ。残り（客単価・原価率・F/L・
  *  累計）は、この5つからアプリが計算します。光熱費は日報に無いので手入力です。
  *
+ *  ★原価は F列と G列の足し算です。まとめの3行目に
+ *    「仕入先 ｜ 現金 ｜ 掛仕入」と出ています。F が現金仕入、G が掛仕入で、
+ *    日報自身も 原材料費率 = (F24+G24)/B24 と計算しています。
+ *    2026年9月5日まで G だけを読んでいて、現金仕入が丸ごと抜けていました。
+ *
  *  ★日報の様式は途中で変わります。バグるは2026年8月まで6行上にずれていて
- *    （店舗で項目が違うため）、9月からほかの店舗と同じ行になり、
- *    原価が F24 と G24 の2つに分かれました。
+ *    （店舗で項目が違うため）、9月からほかの店舗と同じ行になりました。
  *
  *  ★取り込みでは、去年の同じ月も一緒に読みます。様式が変わった年は
  *    「今年は新しい配置・去年は古い配置」になるので、配置は店舗ごとに
@@ -3178,16 +3299,19 @@ function makeShiftCode(used) {
  *
  *   from  … この年月（YYYYMM）から、この配置になります。0 は「ずっと前から」
  *   cells … 読むところ。1つのマスなら文字列、足すなら配列で書きます
+ *
+ * 下の配置は、2026年8月と9月の「まとめ」を実際に読み出して確かめたものです
+ * （こじゃれ8月・こじゃれ9月・バグる8月）。
  */
 const NIPPOU_LAYOUTS_DEFAULT = [
   {
     from: 0,
     cells: {
-      inc: 'B24',      // 売上の税込累計
-      ex: 'B25',       // 売上の税抜累計
-      guests: 'B28',   // 客数累計
-      cost: 'G24',     // 仕入の税込累計＝原価
-      labor: 'G32',    // 人件費の当月累計
+      inc: 'B24',              // 売上の税込累計
+      ex: 'B25',               // 売上の税抜累計
+      guests: 'B28',           // 客数累計
+      cost: ['F24', 'G24'],    // 原価＝現金仕入＋掛仕入（どちらも税込累計）
+      labor: 'G32',            // 人件費の当月累計
     },
   },
 ];
@@ -3195,8 +3319,8 @@ const NIPPOU_LAYOUTS_DEFAULT = [
 const NIPPOU_LAYOUTS = {
   baguru: [
     // 2026年8月まで。ほかの店舗より6行上にずれていました
-    { from: 0, cells: { inc: 'B18', ex: 'B19', guests: 'B22', cost: 'G18', labor: 'G26' } },
-    // 2026年9月から。行はほかの店舗と同じになり、原価が F24 と G24 に分かれました
+    { from: 0, cells: { inc: 'B18', ex: 'B19', guests: 'B22', cost: ['F18', 'G18'], labor: 'G26' } },
+    // 2026年9月から。行がほかの店舗と同じになりました
     { from: 202609, cells: { inc: 'B24', ex: 'B25', guests: 'B28', cost: ['F24', 'G24'], labor: 'G32' } },
   ],
 };

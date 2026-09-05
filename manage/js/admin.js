@@ -42,6 +42,7 @@ const el = {};
   'driversInput', 'saveDrivers', 'driversCount', 'driversSaved',
   'catchStaffFields', 'saveCatchStaff', 'catchStaffCount', 'catchStaffSaved',
   'shiftStaffInput', 'saveShiftStaff', 'shiftStaffCount', 'shiftStaffSaved',
+  'shiftSlotList', 'saveShiftSlots', 'resetShiftSlots', 'shiftSlotCount', 'shiftSlotSaved',
   'shiftCodeList', 'shiftSubmitUrl', 'viewShift',
   'viewTrain', 'trainStoreName', 'trainCount', 'trainInput', 'saveTrain', 'trainSaved',
   'trainItemsStore', 'trainItemsCount', 'trainEditor', 'trainAddSection',
@@ -1367,6 +1368,115 @@ function saveShiftStaff() {
   setTimeout(() => el.shiftStaffSaved.classList.add('is-hidden'), 2500);
 }
 
+/* -------- シフトの枠と時刻 --------
+ *
+ *  店舗ごとの時間帯です。入れ先は `_shiftset/店舗id` の1行で、
+ *  中身は**初めの形（config.js の SHIFT_SLOTS_DEFAULT）からの直しだけ**です。
+ *
+ *  ★記録に残る id（open / lunch / dinner）は、ここでは変えられません。
+ *    変えると、それまでに組んだシフトが読めなくなるためです。
+ *    変えられるのは「使うかどうか・画面に出る名前・説明・時刻」です。
+ *    夜だけのお店は、ランチを外して open を「仕込み」、dinner を「営業」にします。
+ */
+
+/** '17,17.5, 18' → ['17','17.5','18']（数でないものは落とします） */
+function shiftTimesFromText(text) {
+  return String(text || '')
+    .split(/[,、\s]+/)
+    .map((v) => v.trim())
+    .filter((v) => v !== '' && isFinite(Number(v)) && Number(v) >= 0 && Number(v) < 24);
+}
+
+function renderShiftSlots() {
+  const storeId = state.storeId;
+  const saved = Store.getDay(SHIFT_SET_STORE, storeId).items || {};
+  const now = shiftSlotsOf(storeId);
+  el.shiftSlotCount.textContent = `${now.length}つ`;
+  el.shiftSlotList.innerHTML = '';
+
+  SHIFT_SLOTS_DEFAULT.forEach((base) => {
+    const v = saved[shiftSlotSetKey(base.id)] || {};
+    const on = v.use !== false;
+    const row = document.createElement('div');
+    row.className = 'shift-slot';
+    row.dataset.slot = base.id;
+
+    const head = document.createElement('label');
+    head.className = 'shift-slot__use';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = on;
+    box.dataset.k = 'use';
+    const who = document.createElement('b');
+    // ★id も出します。記録に残っているのはこちらなので、
+    //   名前を変えたあとに「どの枠を直しているのか」が分かるようにします
+    who.textContent = `使う（${base.id}）`;
+    head.append(box, who);
+    row.appendChild(head);
+
+    const add = (label, key, value, ph) => {
+      const wrap = document.createElement('label');
+      wrap.className = 'field';
+      const cap = document.createElement('span');
+      cap.className = 'field__label';
+      cap.textContent = label;
+      const inp = document.createElement('input');
+      inp.className = 'field__input';
+      inp.type = 'text';
+      inp.value = value;
+      inp.placeholder = ph;
+      inp.dataset.k = key;
+      wrap.append(cap, inp);
+      row.appendChild(wrap);
+    };
+    add('画面に出る名前', 'name', v.name || base.name, base.name);
+    add('説明（提出ページ）', 'hint', v.hint === undefined ? base.hint : v.hint, base.hint);
+    add('選べる時刻', 'times',
+      (Array.isArray(v.times) && v.times.length ? v.times : base.times).join(','),
+      base.times.join(','));
+    add('ふだんの時刻', 'pick', v.pick || base.pick, base.pick);
+
+    el.shiftSlotList.appendChild(row);
+  });
+}
+
+function saveShiftSlots() {
+  const storeId = state.storeId;
+  el.shiftSlotList.querySelectorAll('.shift-slot').forEach((row) => {
+    const get = (k) => {
+      const f = row.querySelector(`[data-k="${k}"]`);
+      return f ? (f.type === 'checkbox' ? f.checked : f.value.trim()) : '';
+    };
+    const times = shiftTimesFromText(get('times'));
+    const pick = get('pick');
+    Store.setItem(SHIFT_SET_STORE, storeId, shiftSlotSetKey(row.dataset.slot), {
+      use: !!get('use'),
+      name: get('name'),
+      hint: get('hint'),
+      times,
+      // ★ふだんの時刻は、選べる時刻の中から選びます。
+      //   外れていると「選べない時刻で入っている人」ができてしまいます
+      pick: times.includes(pick) ? pick : (times[0] || ''),
+    });
+  });
+  renderShiftSlots();
+  el.shiftSlotSaved.classList.remove('is-hidden');
+  setTimeout(() => el.shiftSlotSaved.classList.add('is-hidden'), 2500);
+}
+
+function resetShiftSlots() {
+  if (!window.confirm(`${getStore(state.storeId).name} の枠をはじめの形に戻します。\n`
+    + '立ち上げ／ランチ／ディナーの3つに戻ります。\n'
+    + '組みおわったシフトは変わりません。')) return;
+  // ★消すのではなく「直していない」状態に戻します。記録は消しません
+  SHIFT_SLOTS_DEFAULT.forEach((base) => {
+    Store.setItem(SHIFT_SET_STORE, state.storeId, shiftSlotSetKey(base.id), {
+      use: true, name: '', hint: undefined, times: [], pick: '',
+    });
+  });
+  renderShiftSlots();
+}
+
 /* -------- 日報フォルダ --------
  *
  *  会議資料の「日報から取り込む」が見に行く、店舗ごとのGoogleドライブの
@@ -2051,6 +2161,7 @@ function renderAll() {
     renderDrivers();
   } else if (state.view === 'shift') {
     renderShiftStaff();
+    renderShiftSlots();
   } else if (state.view === 'train') {
     renderChecklistEditor();
     renderTrainees();
@@ -2272,6 +2383,8 @@ function bindEvents() {
   el.saveDrivers.addEventListener('click', saveDrivers);
   el.saveCatchStaff.addEventListener('click', saveCatchStaff);
   el.saveShiftStaff.addEventListener('click', saveShiftStaff);
+  el.saveShiftSlots.addEventListener('click', saveShiftSlots);
+  el.resetShiftSlots.addEventListener('click', resetShiftSlots);
   el.saveTrain.addEventListener('click', saveTrainees);
   el.trainAddSection.addEventListener('click', addSection);
   el.saveNippou.addEventListener('click', saveNippouFolders);
