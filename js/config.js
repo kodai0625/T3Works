@@ -3040,8 +3040,10 @@ function nippouCheck(o) {
   if (guests <= 0) return '客数が読めません';
   const per = ex / guests;
   if (per < 500 || per > 20000) return `客単価が ${yen(per)} になります`;
-  if ((o.cost || 0) > inc) return `原価 ${yen(o.cost)} が売上より大きいです`;
-  if ((o.labor || 0) > inc) return `人件費 ${yen(o.labor)} が売上より大きいです`;
+  // ★上限は見ません。開店した月は、仕入が売上より多いことが実際にあります
+  //   （おいでんテラス 2026年4月：売上 ¥1,360,984 に対して原価 ¥1,508,810）
+  if ((o.cost || 0) <= 0) return '原価が読めません';
+  if ((o.labor || 0) <= 0) return '人件費が読めません';
   return '';
 }
 
