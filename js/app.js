@@ -6501,13 +6501,28 @@ function renderShift() {
     el.shiftWishNote.textContent += `　／　提出 ${shiftDueLabel(due, DOW)}`;
   }
 
-  el.shiftDays.innerHTML = '';
-  const days = shiftDays(state.y, state.m, shiftHalf);
-  // 横に並べる日数は、その端末の画面の幅で決めます
+  // ★順番が大事です。**幅を先に測ってから、中身を消します。**
+  //
+  //   この表はページの高さの8割以上（実測 4183px のうち 3562px）を占めます。
+  //   中身を消したあとに clientWidth を読むと、そこで空のまま作り直しが起きて
+  //   ページが 621px まで縮み、**ブラウザがスクロール位置を一番上に切り詰めます**。
+  //   そのあと表を入れ直しても、位置は戻りません。
+  //   同期は60秒ごとに render() を呼ぶので、下を見ているあいだに
+  //   何度でも一番上へ飛ばされていました（ワークスでもマインでも同じです）。
+  //
+  //   クローズや週間掃除で起きなかったのは、消す中身がページの高さの
+  //   大半ではないからです。この画面だけの症状でした。
   const cols = shiftCols(el.shiftDays.clientWidth || window.innerWidth);
+  const days = shiftDays(state.y, state.m, shiftHalf);
+
+  // ★組み立ててから、一度に入れかえます。消してから1つずつ足すと、
+  //   そのあいだに幅や高さを読む処理が入ったとき、また同じことが起きます
+  const できあがり = document.createDocumentFragment();
   for (let i = 0; i < days.length; i += cols) {
-    el.shiftDays.appendChild(shiftGridBlock(rec, wishes, days.slice(i, i + cols)));
+    できあがり.appendChild(shiftGridBlock(rec, wishes, days.slice(i, i + cols)));
   }
+  el.shiftDays.innerHTML = '';
+  el.shiftDays.appendChild(できあがり);
 }
 
 /**
