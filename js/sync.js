@@ -328,17 +328,39 @@ const Sync = {
       });
     }
     if (settings) try {
-      if (settings.checklists) localStorage.setItem(Checklists._key, JSON.stringify(settings.checklists));
-      if (settings.weeklies) localStorage.setItem(Weeklies._key, JSON.stringify(settings.weeklies));
-      if (settings.staffList) localStorage.setItem(Staff._key, JSON.stringify(settings.staffList));
-      if (settings.drivers) localStorage.setItem(Drivers._key, JSON.stringify(settings.drivers));
-      if (settings.catchStaff) localStorage.setItem(CatchStaff._key, JSON.stringify(settings.catchStaff));
-      if (settings.shiftStaff) localStorage.setItem(ShiftStaff._key, JSON.stringify(settings.shiftStaff));
-      if (settings.trainees) localStorage.setItem(Trainees._key, JSON.stringify(settings.trainees));
-      if (settings.trainings) localStorage.setItem(Trainings._key, JSON.stringify(settings.trainings));
-      if (settings.nippouFolders) localStorage.setItem(NippouFolders._key, JSON.stringify(settings.nippouFolders));
-      if (settings.closedDows) localStorage.setItem(Closed._dowsKey, JSON.stringify(settings.closedDows));
-      if (settings.closedExceptions) localStorage.setItem(Closed._exKey, JSON.stringify(settings.closedExceptions));
+      // ★設定の入れ先。**1つの表にしておきます。**
+      //   「サーバーから入れる」と「まだ送っていない分を貼り直す」で
+      //   一覧が別々だと、次に設定を足した人が片方を書き忘れ、
+      //   その設定だけ静かに消えるようになります
+      const 設定の入れ先 = {
+        checklists: Checklists._key,
+        weeklies: Weeklies._key,
+        staffList: Staff._key,
+        drivers: Drivers._key,
+        catchStaff: CatchStaff._key,
+        shiftStaff: ShiftStaff._key,
+        trainees: Trainees._key,
+        trainings: Trainings._key,
+        nippouFolders: NippouFolders._key,
+        closedDows: Closed._dowsKey,
+        closedExceptions: Closed._exKey,
+      };
+      Object.keys(設定の入れ先).forEach((n) => {
+        if (settings[n]) localStorage.setItem(設定の入れ先[n], JSON.stringify(settings[n]));
+      });
+
+      // ★まだ送っていない設定は、取り込んだ内容の上に貼り直します。
+      //   記録（records）はすぐ上で同じことをしていますが、設定は op.k を
+      //   持たないので、その貼り直しから**外れていました**。
+      //   返事を待つあいだに選んだ持ち場が消え、しかも消えた状態から
+      //   作り直すので**送り直しても戻りませんでした**（2026-09-05に直しました）。
+      //   ここは持ち場だけの話ではありません。担当者・配達する人・キャッチ・
+      //   教育・日報フォルダ・定休日も同じ道を通ります
+      this.outbox().forEach((op) => {
+        if (op.t !== 'setting') return;
+        const 箱 = 設定の入れ先[op.n];
+        if (箱) localStorage.setItem(箱, JSON.stringify(op.v));
+      });
     } catch (e) {
       // 設定はまだ localStorage に置いています。ここが満杯でも黙って落とさず知らせます
       storeFail('設定を端末に保存できませんでした', e);
