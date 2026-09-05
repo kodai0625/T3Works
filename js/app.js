@@ -617,6 +617,75 @@ let cashTab = 'day';
 /** 1週間の画面で見ている週（その週の月曜）。空なら、いま選んでいる日の週 */
 let cashWeek = '';
 
+/* ------------------------------------------------------------
+ *  作業中のものを控えておく（アプリを閉じても続きから）
+ *
+ *  ★写真の読み取りも、日報への転送も、何秒かかかります。
+ *    そのあいだにアプリを閉じたり、ほかのページへ移ったりすると、
+ *    通信が切られて途中で終わってしまいます。
+ *    なので、始める前に「いま何をしているか」を端末に控えておき、
+ *    戻ってきたときに続きからやり直します。
+ *
+ *  ★控えは【端末の中だけ】に置きます（Store.setMeta）。
+ *    写真は300KBほどあるので、共有のシートへ送ってはいけません。
+ * ---------------------------------------------------------- */
+const CASH_JOB = 'cashJob';
+
+function cashJobSave(job) {
+  try { Store.setMeta(CASH_JOB, JSON.stringify(job)); } catch (e) { /* 入らなくても先へ進みます */ }
+}
+function cashJobLoad() {
+  try { return JSON.parse(Store.meta(CASH_JOB) || 'null'); } catch (e) { return null; }
+}
+function cashJobClear() {
+  try { Store.setMeta(CASH_JOB, null); } catch (e) { /* 同上 */ }
+}
+
+/** 続きからやり直す。起動したときと、画面に戻ってきたときに呼びます */
+let cashResuming = false;
+async function cashResume() {
+  if (cashResuming || cashEdit.busy) return;
+  const job = cashJobLoad();
+  if (!job || !job.kind) return;
+  // ★古い控えの掃除が先です。合言葉の確認を先にすると、
+  //   合言葉が入っていない端末で、古い控えが残り続けます
+  if (job.at && Date.now() - Date.parse(job.at) > 3 * 24 * 60 * 60 * 1000) { cashJobClear(); return; }
+  // 合言葉が入っていないと送れません。入れたあとにまた呼ばれます
+  if (!Sync.enabled() || !Sync.pin()) return;
+
+  cashResuming = true;
+  try {
+    // その日の画面に合わせます（別の日を見ていることがあります）
+    const [y, m, d] = String(job.date || '').split('-').map(Number);
+    if (y && m && d) { state.storeId = job.store || state.storeId; state.y = y; state.m = m; state.d = d; }
+    state.view = 'cash';
+    cashTab = 'day';
+    render();
+
+    if (job.kind === 'read' && job.image) {
+      cashEdit.pending = job.image;
+      el.cashShotImg.src = job.image;
+      el.cashShotImg.classList.remove('is-hidden');
+      el.cashShotEmpty.classList.add('is-hidden');
+      el.cashShot.classList.remove('is-empty');
+      setCashMsg('前の読み取りが途中でした。続きからやり直します…');
+      await cashReadPhoto(job.image, job.date);
+    } else if (job.kind === 'send') {
+      if (job.sales !== undefined && job.sales !== null) el.cashSales.value = cashText(job.sales);
+      if (job.by) fillStaffOptions(el.cashStaff, job.by);
+      cashEdit.j = job.j || cashEdit.j;
+      cashEdit.m = job.m || cashEdit.m;
+      cashEdit.sure = job.sure || cashEdit.sure;
+      cashEdit.jok = true;
+      render();
+      setNippouMsg('前の書き込みが途中でした。続きからやり直します…');
+      await nippouSendNow(job.values, job.date, job.test, job.folder);
+    }
+  } finally {
+    cashResuming = false;
+  }
+}
+
 /** その日の現金売上の記録（無ければ null） */
 function cashOf(storeId, dateStr) {
   const v = (Store.getDay(storeId, dateStr).items || {})[CASH_ITEM];
@@ -858,29 +927,64 @@ async function writeNippou() {
     });
     if (!ok) { setNippouMsg(''); return; }
 
-    // ③ 書きます
-    setNippouMsg('日報に書いています…');
-    const res = await Sync.ask('nippouWrite',
-      { mode: '書く', file: test, folder, day: dateStr, values });
-    if (!res.ok) { setNippouMsg(res.error || '書けませんでした', 'warn'); return; }
-
-    // ④ 書いたあとの検算
-    const want = (cashEdit.j || {}).gross;
-    if (res.total === null || res.total === undefined || want === null || want === undefined) {
-      setNippouMsg(`日報に書きました（${res.sheet}日）`, 'ok');
-    } else if (res.total === want) {
-      setNippouMsg(`日報に書きました（${res.sheet}日）　`
-        + `検算OK：当日総合計 ${cashText(res.total)} ＝ ジャーナルの売上`, 'ok');
-    } else {
-      setNippouMsg(`日報には書きましたが、★検算が合いません。`
-        + `当日総合計 ${cashText(res.total)} ／ ジャーナルの売上 ${cashText(want)}。`
-        + '日報を開いて確かめてください', 'warn');
-    }
+    // ★ここから先は何秒かかかります。控えておいて、
+    //   途中でアプリを閉じられても続きからやり直せるようにします
+    cashJobSave({
+      kind: 'send', store: state.storeId, date: dateStr, values, test, folder,
+      sales: cashYen(el.cashSales.value), by: el.cashStaff.value,
+      j: cashEdit.j, m: cashEdit.m, sure: cashEdit.sure,
+      at: new Date().toISOString(),
+    });
+    await nippouSendNow(values, dateStr, test, folder);
   } catch (e) {
     setNippouMsg(String(e && e.message || e), 'warn');
   } finally {
     el.cashToNippou.disabled = false;
   }
+}
+
+/**
+ *  記録して、日報へ書いて、検算します
+ *
+ *  ★writeNippou からも、続きからやり直すとき（cashResume）からも呼びます。
+ *    最後まで行けたら控えを消します。
+ */
+async function nippouSendNow(values, dateStr, test, folder) {
+  // ① ★先に現金売上を確定させます（写真もドライブへ）。
+  //    こちらが失敗したら日報には書きません。書いてから記録に失敗すると、
+  //    日報にだけ数字が入って、手元に証拠が残らない形になってしまいます
+  setNippouMsg('現金売上を記録しています…');
+  const kept = await saveCash();
+  if (!kept) {
+    setNippouMsg('先に現金売上の記録ができませんでした。上の知らせを見てください', 'warn');
+    return;
+  }
+
+  // ② 書きます
+  setNippouMsg('日報に書いています…');
+  const res = await Sync.ask('nippouWrite',
+    { mode: '書く', file: test, folder, day: dateStr, values });
+  if (!res.ok) {
+    // ★控えは消しません。通信が切れただけなら、次に開いたときに続きからやり直します
+    setNippouMsg((res.error || '書けませんでした') + '　アプリを開き直すと、続きからやり直します', 'warn');
+    return;
+  }
+
+  cashJobClear();            // ここまで来たら、やり直す必要はありません
+
+  // ③ 書いたあとの検算
+  const want = (cashEdit.j || {}).gross;
+  if (res.total === null || res.total === undefined || want === null || want === undefined) {
+    setNippouMsg(`記録して、日報に書きました（${res.sheet}日）`, 'ok');
+  } else if (res.total === want) {
+    setNippouMsg(`記録して、日報に書きました（${res.sheet}日）　`
+      + `検算OK：当日総合計 ${cashText(res.total)} ＝ ジャーナルの売上`, 'ok');
+  } else {
+    setNippouMsg('日報には書きましたが、★検算が合いません。'
+      + `当日総合計 ${cashText(res.total)} ／ ジャーナルの売上 ${cashText(want)}。`
+      + '日報を開いて確かめてください', 'warn');
+  }
+  render();
 }
 
 /** 検算の通った数だけを取り出します（通らなかった数は残しません） */
@@ -1150,13 +1254,40 @@ async function onCashFile(e) {
   el.cashTake.classList.add('is-busy');
 
   try {
-    let dataUrl = await cashShrink(file);
+    const dataUrl = await cashShrink(file);
     // 送る前に、撮ったものをその場で出します（待っているあいだ何も出ないと不安なので）
     el.cashShotImg.src = dataUrl;
     el.cashShotImg.classList.remove('is-hidden');
     el.cashShotEmpty.classList.add('is-hidden');
     el.cashShot.classList.remove('is-empty');
 
+    // ★送る前に控えます。ここから先は何秒かかかるので、
+    //   途中でアプリを閉じられても、戻ってきたら続きからやり直せるようにします
+    cashJobSave({ kind: 'read', store: state.storeId, date: dateStr, image: dataUrl,
+      at: new Date().toISOString() });
+    await cashReadPhoto(dataUrl, dateStr);
+  } catch (err) {
+    setCashMsg(String(err && err.message || err), 'warn');
+    showCashPhoto();
+  } finally {
+    cashEdit.busy = false;
+    el.cashTake.classList.remove('is-busy');
+    el.cashTakeText.textContent = (cashEdit.photo || cashEdit.pending) ? '📷 撮り直す' : '📷 ジャーナルを撮る';
+    render();
+  }
+}
+
+/**
+ *  写真を送って、文字を読み取り、数を取り出します
+ *
+ *  ★onCashFile からも、続きからやり直すとき（cashResume）からも呼びます。
+ *    最後まで行けたら控えを消します。途中で切れたら控えが残るので、
+ *    次にアプリを開いたときに、もう一度ここへ入ります。
+ */
+async function cashReadPhoto(dataUrl, dateStr) {
+  cashEdit.busy = true;
+  el.cashTake.classList.add('is-busy');
+  try {
     setCashWait('文字を読み取っています…');
     // ★ここでは読み取るだけで、ドライブには残しません。
     //   残すのは「記録する」を押したときです（撮っただけの写真が溜まらないように）
@@ -1236,8 +1367,11 @@ async function onCashFile(e) {
       setCashMsg('金額を読み取れませんでした。金額は手で入れてください。'
         + '下の「読み取った文字を見る」を送っていただければ、読み方を直します', 'warn');
     }
+    cashJobClear();          // ここまで来たら、やり直す必要はありません
   } catch (err) {
-    setCashMsg(String(err && err.message || err), 'warn');
+    // ★控えは消しません。通信が切れただけなら、次に開いたときに続きからやり直します
+    setCashMsg(String(err && err.message || err)
+      + '　アプリを開き直すと、続きからやり直します', 'warn');
     showCashPhoto();
   } finally {
     cashEdit.busy = false;
@@ -1319,7 +1453,7 @@ async function saveCash() {
 
   if (sales === null) {
     setCashMsg('現金売上を入れてください', 'warn');
-    return;
+    return false;
   }
   // ★誰が記録したかを残します。あとで金額が合わないときに、
   //   その日の紙を出した人に聞けるようにするためです
@@ -1327,7 +1461,7 @@ async function saveCash() {
   if (!by) {
     setCashMsg('担当者を選んでください', 'warn');
     el.cashStaff.focus();
-    return;
+    return false;
   }
 
   // ★写真をドライブに残すのは、ここ（記録するを押したとき）です。
@@ -1349,13 +1483,13 @@ async function saveCash() {
     el.cashSave.textContent = before;
     cashEdit.saveMs = Date.now() - from;
 
-    if (res.ok && !cashGasOk(res)) return;
+    if (res.ok && !cashGasOk(res)) return false;
 
     if (!res.ok || !res.fileId) {
       // 写真を残せていないのに記録してしまうと、あとで見返せません
       setCashMsg(`写真を残せませんでした（${res.error || '通信できません'}）。`
         + 'もう一度「記録する」を押してください', 'warn');
-      return;
+      return false;
     }
     cashEdit.photo = res.fileId;
     cashEdit.pending = '';
@@ -1377,6 +1511,7 @@ async function saveCash() {
     ? `記録しました（写真を残すのに ${(cashEdit.saveMs / 1000).toFixed(1)}秒）`
     : '', cashEdit.saveMs ? 'ok' : '');
   render();
+  return true;
 }
 
 /* -------- 1週間分（月〜日） -------- */
@@ -8555,6 +8690,13 @@ async function init() {
   await Store.boot();
   window.addEventListener('pagehide', () => Store.flushNow());
 
+  // ★途中で終わった作業を、続きからやり直します。
+  //   画面に戻ってきたときにも見ます（アプリを裏に回すと通信が切られるため）
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) cashResume();
+  });
+  window.addEventListener('pageshow', () => cashResume());
+
   render();
 
   // 新しい版が公開されたら画面下で知らせる（PINの有無に関係なく動かす）
@@ -8564,7 +8706,7 @@ async function init() {
   if (Sync.enabled()) {
     Sync.onChange = () => { renderSyncStatus(); renderSyncWarn(); };
     if (!Sync.pin()) openPinModal();
-    else Sync.start();
+    else { Sync.start(); cashResume(); }
     return;
   }
 

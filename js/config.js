@@ -3578,7 +3578,7 @@ function driveYen(totalKm) {
 
 const TASKS = [
   { id: 'day',   name: 'クローズ', sub: '閉店時の確認作業',         icon: '🌙' },
-  { id: 'cash',  name: '現金売上', sub: 'ジャーナルを撮って残す',   icon: '💴' },
+  { id: 'cash',  name: 'ジャーナル', sub: '撮って読み取り、日報へ入れる', icon: '💴' },
   { id: 'train', name: '教育',     sub: 'アルバイトの教育マニュアル', icon: '🎓' },
   // 随時掃除（決まった間隔がない掃除）は、週間掃除ページの下に出します
   { id: 'week',  name: '週間掃除', sub: '2週間ごとに行う掃除リスト', icon: '🧹' },
