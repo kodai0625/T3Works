@@ -262,18 +262,37 @@ const Sync = {
    * 同期とは別の頼みごとを1回だけ送ります（いまは日報の取り込みだけ）。
    * 送信箱は通さないので、失敗しても後から勝手に送り直したりはしません。
    */
+  /** 返事を待つ上限。写真の読み取りは5〜8秒かかるので、長めに取ります */
+  askMs: 60000,
+
   async ask(action, extra = {}) {
     if (!this.enabled()) return { ok: false, error: '共有の設定がされていません' };
     if (!this.pin()) return { ok: false, error: 'PINが入っていません' };
+    // ★時間切れを入れます。これが無いと、サーバーが詰まったときに
+    //   いつまでも待たされ、しかも「オフライン」と出て原因を取りちがえます
+    const stop = new AbortController();
+    const timer = setTimeout(() => stop.abort(), this.askMs);
     try {
       const res = await fetch(APP.syncUrl, {
         method: 'POST',
+        signal: stop.signal,
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ pin: this.pin(), action, ...extra }),
       });
       return await res.json();
     } catch (e) {
-      return { ok: false, error: 'オフライン、または通信できません' };
+      // 電波が無いのか、サーバーが返さないのかで、やることが違います
+      const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+      if (off) return { ok: false, error: '電波が届いていません。つながるところでもう一度ためしてください' };
+      const late = e && e.name === 'AbortError';
+      return {
+        ok: false,
+        error: late
+          ? `サーバーが${Math.round(this.askMs / 1000)}秒たっても返事をしません。混み合っていることがあるので、少し待ってからもう一度押してください`
+          : 'サーバーにつながりません。少し待ってからもう一度押してください',
+      };
+    } finally {
+      clearTimeout(timer);
     }
   },
 
