@@ -362,3 +362,31 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 }
 .shift-slot__use b { font-size: 13.5px; }
 .shift-slot .field { margin-bottom: 10px; }
+
+/* -------- 他店舗にも所属 --------
+   押されている人だけ、提出ページで店舗を切り替えられます */
+.shift-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+.shift-link .admin-note { width: 100%; margin: 0 0 2px; }
+.shift-code__btn {
+  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+.shift-code__btn.is-on {
+  background: var(--accent, #3d6ee0);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+.shift-code__btn:disabled { opacity: .55; cursor: default; }

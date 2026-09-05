@@ -6489,6 +6489,9 @@ function shiftOtherOpen() {
 /** 番号を出している人（押した分だけ。画面を離れると忘れます） */
 let shiftCodeOpen = new Set();
 
+/** 「他店舗にも所属」を開いている人の番号（1人分だけ開きます） */
+let shiftLinkOpen = '';
+
 function renderShiftRoster(組む) {
   let box = document.getElementById('shiftRoster');
   if (!box) {
@@ -6573,8 +6576,10 @@ function shiftCodeList(store, people) {
   const url = document.createElement('p');
   url.className = 'card__note';
   url.innerHTML = `提出ページのURLは <b>${new URL(SHIFT_SUBMIT_PATH, location.href).href}</b>（全員おなじです）。<br>`
-    + '<b>ほかの店舗にも同じ名前</b>があると、その人は<b>同じ人</b>として、'
-    + '提出ページで店舗を切り替えられます。別人なら、名前を変えて分けてください。';
+    + '<b>他店舗にも所属</b>を押して店舗を選ぶと、その人は提出ページで'
+    + '<b>店舗を切り替えられる</b>ようになります。<br>'
+    + '選んだ店舗の名簿にも<b>同じ番号で入る</b>ので、'
+    + '<b>向こうでも押された状態</b>になります（二重に登録しなくて済みます）。';
   wrap.appendChild(url);
 
   people.forEach((p) => {
@@ -6622,6 +6627,21 @@ function shiftCodeList(store, people) {
     });
     line.appendChild(copy);
 
+    // ★他店舗にも所属。押すと店舗を選べます。
+    //   2店舗以上に入っている人だけ、提出ページで店舗を切り替えられます
+    const よそ = shiftLinkedStores(p.c).filter((id) => id !== state.storeId);
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'btn btn--small' + (よそ.length ? ' btn--primary' : '');
+    link.textContent = よそ.length
+      ? `他店舗にも所属：${よそ.map((id) => (getStore(id) || {}).short || id).join('・')}`
+      : '他店舗にも所属';
+    link.addEventListener('click', () => {
+      shiftLinkOpen = shiftLinkOpen === p.c ? '' : p.c;
+      renderKeepScroll();
+    });
+    line.appendChild(link);
+
     // ★見本は、社員がその場でアルバイトの画面を開けるようにします
     if (isShiftTester(p.n)) {
       const open = document.createElement('a');
@@ -6633,8 +6653,50 @@ function shiftCodeList(store, people) {
       line.appendChild(open);
     }
     wrap.appendChild(line);
+
+    if (shiftLinkOpen === p.c) wrap.appendChild(shiftLinkPicker(p));
   });
   return wrap;
+}
+
+/**
+ * 「他店舗にも所属」を押したときの、店舗選び
+ *
+ * ★選ぶと、その店舗の名簿にも**同じ名前・同じ番号**で入ります。
+ *   なので**向こうの店舗から見ても、このボタンが押された状態**になります。
+ *   同じ人を二重に登録する手間が消えます。
+ */
+function shiftLinkPicker(person) {
+  const box = document.createElement('div');
+  box.style.cssText = 'padding:8px 0 12px;display:flex;flex-wrap:wrap;gap:8px;'
+    + 'align-items:center;border-bottom:1px solid var(--line);';
+
+  const cap = document.createElement('span');
+  cap.style.cssText = 'font-size:12px;color:var(--text-sub);width:100%;';
+  cap.textContent = `${person.n} さんが入っている店舗を選んでください`
+    + '（ここで選ぶと、向こうの名簿にも同じ番号で入ります）';
+  box.appendChild(cap);
+
+  const いま = new Set(shiftLinkedStores(person.c));
+  STORES.forEach((s) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const on = いま.has(s.id);
+    const ここ = s.id === state.storeId;
+    b.className = 'btn btn--small' + (on ? ' btn--primary' : '');
+    b.textContent = s.short + (ここ ? '（ここ）' : '');
+    // ★いまいる店舗は外せません。外すと、押している本人が消えてしまいます
+    b.disabled = ここ;
+    if (ここ) b.style.opacity = '.6';
+    b.addEventListener('click', () => {
+      const next = new Set(いま);
+      if (on) next.delete(s.id); else next.add(s.id);
+      shiftSetLinked(state.storeId, person.n, person.c, [...next]);
+      renderKeepScroll();
+    });
+    box.appendChild(b);
+  });
+  return box;
 }
 
 function renderShift() {

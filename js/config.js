@@ -2892,6 +2892,63 @@ function shiftRosterShows() {
   return true;
 }
 
+/* -------- 他店舗にも所属している人 -------- */
+
+/**
+ * 2つ以上の店舗に入っている人の表しかた
+ *
+ * ★**同じ番号を、両方の店舗の名簿に入れておく**だけです。新しい持ち物は増やしません。
+ *   こうすると、どちらの店舗から見ても同じ状態に見えます。
+ *   こじゃれで「炭まろにも所属」を押すと、炭まろの名簿にもその人が出て、
+ *   炭まろ側でも押された状態になります。**同じ人を二重に登録する手間が消えます。**
+ *
+ * ★前は「同じ名前なら同じ人」と見ていましたが、やめました。
+ *   同じ名前の別人がいると、勝手に結ばれてしまうためです。
+ *   いまは**押して決めたときだけ**結ばれます。
+ *
+ * ★番号はその人のものなので、どの店舗から出しても同じ人として届きます。
+ */
+
+/** その番号の人が入っている店舗（名簿に同じ番号があるところ全部） */
+function shiftLinkedStores(code) {
+  const want = String(code || '');
+  if (!want) return [];
+  const map = ShiftStaff.all();
+  return STORES.map((s) => s.id)
+    .filter((id) => (map[id] || []).some((p) => String(p.c || '') === want));
+}
+
+/**
+ * その人が入る店舗を決め直す
+ *
+ * ★入れる店舗には**同じ名前・同じ番号**で足し、外す店舗からは消します。
+ * ★もとの店舗は必ず残します（そこから押しているので、外せてしまうと
+ *   その人がどこにも居なくなります）。
+ * ★足す先にすでに同じ名前の人がいたら、**その人の番号をこちらに合わせます**
+ *   （別々に登録されていた同じ人を、1人にまとめる形です）。
+ */
+function shiftSetLinked(fromStore, name, code, stores) {
+  const map = ShiftStaff.all();
+  const want = new Set([fromStore, ...(stores || [])]);
+
+  STORES.forEach((s) => {
+    const id = s.id;
+    const list = (map[id] || []).slice();
+    const at = list.findIndex((p) => String(p.c || '') === String(code)
+      || (id !== fromStore && p.n === name));
+
+    if (want.has(id)) {
+      if (at < 0) list.push({ n: name, c: code, s: false, p: '' });
+      else list[at] = { ...list[at], n: name, c: code };
+    } else if (at >= 0 && id !== fromStore) {
+      list.splice(at, 1);
+    }
+    if (list.length) map[id] = list;
+    else delete map[id];
+  });
+  return ShiftStaff.save(map);
+}
+
 /** その店舗でシフトを組むか（名簿だけの店舗と見分けます） */
 function shiftBuilds(storeId) {
   return SHIFT_STORES.includes(storeId);

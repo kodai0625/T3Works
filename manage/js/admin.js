@@ -1338,10 +1338,67 @@ function renderShiftCodes() {
       renderShiftStaff();
     });
 
-    row.append(sent, name, lanes, code, copy, again);
+    // ★他店舗にも所属。ワークスの名簿と同じものです。
+    //   押して選ぶと、向こうの店舗の名簿にも同じ番号で入ります
+    const よそ = shiftLinkedStores(p.c).filter((id) => id !== storeId);
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'shift-code__btn' + (よそ.length ? ' is-on' : '');
+    link.textContent = よそ.length
+      ? `他店舗にも所属：${よそ.map((id) => (getStore(id) || {}).short || id).join('・')}`
+      : '他店舗にも所属';
+    link.addEventListener('click', () => {
+      shiftLinkOpen = shiftLinkOpen === p.c ? '' : p.c;
+      renderShiftStaff();
+    });
+
+    row.append(sent, name, lanes, code, copy, again, link);
     box.appendChild(row);
+
+    if (shiftLinkOpen === p.c) box.appendChild(shiftLinkPicker(storeId, p));
   });
   el.shiftCodeList.appendChild(box);
+}
+
+/** 「他店舗にも所属」を開いている人の番号 */
+let shiftLinkOpen = '';
+
+/**
+ * その人が入る店舗を選ぶところ
+ *
+ * ★選ぶと、その店舗の名簿にも**同じ名前・同じ番号**で入ります。
+ *   なので**向こうの店舗から見ても、このボタンが押された状態**になり、
+ *   同じ人を二重に登録する手間が消えます。
+ */
+function shiftLinkPicker(storeId, person) {
+  const wrap = document.createElement('div');
+  wrap.className = 'shift-link';
+
+  const cap = document.createElement('p');
+  cap.className = 'admin-note';
+  cap.textContent = `${person.n} さんが入っている店舗を選んでください`
+    + '（選ぶと、向こうの名簿にも同じ番号で入ります）';
+  wrap.appendChild(cap);
+
+  const いま = new Set(shiftLinkedStores(person.c));
+  STORES.forEach((st) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const on = いま.has(st.id);
+    const ここ = st.id === storeId;
+    b.className = 'shift-code__btn' + (on ? ' is-on' : '');
+    b.textContent = st.short + (ここ ? '（ここ）' : '');
+    // ★いまいる店舗は外せません。外すと、押している本人が消えてしまいます
+    b.disabled = ここ;
+    b.addEventListener('click', () => {
+      const next = new Set(いま);
+      if (on) next.delete(st.id); else next.add(st.id);
+      shiftSetLinked(storeId, person.n, person.c, [...next]);
+      renderShiftStaff();
+    });
+    wrap.appendChild(b);
+  });
+  return wrap;
 }
 
 /**
