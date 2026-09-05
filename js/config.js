@@ -1416,11 +1416,73 @@ function journalCandidates(lines, field, pairs) {
     // ★下の行から取れなかったときは、当てにならないので「読めず」も候補に入れます。
     //   実際に「ポイント」で、上にあったクレジットの金額を拾ってしまいました
     if (!down.length && out.length) out.push(null);
+    // ★支払の項目が 0 と読めたときは「読めず」も候補にします。
+    //   よその「¥0」を掴むと、0 として通ってしまい、
+    //   引き算で埋める機会を失います（8/6の電子マネーが実際にそうなりました）。
+    //   本当に0なら、引き算しても0になるので、害はありません
+    if (JOURNAL_PAY.indexOf(field.key) >= 0 && out.indexOf(0) >= 0 && out.indexOf(null) < 0) {
+      out.push(null);
+    }
     // 「N件」があるのに金額が読めなかったときは、素直に「読めず」にします
     if (anchored && !down.length) return [];
     return out;
   }
   return [];
+}
+
+/**
+ * 足りないものを、ほかの数から埋めます（当てずっぽうではなく引き算です）
+ *
+ * ★選ぶとき（journalPick）にも通します。そうしないと
+ *   「よその0を掴んだ組み合わせ」と「読めずの組み合わせ」が同じ点になり、
+ *   埋めれば正しくなる方を選べません
+ */
+function journalFill(v) {
+  const out = { ...v };
+  const fixed = [];
+  const has = (k) => out[k] !== null && out[k] !== undefined;
+
+  // ★埋める前に、ありえない値でないか見ます。
+  //   歯止めが無かったせいで「現金 −151,120／商品券 268,590」でも
+  //   計算だけは辻褄が合ってしまい、それが選ばれました
+  if (!has('cash') && has('received') && has('change') && out.received >= out.change) {
+    out.cash = out.received - out.change; fixed.push('現金');
+  }
+  if (has('gross')) {
+    const miss = JOURNAL_PAY.filter((k) => !has(k));
+    if (miss.length === 1) {
+      const rest = JOURNAL_PAY.filter((k) => k !== miss[0]).reduce((a, k) => a + out[k], 0);
+      const d = out.gross - rest;
+      if (d >= 0 && d <= out.gross) {
+        out[miss[0]] = d;
+        fixed.push((JOURNAL_FIELDS.find((f) => f.key === miss[0]) || {}).name);
+      }
+    }
+  }
+  if (!has('net') && has('gross') && has('tax')) { out.net = out.gross - out.tax; fixed.push('純売上'); }
+  if (!has('gross') && has('net') && has('tax')) { out.gross = out.net + out.tax; fixed.push('売上'); }
+  return { v: out, fixed };
+}
+
+/**
+ * ありえない組み合わせでないか
+ *
+ * ★これが無いと、検算の式だけは満たす「めちゃくちゃな組み合わせ」が選ばれます。
+ *   実際に 現金 −151,120／商品券 268,590 が選ばれました。
+ */
+function journalSane(v) {
+  const has = (k) => v[k] !== null && v[k] !== undefined;
+  for (let i = 0; i < JOURNAL_PAY.length; i++) {
+    const k = JOURNAL_PAY[i];
+    if (!has(k)) continue;
+    if (v[k] < 0) return false;                          // 支払がマイナスはありません
+    if (has('gross') && v[k] > v.gross) return false;    // 売上より多い支払もありません
+  }
+  if (has('received') && has('change') && v.received < v.change) return false;
+  if (has('guests') && v.guests < 0) return false;
+  if (has('net') && has('gross') && v.net > v.gross) return false;
+  if (has('tax') && v.tax < 0) return false;
+  return true;
 }
 
 /** 検算をして、通った数・落ちた数を返します */
@@ -1475,7 +1537,10 @@ function journalPick(cands) {
 
   let best = null;
   const score = (v) => {
-    const cs = journalCheck(v);
+    if (!journalSane(v)) return { ok: 0, ng: 99, got: 0, point: -9999 };
+    const filled = journalFill(v).v;
+    if (!journalSane(filled)) return { ok: 0, ng: 99, got: 0, point: -9999 };
+    const cs = journalCheck(filled);
     const ok = cs.filter((c) => c.ok).length;
     const ng = cs.length - ok;
     const got = keys.filter((k) => v[k] !== null && v[k] !== undefined).length;
@@ -1517,28 +1582,11 @@ function parseJournal(text) {
   const cands = {};
   JOURNAL_FIELDS.forEach((f) => { cands[f.key] = journalCandidates(lines, f, pairs); });
 
-  const v = journalPick(cands);
-  const fixed = [];
+  const picked = journalFill(journalPick(cands));
+  const v = picked.v;
+  const fixed = picked.fixed;
   const has = (k) => v[k] !== null && v[k] !== undefined;
   const sumPay = () => JOURNAL_PAY.reduce((a, k) => a + (v[k] || 0), 0);
-
-  /* ---- 足りないものを、計算で埋めます（当てずっぽうではありません）---- */
-  if (!has('cash') && has('received') && has('change')) {
-    v.cash = v.received - v.change; fixed.push('現金');
-  }
-  if (has('gross')) {
-    const miss = JOURNAL_PAY.filter((k) => !has(k));
-    if (miss.length === 1) {
-      const rest = JOURNAL_PAY.filter((k) => k !== miss[0]).reduce((a, k) => a + v[k], 0);
-      const d = v.gross - rest;
-      if (d >= 0) {
-        v[miss[0]] = d;
-        fixed.push((JOURNAL_FIELDS.find((f) => f.key === miss[0]) || {}).name);
-      }
-    }
-  }
-  if (!has('net') && has('gross') && has('tax')) { v.net = v.gross - v.tax; fixed.push('純売上'); }
-  if (!has('gross') && has('net') && has('tax')) { v.gross = v.net + v.tax; fixed.push('売上'); }
 
   /* ---- 検算。★1つ1つの数に「守ってくれる式」を結びつけ、
      その式が通った数だけを使います ---- */
