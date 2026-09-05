@@ -710,6 +710,22 @@ function cashText(n) {
   return n === null || n === undefined ? '' : Number(n).toLocaleString('ja-JP');
 }
 
+/**
+ * 数でも計算式でも、そのまま人に見せます
+ *
+ * ★確かめの画面で使います。計算式のときは「=1000+2000（6,000）」と、
+ *   式と答えの両方を出します。答えだけだと内わけが見えず、
+ *   式だけだと合っているか確かめられないためです。
+ */
+function cashShow(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'number') return cashText(v);
+  const s = String(v);
+  if (!cashIsFormula(s)) return s;
+  const n = cashMinusNum(s);
+  return n === null ? s : `${cashFormulaPlain(s)}（${n.toLocaleString('ja-JP')}）`;
+}
+
 function renderCash() {
   const dateStr = ymd(state.y, state.m, state.d);
   const key = `${state.storeId}/${dateStr}`;
@@ -847,10 +863,27 @@ function renderNippouBox(done) {
     i.readOnly = !!done;
     // 計算できない式は、その欄自身を赤くします
     const ng = String(i.value).trim() !== '' && cashMinusNum(i.value) === null;
-    i.classList.toggle('is-bad', ng);
+    // ★css は本部のファイルなので、クラスを足さずにここで色を付けます
+    i.style.borderColor = ng ? '#c0392b' : '';
+    i.style.color = ng ? '#c0392b' : '';
   });
 
   renderNippouMinusNote();
+
+  // ★写真をまだ読んでいないときは、読み取りの表と検算は出しません。
+  //   手で入れる欄だけが出ている状態です（先に入れておけます）。
+  //   ★入れ物は index.html ではなく、ここで出し入れします
+  const 表 = el.cashNippou.parentNode;          // <table class="cash-nippou">
+  if (表) 表.classList.toggle('is-hidden', !yomi);
+  if (!yomi) {
+    el.cashNippou.innerHTML = '';
+    el.cashChecks.textContent = '';
+    el.cashCheckMark.textContent = '';
+    el.cashToNippou.classList.add('is-hidden');
+    setNippouMsg('');
+    return;
+  }
+
   renderNippouTable();
 
   // 5つとも使えるときだけ、日報へ書けます
@@ -882,6 +915,42 @@ function renderNippouBox(done) {
   el.cashChecks.textContent = say.join('　');
 }
 
+/**
+ *  手で入れた分の下に出す一言
+ *
+ *  ★計算式を入れたときは、その場で答えを出します。
+ *    「=1000+2000+3000」と入れて、6,000円になっていることを
+ *    書く前に目で確かめられるようにするためです。
+ *  ★計算できない式は、はっきり赤で知らせます。**黙って0円にしません。**
+ */
+function renderNippouMinusNote() {
+  // ★入れ物は index.html ではなく、ここで作って差し込みます
+  //   （index.html は本部のファイルなので、部署からは触りません）
+  if (!el.cashMinusNote) {
+    const p = document.createElement('p');
+    p.className = 'cash-msg is-hidden';
+    p.id = 'cashMinusNote';
+    el.cashMinus.insertAdjacentElement('afterend', p);
+    el.cashMinusNote = p;
+  }
+  const よい = [];
+  const だめ = [];
+  CASH_MINUS_ROWS.forEach((k) => {
+    const v = cashEdit.m[k];
+    if (v === undefined || v === null || String(v).trim() === '') return;
+    if (!cashIsFormula(v)) return;              // ふつうの数は、そのまま見えています
+    const n = cashMinusNum(v);
+    if (n === null) だめ.push(NIPPOU_LABELS[k]);
+    else よい.push(`${NIPPOU_LABELS[k]} ${n.toLocaleString('ja-JP')}円`);
+  });
+  const 言 = [];
+  if (よい.length) 言.push('計算式：' + よい.join('　'));
+  if (だめ.length) 言.push(`★${だめ.join('、')} の式が計算できません。数字と ＋−×÷ かっこ だけが使えます`);
+  el.cashMinusNote.textContent = 言.join('　');
+  el.cashMinusNote.className = 'cash-msg'
+    + (だめ.length ? ' is-warn' : ' is-ok') + (言.length ? '' : ' is-hidden');
+}
+
 /* ------------------------------------------------------------
  *  日報へ書く
  *
@@ -898,7 +967,17 @@ function nippouSend() {
     if (n[r.key] !== null && n[r.key] !== undefined) values[NIPPOU_LABELS[r.key]] = n[r.key];
   });
   if (NIPPOU_WRITE_DELIVERY) {
-    CASH_MINUS_ROWS.forEach((k) => { values[NIPPOU_LABELS[k]] = Number(cashEdit.m[k]) || 0; });
+    // ★計算式で入れたものは、計算式のまま日報へ渡します。
+    //   日報のマスにも「=1000+2000+3000」と入るので、あとから開いたときに
+    //   何件でいくらだったかが残ります。ふつうの数はそのまま数で渡します。
+    CASH_MINUS_ROWS.forEach((k) => {
+      const v = cashEdit.m[k];
+      if (cashIsFormula(v) && cashMinusNum(v) !== null) {
+        values[NIPPOU_LABELS[k]] = cashFormulaPlain(v);   // 「=1000+2000」の形
+      } else {
+        values[NIPPOU_LABELS[k]] = cashMinusOr0(v);
+      }
+    });
   }
   return values;
 }
@@ -908,8 +987,24 @@ function setNippouMsg(text, kind) {
   el.cashNippouMsg.className = 'cash-msg' + (kind ? ` is-${kind}` : '') + (text ? '' : ' is-hidden');
 }
 
+/** 手で入れた分に、計算できない式が残っていないか */
+function cashMinusBad() {
+  return CASH_MINUS_ROWS.filter((k) => {
+    const v = cashEdit.m[k];
+    return v !== undefined && v !== null && String(v).trim() !== '' && cashMinusNum(v) === null;
+  }).map((k) => NIPPOU_LABELS[k]);
+}
+
 async function writeNippou() {
   if (!cashEdit.jok) return;
+  // ★計算できない式が残っているときは、書きません。
+  //   0円として書くと、本当は売上があった日を0円で残してしまいます
+  const だめ = cashMinusBad();
+  if (だめ.length) {
+    setNippouMsg(`${だめ.join('、')} の計算式が計算できません。`
+      + '直すか、空にしてから書いてください（数字と ＋−×÷ かっこ だけが使えます）', 'warn');
+    return;
+  }
   // ★テスト用の書き先が入っていれば、そちらへ書きます（この端末の中だけの設定です）
   const test = NippouTest.get();
   const folder = test ? '' : NippouFolders.get(state.storeId);
@@ -933,9 +1028,9 @@ async function writeNippou() {
     const already = rows.filter((r) => r.before !== null && r.before !== '' && r.before !== r.after);
     const ok = await askConfirm({
       item: `${look.file}　${look.sheet}日のページ`,
-      message: rows.map((r) => `${r.name} ${cashText(r.after)}`).join('／')
+      message: rows.map((r) => `${r.name} ${cashShow(r.after)}`).join('／')
         + (already.length
-          ? `　★${already.map((r) => `${r.name}は いま ${cashText(r.before)}`).join('、')}。上書きします`
+          ? `　★${already.map((r) => `${r.name}は いま ${cashShow(r.before)}`).join('、')}。上書きします`
           : ''),
       okLabel: '書く',
       danger: already.length > 0,

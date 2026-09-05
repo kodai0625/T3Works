@@ -313,36 +313,6 @@ body.is-dragging { cursor: grabbing; user-select: none; }
  *  日数分の行が出るので、表は枠の中だけで横に動かします
  *  （ページ全体が横に動くと、iPad で見出しを見失うためです）
  * ============================================================ */
-.uregi { margin-top: 14px; }
-.uregi__head { color: var(--text-weak); font-size: 13px; margin: 0 0 10px; }
-.uregi__store { margin-bottom: 22px; }
-.uregi__name {
-  font-size: 15px; font-weight: 800; margin: 0 0 8px;
-  color: var(--store, var(--accent));
-}
-.uregi__table {
-  border-collapse: collapse; font-size: 13px;
-  font-variant-numeric: tabular-nums; min-width: 100%;
-}
-.uregi__store { overflow-x: auto; }
-.uregi__table th,
-.uregi__table td {
-  border: 1px solid var(--line); padding: 5px 9px; white-space: nowrap;
-}
-.uregi__table thead th {
-  background: var(--surface-2); font-size: 12px; font-weight: 700;
-  position: sticky; top: 0;
-}
-.uregi__table tbody th,
-.uregi__table tfoot th {
-  background: var(--surface-2); text-align: left; font-weight: 700;
-  position: sticky; left: 0;
-}
-.uregi__table td { text-align: right; }
-.uregi__table tfoot td,
-.uregi__table tfoot th { font-weight: 800; }
-.uregi__ok { color: var(--text-weak); font-size: 12px; margin: 8px 0 0; }
-.uregi__error { color: #c0392b; font-size: 13px; font-weight: 700; margin: 8px 0 0; }
 
 /* -------- シフトの枠と時刻 --------
    1つの枠を1かたまりにして、「使う」のチェックを頭に置きます。
