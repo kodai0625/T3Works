@@ -861,11 +861,6 @@ function renderNippouBox(done) {
       i.value = (v === undefined || v === null || v === '' || v === 0) ? '' : String(v);
     }
     i.readOnly = !!done;
-    // 計算できない式は、その欄自身を赤くします
-    const ng = String(i.value).trim() !== '' && cashMinusNum(i.value) === null;
-    // ★css は本部のファイルなので、クラスを足さずにここで色を付けます
-    i.style.borderColor = ng ? '#c0392b' : '';
-    i.style.color = ng ? '#c0392b' : '';
   });
 
   renderNippouMinusNote();
@@ -943,6 +938,17 @@ function renderNippouMinusNote() {
     if (n === null) だめ.push(NIPPOU_LABELS[k]);
     else よい.push(`${NIPPOU_LABELS[k]} ${n.toLocaleString('ja-JP')}円`);
   });
+  // ★計算できない欄は、その欄自身も赤くします。
+  //   一言だけだと、欄がいくつもあるときにどれのことか分かりません。
+  //   ここは入力のたびに通るので、打ちながら赤くなります
+  //   （css/style.css は本部のファイルなので、クラスを足さずに色を付けます）
+  [...el.cashMinus.querySelectorAll('input[data-k]')].forEach((i) => {
+    const s = String(i.value).trim();
+    const ng = s !== '' && cashMinusNum(s) === null;
+    i.style.borderColor = ng ? '#c0392b' : '';
+    i.style.color = ng ? '#c0392b' : '';
+  });
+
   const 言 = [];
   if (よい.length) 言.push('計算式：' + よい.join('　'));
   if (だめ.length) 言.push(`★${だめ.join('、')} の式が計算できません。数字と ＋−×÷ かっこ だけが使えます`);
