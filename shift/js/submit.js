@@ -224,7 +224,15 @@ function renderPeriod() {
     : `${days.length}日のうち ${on}日 選んでいます`;
 
   el('slotHint').innerHTML = shiftWishSlots(me.store)
-    .map((s) => `<b>${s.name}</b>＝${s.hint}`).join('<br>')
+    .map((s) => {
+      // ★時刻を選べない枠は、ふだんの時刻をここに出します。
+      //   説明文の中に書き写しておくと、マネージで時刻だけ直したときに
+      //   説明が古いまま残って、うそになります。
+      //   F（通し）は出しません。始まりの時刻はお店が決めるからです
+      const when = s.id !== SHIFT_FULL_ID && s.askTime === false && s.pick
+        ? `（${shiftTimeText(s.pick)}）` : '';
+      return `<b>${s.name}</b>${when}＝${s.hint}`;
+    }).join('<br>')
     + '<br>入れる日の枠を押してください。押していない日は「入れない日」です。'
     // ★連絡の例は、ここにまとめて出します。マスの中の薄い字（placeholder）に
     //   入れると、スマホの幅では後ろが切れて読めません
