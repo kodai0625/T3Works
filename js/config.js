@@ -2792,9 +2792,59 @@ function shiftStep(y, m, half, step) {
   return { y: yy, m: Math.floor(n / 2) + 1, half: (n % 2) + 1 };
 }
 
+/* -------- 希望の入れ先（★人ごとに別の行です） -------- */
+
+/**
+ * 出してもらった希望は、**人ごとに別の行**にします。
+ *
+ * ★なぜ分けたか
+ *   前は半月分をまるごと1行にまとめていました。1行に入るのは5万文字までです。
+ *   実際の形のまま数え直すと、30人で35,178文字、40人で **54,930文字**
+ *   ＝もう書けません。1行の中で一番大きいのが希望（40人で28,635文字）、
+ *   次が取り込みずみの控え（16,537文字）で、組んだ結果は9,550文字しか
+ *   ありません。**大きいのは希望の方**でした。
+ *   人ごとに出すと、1人分は多くても846文字（上限の59分の1）で頭打ちになり、
+ *   何人増えても当たりません。教育の記録を人ごとに分けたのと同じ手です
+ *   （→ trainDayKey）。
+ *
+ * ★分けると、同時に出しても消し合わなくなります。
+ *   1行にまとめていたころは、締切ぎわに2人が同時に出すと
+ *   「読む→足す→書く」のあいだに割り込まれて片方が消えるので、
+ *   Apps Script の側で鍵をかけて1人ずつ通していました。
+ *   人ごとの行なら、書く先がそもそも重なりません。
+ *
+ * 入れ先は  _shiftw/baguru-2026-09-1-482913  の形です。
+ * うしろはマネージで振られた、その人の番号です。
+ * **名前ではなく番号にしてあります。**名前を書き直しても、
+ * 出したものが行方不明にならないようにするためです
+ * （名前は行の中に一緒に書いておきます）。
+ *
+ * ★入れ先を `_shift` と分けてあるのは、Apps Script の側で
+ *   「その店舗の半月」を数えるときに `_shift/店舗id-` で拾っているためです。
+ *   同じ入れ先に置くと、1人分の行まで半月として数えてしまいます。
+ */
+const SHIFT_WISH_STORE = '_shiftw';
+
+/** 希望の行の中で、中身を入れておく名前（1行に1つだけです） */
+const SHIFT_WISH_ITEM = 'wish';
+
+/** その人の、その半月の希望の入れ先（'baguru-2026-09-1-482913'） */
+function shiftWishRowKey(storeId, y, m, half, code) {
+  return `${shiftKey(storeId, y, m, half)}-${code}`;
+}
+
+/** その半月の、希望の行だけを拾うための頭（'baguru-2026-09-1-'） */
+function shiftWishRowHead(storeId, y, m, half) {
+  return `${shiftKey(storeId, y, m, half)}-`;
+}
+
 /* -------- 記録の中の名前 -------- */
 
-/** 出してもらった希望の入れ先 */
+/**
+ * 古い、希望の入れ先（組んだ行の中に `w:名前` で入っていたころのもの）
+ *
+ * ★もう書きません。前に出してもらった分を**読むためだけ**に残しています。
+ */
 function shiftWishKey(name) {
   return `w:${name}`;
 }
@@ -2868,12 +2918,90 @@ function shiftPhaseText(phase) {
 /**
  * 一度取り込んだ組み合わせを控えておく入れ先
  *
- *   { list: ['2026-09-03|dinner|そう', …] }
+ *   { by: { 'そう': ['3|d', '4|l'], … } }
  *
  * ★これがあるので「希望を取り込む」を何度押しても、
  *   いちど外した人が戻ってきません。
+ *
+ * ★昔は  { list: ['2026-09-03|dinner|そう', …] }  でした。
+ *   1つで20文字あり、40人の半月で16,537文字＝**1行の3分の1**を
+ *   これだけで使っていました。いまは
+ *     ・年と月は書きません（行のキーで決まっています）
+ *     ・枠は1文字（o/l/d/f）にします
+ *     ・名前は人ごとに1回だけにします
+ *   ので、1つ6文字ほどになります。
+ *   **古い形もそのまま読めます**（下の shiftTakenRead）。
  */
 const SHIFT_TAKEN_KEY = 'taken';
+
+/** 枠の名前と1文字の行き来（記録を短くするため。読み書きの両方でここを通します） */
+const SHIFT_SLOT_LETTER = { open: 'o', lunch: 'l', dinner: 'd', full: 'f' };
+
+/** 控えの1つ分（'2026-09-03' と 'dinner' → '3|d'） */
+function shiftTakenMark(dateStr, slotId) {
+  const day = Number(String(dateStr).slice(8, 10));
+  return `${day}|${SHIFT_SLOT_LETTER[slotId] || slotId}`;
+}
+
+/**
+ * 控えの見分け（名前と、日と枠）
+ *
+ * ★1つの Set で見られるように、改行でつないだ1本の文字列にします。
+ *   改行は名前にも枠にも入らないので、区切りとして安全です。
+ */
+function shiftTakenId(name, dateStr, slotId) {
+  return `${name}\n${shiftTakenMark(dateStr, slotId)}`;
+}
+
+/**
+ * 控えを読む（新しい形も、古い形も読めます）
+ *
+ * ★古い形が残っている半月は、次に取り込んだときに新しい形で書き直されます。
+ *   読むときに両方を足しているので、書き直す前でも取りこぼしません。
+ */
+function shiftTakenRead(v) {
+  const out = new Set();
+  if (!v || typeof v !== 'object') return out;
+
+  // 新しい形 { by: { 名前: ['3|d', …] } }
+  if (v.by && typeof v.by === 'object') {
+    Object.keys(v.by).forEach((name) => {
+      const marks = Array.isArray(v.by[name]) ? v.by[name] : [];
+      marks.forEach((mk) => out.add(`${name}\n${mk}`));
+    });
+  }
+
+  // 古い形 { list: ['2026-09-03|dinner|そう', …] }
+  // ★名前に | が入っていても切れないよう、3つ目から後ろを全部名前とします
+  if (Array.isArray(v.list)) {
+    v.list.forEach((one) => {
+      const p = String(one).split('|');
+      if (p.length < 3) return;
+      out.add(shiftTakenId(p.slice(2).join('|'), p[0], p[1]));
+    });
+  }
+  return out;
+}
+
+/**
+ * 控えを書く形にする
+ *
+ * ★`list: []` を付けているのは、古い形を**消すため**です。
+ *   Store.setItem は項目を混ぜて書くので、`{ by }` だけを渡すと
+ *   古い `list` がそのまま残り、いつまでも縮みません。
+ *   読むときに古い形も足してから書き直しているので、取りこぼしはありません。
+ */
+function shiftTakenWrite(set) {
+  const by = {};
+  set.forEach((one) => {
+    const i = String(one).indexOf('\n');
+    if (i < 0) return;
+    const name = one.slice(0, i);
+    if (!by[name]) by[name] = [];
+    by[name].push(one.slice(i + 1));
+  });
+  return { by, list: [] };
+}
 
 /**
  * 提出ページ

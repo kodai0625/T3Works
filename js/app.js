@@ -727,7 +727,15 @@ const CASH_MINUS_ROWS = ['demaeCash', 'demaeCard', 'uberCash', 'uberCard', 'rock
 function renderNippouBox(done) {
   const on = JOURNAL_STORES.includes(state.storeId) && !!cashEdit.j;
   el.cashNippouBox.classList.toggle('is-hidden', !on);
-  if (!on) return;
+  if (!on) {
+    // ★隠すときは中身も消します。残しておくと、次に出たときに
+    //   前の日の数字が一瞬でも見えてしまいます
+    el.cashNippou.innerHTML = '';
+    el.cashChecks.textContent = '';
+    el.cashCheckMark.textContent = '';
+    setNippouMsg('');
+    return;
+  }
 
   // 手で入れる分（無い日は空のまま）
   if (el.cashMinus.childElementCount !== CASH_MINUS_ROWS.length) {
@@ -1235,6 +1243,10 @@ async function onCashFile(e) {
     cashEdit.busy = false;
     el.cashTake.classList.remove('is-busy');
     el.cashTakeText.textContent = (cashEdit.photo || cashEdit.pending) ? '📷 撮り直す' : '📷 ジャーナルを撮る';
+    // ★描き直します。ここが抜けていたため「日報に入れる」が古いままで、
+    //   前の日に読んだ数字が次の日にも出ていました。
+    //   金額欄と伝えごとは日が変わったときにしか触らないので、上書きされません
+    render();
   }
 }
 
@@ -5977,16 +5989,27 @@ let pattyOpen = '';
  *
  * ★見本（テスト用）の人は、ここで外します。ここを通ってから
  *   「取り込む」「提出を見る」「入る人を選ぶ」に行くので、1か所で足ります。
+ *
+ * ★希望は**人ごとの別の行**（`_shiftw/…`）に入っています。
+ *   古い分は組んだ行の中に `w:名前` で入っているので、両方から集めます。
+ *   同じ人が両方にいたら、**人ごとの行の方**を使います（新しい方です）。
+ *
+ * ★at を省くと、いま開いている半月のものを読みます。
+ *   **ほかの半月を見るときは必ず渡してください。**希望が別の行になったので、
+ *   rec を渡すだけでは「どの半月か」が分からなくなりました
+ *   （shiftFirstPeriod が先の半月を見にいきます）。
  */
-function shiftWishes(rec) {
-  const order = shiftBuildNames(state.storeId);
-  const out = [];
-  Object.keys(rec.items || {}).forEach((k) => {
-    if (k.indexOf('w:') !== 0) return;
-    if (isShiftTester(k.slice(2))) return;
-    const v = rec.items[k] || {};
-    out.push({
-      name: k.slice(2),
+function shiftWishes(rec, at) {
+  const p = at || {
+    storeId: state.storeId, y: state.y, m: state.m, half: shiftHalf,
+  };
+  const order = shiftBuildNames(p.storeId);
+  const found = new Map();
+
+  const put = (name, v) => {
+    if (!name || isShiftTester(name)) return;
+    found.set(name, {
+      name,
       days: v.days && typeof v.days === 'object' ? v.days : {},
       // 連絡は日ごとに書いてもらいます。note は日ごとにする前の書き方で、
       // そのころに出してもらった分がまだ残っているので読めるようにしています
@@ -5994,7 +6017,24 @@ function shiftWishes(rec) {
       note: v.note || '',
       sentAt: v.sentAt || null,
     });
+  };
+
+  // 古い分（組んだ行の中の w:名前）。先に入れて、新しい方で上書きします
+  Object.keys(rec.items || {}).forEach((k) => {
+    if (k.indexOf('w:') !== 0) return;
+    put(k.slice(2), rec.items[k] || {});
   });
+
+  // いまの形（人ごとの行）
+  const head = shiftWishRowHead(p.storeId, p.y, p.m, p.half);
+  Store.keysUnder(SHIFT_WISH_STORE).forEach((key) => {
+    if (key.indexOf(head) !== 0) return;
+    const v = (Store.getDay(SHIFT_WISH_STORE, key).items || {})[SHIFT_WISH_ITEM];
+    // 名前は行の中に書いてあります（キーは番号なので、名前を直しても迷いません）
+    if (v) put(String(v.n || ''), v);
+  });
+
+  const out = [...found.values()];
   return out.sort((a, b) => {
     const ia = order.indexOf(a.name), ib = order.indexOf(b.name);
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
@@ -6022,10 +6062,9 @@ function shiftWishInto(wishes, dateStr, slotId) {
   return out;
 }
 
-/** 一度取り込んだ組み合わせ（'日付|枠|名前'） */
+/** 一度取り込んだ組み合わせ。古い形も新しい形も読めます（→ shiftTakenRead） */
 function shiftTakenSet(rec) {
-  const v = (rec.items || {})[SHIFT_TAKEN_KEY];
-  return new Set(v && Array.isArray(v.list) ? v.list : []);
+  return shiftTakenRead((rec.items || {})[SHIFT_TAKEN_KEY]);
 }
 
 /** 枠の中の並び順。早い時刻から、同じ時刻なら名簿の順 */
@@ -6107,7 +6146,9 @@ function shiftFirstPeriod(storeId) {
     const p = shiftStep(now.y, now.m, now.half, i);
     const rec = Store.getDay(SHIFT_STORE, shiftKey(storeId, p.y, p.m, p.half));
     if (shiftPhaseOf(rec) === SHIFT_BUILT) continue;
-    if (shiftWishes(rec).length) return p;
+    // ★ここは「ほかの半月」を見ています。半月を渡さないと、
+    //   いま開いている半月の希望を数えてしまいます
+    if (shiftWishes(rec, { storeId, ...p }).length) return p;
   }
   // どれも無ければ「次の半月」。★今の半月は出しません。
   //   募集をかけるのは先の半月なので、いま動いている半月を開いても
@@ -6155,7 +6196,7 @@ function shiftTake() {
         // 立ち上げで出している人の、そのあとの分（ランチ／F）は入れません
         if (slot.id !== 'open' && openWish.has(w.name)) return;
         // 印は「出してもらったときの枠」で付けます。ランチとFは別ものとして数えます
-        const mark = `${dateStr}|${w.s}|${w.name}`;
+        const mark = shiftTakenId(w.name, dateStr, w.s);
         if (taken.has(mark)) return;
         taken.add(mark);
         if (day[slot.id].some((e) => e.n === w.name)) return;
@@ -6179,7 +6220,9 @@ function shiftTake() {
     }
   });
 
-  Store.setItem(SHIFT_STORE, shiftRecKey(), SHIFT_TAKEN_KEY, { list: [...taken] });
+  // ★新しい短い形で書き直します。古い形（list）で入っていた分も、
+  //   読むときに足してあるので、ここで書き直せば取りこぼしません
+  Store.setItem(SHIFT_STORE, shiftRecKey(), SHIFT_TAKEN_KEY, shiftTakenWrite(taken));
   return added;
 }
 

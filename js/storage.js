@@ -476,6 +476,20 @@ const Store = {
     return this.adapter.getMonth(storeId, ym);
   },
 
+  /**
+   * その入れ先に入っている記録の名前を全部（'_shiftw/baguru-2026-09-1-482913'
+   * なら 'baguru-2026-09-1-482913' の方を返します）
+   *
+   * ★1人1行にしたシフトの希望を集めるのに使います。
+   *   1件ずつ getDay で引くには、まずどんな名前で入っているかが要ります。
+   */
+  keysUnder(storeId) {
+    const prefix = `${storeId}/`;
+    return Object.keys(this.adapter.dump())
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => k.slice(prefix.length));
+  },
+
   /** その店舗で最初に記録がある日付（'YYYY-MM-DD'）。無ければ null
    *  週間掃除の記録（storeId/W2026-08-02）は日付ではないので除きます */
   firstDate(storeId) {
