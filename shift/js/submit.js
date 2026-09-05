@@ -128,6 +128,10 @@ function applyOpen(res) {
   //   このページは Store を持たないので、Apps Script が渡してくれたものを控えます。
   //   渡ってこなければ config.js の初めの形で動きます
   setShiftSlots(me.store, res.slots);
+  // ★タブの名前を、その人のお店にします。このページは全店舗で同じURLなので、
+  //   HTMLに店舗名を書いておけません（前は「バグる」と書いてありました）
+  const mine = getStore(me.store);
+  if (mine && mine.name) document.title = `${mine.name} シフト提出`;
   period = res.period || null;
   phase = res.phase || '';
   due = res.due || '';

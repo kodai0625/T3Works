@@ -1,7 +1,7 @@
 {
-  "name": "バグる シフト提出",
-  "short_name": "バグる シフト提出",
-  "description": "バグるのシフト希望を出すアプリ",
+  "name": "シフト提出",
+  "short_name": "シフト提出",
+  "description": "シフトの希望を出すアプリ",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
