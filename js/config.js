@@ -4022,7 +4022,9 @@ const TASKS = [
   // 組むのは現場スタッフなので、どちらからでも同じことができます。
   // アルバイトが希望を出すのは、別に配る提出ページ（…/shift/）です
   { id: 'shift', name: 'シフト',   sub: '希望を集めて組む',           icon: '🗓',
-    when: (storeId) => SHIFT_STORES.includes(storeId) },
+      // ★出す条件はシフトの見出しの中（shiftTaskShows）で決めています。
+      //   名簿は全店舗、組むのは SHIFT_STORES だけ、という分け方です
+      when: (storeId) => shiftTaskShows(storeId) },
   { id: 'month', name: '月間表',   sub: '1か月の一覧',               icon: '📅', when: () => APP.showMonthView !== false },
 ];
 
