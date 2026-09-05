@@ -993,6 +993,24 @@ function setNippouMsg(text, kind) {
   el.cashNippouMsg.className = 'cash-msg' + (kind ? ` is-${kind}` : '') + (text ? '' : ' is-hidden');
 }
 
+/**
+ * サーバー（日報に書く.gs）が新しい版かどうか
+ *
+ * ★現金売上.gs の cashGasOk と同じ考え方です。
+ *   食いちがっていたら、その場で何をすればよいかを出して**書かせません**。
+ */
+function nippouGasOk(res) {
+  const now = res && res.v ? String(res.v) : '';
+  if (now === NIPPOU_GAS_VERSION) return true;
+  const how = '★コードを貼っただけでは切り替わりません。'
+    + 'Apps Script の右上「デプロイ」→「デプロイを管理」→ '
+    + 'いま使っているデプロイの鉛筆 → バージョンを「新バージョン」→「デプロイ」';
+  setNippouMsg(now
+    ? `日報に書く.gs が古いままです（サーバー ${now} ／ アプリ ${NIPPOU_GAS_VERSION}）。${how}`
+    : `日報に書く.gs が古いままです（版が分かりません）。${how}`, 'warn');
+  return false;
+}
+
 /** 手で入れた分に、計算できない式が残っていないか */
 function cashMinusBad() {
   return CASH_MINUS_ROWS.filter((k) => {
@@ -1028,6 +1046,10 @@ async function writeNippou() {
     const look = await Sync.ask('nippouWrite',
       { mode: '見る', file: test, folder, day: dateStr, values });
     if (!look.ok) { setNippouMsg(look.error || '日報を開けませんでした', 'warn'); return; }
+    // ★書く前に、Apps Script が新しい版かを見ます。
+    //   ここで止めないと、古いGASが知らない書き方（計算式など）を
+    //   黙って素通りさせ、当日総合計の検算も通ってしまいます
+    if (!nippouGasOk(look)) return;
 
     // ② 並べて確かめてもらいます
     const rows = look.rows || [];
