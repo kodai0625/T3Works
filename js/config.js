@@ -43,17 +43,29 @@
     }
   }
 
+  /**
+   * どのファイルの何行目か
+   *
+   * ★非同期の中で転ぶと e.filename が空になります（2026-09-05に実際そうでした）。
+   *   そのときは stack の1本目から拾います。**場所が一番知りたい情報**です。
+   */
+  function 場所(err, ファイル, 行) {
+    if (ファイル) return String(ファイル).split('/').pop() + ':' + (行 || '?');
+    var st = (err && err.stack) || '';
+    var m = st.match(/([^/\s()]+\.js):(\d+)/);
+    return m ? (m[1] + ':' + m[2]) : '';
+  }
+
   window.addEventListener('error', function (e) {
     // 画像の読み込み失敗などは e.message を持ちません。そこは拾いません
     if (!e || !e.message) return;
-    var どこ = (e.filename || '').split('/').pop() + ':' + (e.lineno || '?');
-    知らせる(e.message, どこ);
+    知らせる(e.message, 場所(e.error, e.filename, e.lineno) || '場所は分かりません');
   });
 
   window.addEventListener('unhandledrejection', function (e) {
     if (!e) return;
     var r = e.reason;
-    知らせる((r && r.message) || String(r), '待っていた処理');
+    知らせる((r && r.message) || String(r), 場所(r) || '待っていた処理');
   });
 })();
 
