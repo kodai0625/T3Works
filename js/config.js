@@ -1333,6 +1333,45 @@ function journalPairs(lines) {
 }
 
 /**
+ * 支払の欄だけ、名前の並びと金額の並びを順番どおりに対応づけます
+ *
+ * ★支払の欄は、名前も金額も必ず同じ順で出ます。途中で行がずれても、
+ *   何番目かは変わりません。実際にこうなりました：
+ *     電子又一 / 1214 / 商品券(釣無L) 0件 / ¥27,050 / ¥0
+ *   （¥27,050 は電子マネーの金額で、商品券の行より下に出ています）
+ *   かっこ書き（「(含む商品券未使用金額 ¥0)」など）は数に入れません。
+ */
+function journalPaySeq(lines) {
+  const mine = JOURNAL_FIELDS.filter((f) =>
+    JOURNAL_PAY.indexOf(f.key) >= 0 || f.key === 'received' || f.key === 'change');
+
+  let from = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (CASH_SECTION_MARKS.some((m) => cashPlain(lines[i]).includes(m))) { from = i; break; }
+  }
+  if (from < 0) return {};
+
+  const labels = [];
+  const amounts = [];
+  for (let i = from + 1; i < lines.length; i++) {
+    const p = cashPlain(lines[i]);
+    if (!p) continue;
+    // かっこ書きは、その上の項目の内わけなので数えません
+    if (/^[(（]/.test(p) || p.indexOf('含') >= 0) continue;
+    const f = mine.find((x) => !x.skip.some((ng) => p.includes(cashPlain(ng)))
+      && x.hit.some((h) => p.includes(cashPlain(h))));
+    if (f && !labels.some((l) => l === f.key)) labels.push(f.key);
+    const v = cashMarkedOf(lines[i]);
+    if (v !== null) amounts.push(v);
+  }
+
+  const out = {};
+  const n = Math.min(labels.length, amounts.length);
+  for (let k = 0; k < n; k++) out[labels[k]] = amounts[k];
+  return out;
+}
+
+/**
  * 1つの項目の数の「候補」を集めます
  *
  * ★読み取りは、値が項目名の【下】に来ることも【上】に来ることもあります。
@@ -1345,7 +1384,7 @@ function journalPairs(lines) {
  *   そこで【上・下・列の対応づけ】を候補として集めておき、
  *   どれが正しいかは、レシート自身の計算式（検算）に決めてもらいます。
  */
-function journalCandidates(lines, field, pairs) {
+function journalCandidates(lines, field, pairs, seq) {
   for (let i = 0; i < lines.length; i++) {
     const p = cashPlain(lines[i]);
     if (!p) continue;
@@ -1377,6 +1416,10 @@ function journalCandidates(lines, field, pairs) {
         if (v !== null && got.indexOf(v) < 0) got.push(v);
       }
       if (got.length) return got;
+      // ★支払の項目では、目印の無い数字を金額にしません。
+      //   「12件」が「1214」と崩れると、それを金額にしてしまうためです。
+      //   読めなければ「読めず」にして、引き算で埋めさせます
+      if (JOURNAL_PAY.indexOf(field.key) >= 0) return [];
       for (let j = from; step > 0 ? j <= to : j >= to; j += step) {
         if (j !== i && journalIsLabel(lines[j])) break;
         const v = cashBareOf(lines[j]);
@@ -1411,6 +1454,7 @@ function journalCandidates(lines, field, pairs) {
     const out = [];
     const push = (v) => { if (v !== null && out.indexOf(v) < 0) out.push(v); };
     down.forEach(push);
+    push(seq && seq[field.key] !== undefined ? seq[field.key] : null);
     push(paired);
     if (!anchored) up.forEach(push);
     // ★下の行から取れなかったときは、当てにならないので「読めず」も候補に入れます。
@@ -1579,8 +1623,9 @@ function journalPick(cands) {
 function parseJournal(text) {
   const lines = String(text || '').split(/\r?\n/);
   const pairs = journalPairs(lines);
+  const seq = journalPaySeq(lines);
   const cands = {};
-  JOURNAL_FIELDS.forEach((f) => { cands[f.key] = journalCandidates(lines, f, pairs); });
+  JOURNAL_FIELDS.forEach((f) => { cands[f.key] = journalCandidates(lines, f, pairs, seq); });
 
   const picked = journalFill(journalPick(cands));
   const v = picked.v;
