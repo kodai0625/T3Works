@@ -1389,6 +1389,7 @@ function shiftTimesFromText(text) {
 
 function renderShiftSlots() {
   const storeId = state.storeId;
+  const 時刻で入れる = shiftUsesRange(storeId);
   const saved = Store.getDay(SHIFT_SET_STORE, storeId).items || {};
   const now = shiftSlotsOf(storeId);
   el.shiftSlotCount.textContent = `${now.length}つ`;
@@ -1431,13 +1432,66 @@ function renderShiftSlots() {
     };
     add('画面に出る名前', 'name', v.name || base.name, base.name);
     add('説明（提出ページ）', 'hint', v.hint === undefined ? base.hint : v.hint, base.hint);
-    add('選べる時刻', 'times',
-      (Array.isArray(v.times) && v.times.length ? v.times : base.times).join(','),
-      base.times.join(','));
-    add('ふだんの時刻', 'pick', v.pick || base.pick, base.pick);
+    // ★時刻を入れる店舗（popo）では、枠ごとの時刻は使いません。
+    //   アルバイトが出した出勤・退勤がそのまま入り、どの行に入るかは
+    //   出勤時刻で決まるためです。出すと「ここで決まる」と読めてしまいます
+    if (!時刻で入れる) {
+      add('選べる時刻', 'times',
+        (Array.isArray(v.times) && v.times.length ? v.times : base.times).join(','),
+        base.times.join(','));
+      add('ふだんの時刻', 'pick', v.pick || base.pick, base.pick);
+    }
 
     el.shiftSlotList.appendChild(row);
   });
+
+  if (時刻で入れる) renderShiftRangeNote(storeId);
+}
+
+/**
+ * 時刻を入れる店舗（popo）だけに出す説明と、Fの境目
+ *
+ * ★ランチタイムの時間帯は、**アルバイトには出しません**（お店の中の決めごと）。
+ *   ここで決めた時刻より前に出て、あとまで残る人を「通し」とみなし、
+ *   シフト表で名前を灰色に塗ります。バグると違って「F」の字は出しません。
+ */
+function renderShiftRangeNote(storeId) {
+  const st = shiftStyleOf(storeId);
+  const box = document.createElement('div');
+  box.className = 'shift-slot';
+
+  const p1 = document.createElement('p');
+  p1.className = 'admin-note';
+  p1.innerHTML = 'この店舗は<b>出勤〜退勤の時刻を入れる</b>やり方です。'
+    + 'アルバイトは枠を選ばず、時刻だけを出します。<br>'
+    + 'どの行に入るかは<b>出勤時刻</b>で決まります'
+    + '（11:00より前＝立ち上げ、11:00〜16:30＝ランチ、17:00以降＝ディナー）。<br>'
+    + '出してもらった時刻が<b>そのままシフト表に入り</b>、あとから名前を押して直せます。';
+  box.appendChild(p1);
+
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const cap = document.createElement('span');
+  cap.className = 'field__label';
+  cap.textContent = '通し（灰色）の境目';
+  const inp = document.createElement('input');
+  inp.className = 'field__input';
+  inp.type = 'text';
+  inp.id = 'shiftLunchTo';
+  inp.value = st.lunchTo;
+  inp.placeholder = '17';
+  wrap.append(cap, inp);
+  box.appendChild(wrap);
+
+  const p2 = document.createElement('p');
+  p2.className = 'admin-note';
+  p2.innerHTML = 'この時刻<b>より前</b>に出勤して、この時刻<b>より後</b>まで残る人を'
+    + '通しとみなし、シフト表で<b>名前を灰色に塗ります</b>。'
+    + '<b>17</b> なら 17:00、<b>17.5</b> なら 17:30 です。<br>'
+    + 'アルバイトの画面には出ません。';
+  box.appendChild(p2);
+
+  el.shiftSlotList.appendChild(box);
 }
 
 function saveShiftSlots() {
@@ -1447,18 +1501,28 @@ function saveShiftSlots() {
       const f = row.querySelector(`[data-k="${k}"]`);
       return f ? (f.type === 'checkbox' ? f.checked : f.value.trim()) : '';
     };
-    const times = shiftTimesFromText(get('times'));
-    const pick = get('pick');
-    Store.setItem(SHIFT_SET_STORE, storeId, shiftSlotSetKey(row.dataset.slot), {
-      use: !!get('use'),
-      name: get('name'),
-      hint: get('hint'),
-      times,
+    const 直す = { use: !!get('use'), name: get('name'), hint: get('hint') };
+    // ★時刻の欄は、時刻を入れる店舗では出していません。
+    //   出していない欄を空で書くと、前に入れてあった時刻を消してしまいます
+    if (row.querySelector('[data-k="times"]')) {
+      const times = shiftTimesFromText(get('times'));
+      const pick = get('pick');
+      直す.times = times;
       // ★ふだんの時刻は、選べる時刻の中から選びます。
       //   外れていると「選べない時刻で入っている人」ができてしまいます
-      pick: times.includes(pick) ? pick : (times[0] || ''),
-    });
+      直す.pick = times.includes(pick) ? pick : (times[0] || '');
+    }
+    Store.setItem(SHIFT_SET_STORE, storeId, shiftSlotSetKey(row.dataset.slot), 直す);
   });
+
+  // 通し（灰色）の境目
+  const 境目 = document.getElementById('shiftLunchTo');
+  if (境目) {
+    const v = 境目.value.trim();
+    if (/^\d{1,2}(\.5)?$/.test(v)) {
+      Store.setItem(SHIFT_SET_STORE, storeId, SHIFT_STYLE_KEY, { lunchTo: v });
+    }
+  }
   renderShiftSlots();
   el.shiftSlotSaved.classList.remove('is-hidden');
   setTimeout(() => el.shiftSlotSaved.classList.add('is-hidden'), 2500);

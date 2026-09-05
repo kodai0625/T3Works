@@ -2458,7 +2458,15 @@ function shiftMergeSlots(items) {
  *   組み立てた並びではありません。重ねるのは上の1か所にまかせます。
  */
 function setShiftSlots(storeId, items) {
-  shiftSlotsGiven = storeId ? { storeId, list: shiftMergeSlots(items) } : null;
+  if (!storeId) { shiftSlotsGiven = null; return; }
+  const src = items && typeof items === 'object' ? items : {};
+  shiftSlotsGiven = {
+    storeId,
+    list: shiftMergeSlots(src),
+    // ★入れ方（時刻を入れるか、通しの境目はどこか）も一緒に控えます。
+    //   ここを渡し忘れると、提出ページだけ古い決まりで動きます
+    style: src[SHIFT_STYLE_KEY] || {},
+  };
 }
 
 /** その店舗の枠（★枠を読むときは、必ずここを通してください） */
@@ -2482,6 +2490,113 @@ function shiftSlotsOf(storeId) {
 /** その店舗で、その枠を使っているか */
 function shiftHasSlot(storeId, slotId) {
   return shiftSlotsOf(storeId).some((s) => s.id === slotId);
+}
+
+/* -------- 入れ方（枠で選ぶか、時間を入れるか） -------- */
+
+/**
+ * シフトの入れ方
+ *
+ *   range     … true なら「出勤〜退勤の時刻を入れる」やり方。
+ *               false（ふつう）は「立ち上げ・ランチ…の枠を選ぶ」やり方です
+ *   step      … 選べる時刻の刻み（0.5 = 30分ごと）
+ *   from / to … 出退勤で選べる時刻の幅
+ *   lunchTo   … **F（通し）の境目**。この時刻より前に出て、あとまで残る人がFです
+ *   patty     … パティのボタンを出すか
+ *
+ * ★時刻は '17' = 17時、'17.5' = 17時半 の書き方です（ほかと同じ）。
+ */
+/** 入れ方の設定を入れておく名前 */
+const SHIFT_STYLE_KEY = 'style';
+
+const SHIFT_STYLE_DEFAULT = {
+  range: false, step: 0.5, from: '8', to: '24', lunchTo: '17', patty: true,
+};
+
+/**
+ * 店舗ごとの入れ方（書いていない店舗は上のまま）
+ *
+ * ★popo は「出勤〜退勤の時刻を入れる」やり方です（2026-09-05に ko-dai の指示）。
+ *   アルバイトは枠を選ばず、時刻だけ入れます。どの行に入るかは
+ *   出勤時刻から決めます（shiftSlotByTime）。
+ * ★lunchTo: '17' … 17時より前に出て、17時より**あと**まで残る人をFとします。
+ *   Fは名前を灰色に塗るだけで、**バグるのような「F」の字は出しません**。
+ */
+const SHIFT_STYLE_STORES = {
+  popo: { range: true, step: 0.5, from: '8', to: '24', lunchTo: '17', patty: false },
+};
+
+/** その店舗の入れ方（マネージで直した分も重ねます） */
+function shiftStyleOf(storeId) {
+  const base = { ...SHIFT_STYLE_DEFAULT, ...(SHIFT_STYLE_STORES[storeId] || {}) };
+  if (shiftSlotsGiven && shiftSlotsGiven.storeId === storeId) {
+    return { ...base, ...(shiftSlotsGiven.style || {}) };
+  }
+  try {
+    if (typeof Store !== 'undefined' && storeId) {
+      const v = (Store.getDay(SHIFT_SET_STORE, storeId).items || {})[SHIFT_STYLE_KEY];
+      if (v) {
+        const out = { ...base };
+        ['step', 'from', 'to', 'lunchTo'].forEach((k) => { if (v[k]) out[k] = v[k]; });
+        ['range', 'patty'].forEach((k) => { if (typeof v[k] === 'boolean') out[k] = v[k]; });
+        return out;
+      }
+    }
+  } catch (e) {
+    // 読めなくても、初めの形で動かします
+  }
+  return base;
+}
+
+/** その店舗は「出勤〜退勤の時刻を入れる」やり方か */
+function shiftUsesRange(storeId) {
+  return !!shiftStyleOf(storeId).range;
+}
+
+/** その店舗でパティを使うか */
+function shiftHasPatty(storeId) {
+  return !!shiftStyleOf(storeId).patty;
+}
+
+/**
+ * 選べる時刻の一覧（'8', '8.5', '9' … ）
+ *
+ * ★出勤にも退勤にも同じ一覧を使います。
+ */
+function shiftRangeTimes(storeId) {
+  const st = shiftStyleOf(storeId);
+  const step = Number(st.step) > 0 ? Number(st.step) : 0.5;
+  const from = Number(st.from);
+  const to = Number(st.to);
+  const out = [];
+  if (!isFinite(from) || !isFinite(to) || to <= from) return out;
+  for (let t = from; t <= to + 1e-9; t += step) {
+    out.push(shiftTimeKey(t));
+  }
+  return out;
+}
+
+/**
+ * その人がF（通し）か
+ *
+ * ★枠で選ぶ店舗（バグる）は、出してもらったときの印（entry.f）をそのまま見ます。
+ * ★時刻を入れる店舗（popo）は、**入っている時刻から毎回決めます**。
+ *   時刻を直せばFかどうかも変わるので、印を持たせません。
+ *   境目は lunchTo（popo は17時）。**その前に出て、そのあとまで残る人**がFです。
+ */
+function shiftIsFull(storeId, entry) {
+  if (!entry) return false;
+  if (!shiftUsesRange(storeId)) return !!entry.f;
+  const at = Number(entry.t);
+  const to = Number(entry.e);
+  const sakai = Number(shiftStyleOf(storeId).lunchTo);
+  if (!isFinite(at) || !isFinite(to) || !isFinite(sakai)) return false;
+  return at < sakai && to > sakai;
+}
+
+/** 名前のうしろに「F」の字を出すか（popo は塗るだけで、字は出しません） */
+function shiftShowsFullMark(storeId) {
+  return !shiftUsesRange(storeId);
 }
 
 /**
@@ -2658,6 +2773,20 @@ function shiftFitSize(texts, width, max) {
 const SHIFT_MEMO_TAGS = [
   'まさ休み', 'こうだい休み', 'こうだいpopo', 'こうだいランチpopo', 'こうだいディナーpopo',
 ];
+
+/**
+ * 店舗ごとの決まり文句（書いていない店舗は上のものを使います）
+ *
+ * ★ここに書けば、その店舗だけ入れかわります。
+ */
+const SHIFT_MEMO_TAGS_STORES = {
+  popo: ['あお休み', 'こうだい終日', 'こうだいランチ', 'こうだいディナー'],
+};
+
+/** その店舗の決まり文句 */
+function shiftMemoTagsOf(storeId) {
+  return SHIFT_MEMO_TAGS_STORES[storeId] || SHIFT_MEMO_TAGS;
+}
 const SHIFT_MEMO_SEP = '・';
 
 /** メモを「・」で分けたもの */
@@ -2848,9 +2977,30 @@ function shiftTimeMark(storeId, slotId, t) {
 
 /** 表に出す1人分（'18:00 そう' のような形） */
 function shiftNameText(storeId, slotId, entry) {
-  const mark = shiftTimeMark(storeId, slotId, entry && entry.t);
+  const mark = shiftTimeSpan(storeId, slotId, entry);
   const name = String((entry && entry.n) || '');
   return mark ? `${mark} ${name}` : name;
+}
+
+/**
+ * 表に出す時刻。**退勤まで入っていれば「10:00〜15:00」と出します**
+ *
+ * ★時刻を入れる店舗（popo）だけ、うしろが付きます。
+ *   枠で選ぶ店舗（バグる）は退勤を持たないので、今までどおり「10:00」です。
+ */
+function shiftTimeSpan(storeId, slotId, entry) {
+  const at = entry && entry.t;
+  if (at === undefined || at === null || at === '') return '';
+
+  // ★時刻を入れる店舗（popo）では、枠が引けるかを見ません。
+  //   時刻はその人自身のものなので、枠の設定に左右されてはいけません。
+  //   前は枠が引けないと時刻ごと消えていました（使わない設定にした枠に
+  //   人が残っていると、名前だけになって何時の人か分からなくなります）
+  if (!shiftUsesRange(storeId)) return shiftTimeMark(storeId, slotId, at);
+
+  const from = shiftTimeText(at);
+  const to = entry && entry.e;
+  return to === undefined || to === null || to === '' ? from : `${from}〜${shiftTimeText(to)}`;
 }
 
 /**
@@ -2873,11 +3023,12 @@ const SHIFT_FULL_MARK_EM = 0.9;
 
 function shiftNameParts(storeId, slotId, entry) {
   return {
-    time: shiftTimeMark(storeId, slotId, entry && entry.t),
+    time: shiftTimeSpan(storeId, slotId, entry),
     name: String((entry && entry.n) || ''),
     // ★F の人は名前のうしろに「 F」が付きます。この幅も数に入れないと、
-    //   その人だけマスからはみ出ます
-    full: !!(entry && entry.f),
+    //   その人だけマスからはみ出ます。
+    //   popo は塗るだけで字を出さないので、幅も要りません
+    full: shiftShowsFullMark(storeId) && shiftIsFull(storeId, entry),
   };
 }
 

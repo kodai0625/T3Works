@@ -463,3 +463,25 @@ body {
 
 /* 出しているあいだ、うしろの画面は動かしません */
 body.is-help { overflow: hidden; }
+
+/* -------- 出勤〜退勤を選ぶ（時刻を入れる店舗だけ） --------
+   30分刻みで8時から24時までだと33個になるので、ボタンではなくプルダウンです。
+   iPhone では時計のホイールのように出ます */
+.range { display: flex; gap: 10px; margin-top: 9px; }
+.range__one { flex: 1 1 0; display: block; }
+.range__label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 4px;
+}
+.range__sel {
+  width: 100%;
+  /* ★指で押せる大きさにします。iPhone は16px未満だと画面を勝手に拡大します */
+  font-size: 16px;
+  padding: 9px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+}

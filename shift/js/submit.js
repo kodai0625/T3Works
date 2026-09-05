@@ -227,7 +227,14 @@ function renderPeriod() {
     ? `提出済み（${on}日）。直したら、もう一度出してください`
     : `${days.length}日のうち ${on}日 選んでいます`;
 
-  el('slotHint').innerHTML = shiftWishSlots(me.store)
+  // ★時刻を入れる店舗（popo）は、枠を選ばないので枠の説明を出しません。
+  //   ランチタイムの時間帯も**出しません**（お店の中の決めごとなので）
+  el('slotHint').innerHTML = shiftUsesRange(me.store)
+    ? '入る日の<b>出勤</b>と<b>退勤</b>を選んでください。'
+      + '出勤を「—」のままにした日は「入れない日」です。'
+      + '<br>連絡は日ごとに書けます。'
+      + '例：<b>20時まで出れます</b>／<b>人がいれば削ってください</b>'
+    : shiftWishSlots(me.store)
     .map((s) => {
       // ★時刻を選べない枠は、ふだんの時刻をここに出します。
       //   説明文の中に書き写しておくと、マネージで時刻だけ直したときに
@@ -394,6 +401,89 @@ function builtSheetModel() {
   };
 }
 
+/** その日の連絡。枠の下に置いて、日ごとに書けるようにしています */
+function dayNote(dateStr) {
+  const note = document.createElement('input');
+  note.type = 'text';
+  note.className = 'day__note';
+  note.maxLength = 120;
+  note.placeholder = '連絡（あれば）';
+  note.value = notes[dateStr] || '';
+  note.addEventListener('input', () => {
+    const v = note.value.trim();
+    if (v) notes[dateStr] = v;
+    else delete notes[dateStr];
+  });
+  return note;
+}
+
+/**
+ * 出勤〜退勤を選ぶ行（時刻を入れる店舗だけ）
+ *
+ * ★「入らない日」は、出勤を空にしておくだけです。押して消す操作は要りません。
+ * ★退勤は、出勤より後の時刻しか出しません。
+ * ★どの枠（立ち上げ・ランチ・ディナー）に入るかは**お店の側で決まります**。
+ *   ここでは見せません。出勤時刻から自動で決まるためです。
+ */
+function rangeRow(dateStr, entry) {
+  const times = shiftRangeTimes(me.store);
+  const row = document.createElement('div');
+  row.className = 'range';
+
+  const make = (name, いま, onPick, より後) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'range__one';
+    const cap = document.createElement('span');
+    cap.className = 'range__label';
+    cap.textContent = name;
+    const sel = document.createElement('select');
+    sel.className = 'range__sel';
+    const から = document.createElement('option');
+    から.value = '';
+    から.textContent = '—';
+    sel.appendChild(から);
+    times.forEach((t) => {
+      if (より後 !== undefined && より後 !== '' && Number(t) <= Number(より後)) return;
+      const o = document.createElement('option');
+      o.value = t;
+      o.textContent = shiftTimeText(t);
+      if (String(いま) === t) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => onPick(sel.value));
+    wrap.append(cap, sel);
+    return wrap;
+  };
+
+  const from = entry ? String(entry.t || '') : '';
+  const to = entry ? String(entry.e || '') : '';
+
+  row.appendChild(make('出勤', from, (v) => setRange(dateStr, v, to), undefined));
+  row.appendChild(make('退勤', to, (v) => setRange(dateStr, from, v), from));
+  return row;
+}
+
+/**
+ * 出勤〜退勤を入れる
+ *
+ * ★出勤が空なら「その日は入らない」です。
+ * ★退勤が出勤より前になったら、退勤を捨てます（出勤を後ろにずらしたとき）。
+ * ★入る枠は、出勤時刻から決めます（10:30なら立ち上げ、11:00ならランチ…）。
+ *   お店の表がその行に入るので、ここで決めておきます。
+ */
+function setRange(dateStr, from, to) {
+  if (!from) {
+    delete picked[dateStr];
+    renderPeriod();
+    return;
+  }
+  const owari = to && Number(to) > Number(from) ? to : '';
+  const one = { s: shiftSlotByTime(from), t: from };
+  if (owari) one.e = owari;
+  picked[dateStr] = [one];
+  renderPeriod();
+}
+
 /** 絵にして、共有か保存に渡します */
 async function saveBuiltImage() {
   if (!built || !period) return;
@@ -467,6 +557,15 @@ function dayCard(dateStr) {
     return card;
   }
   card.appendChild(head);
+
+  // ★時刻を入れる店舗（popo）は、枠を選ばずに出勤〜退勤を入れてもらいます。
+  //   30分刻みで8時から24時までだと33個になるので、ボタンではなく
+  //   プルダウンにします（iPhoneでは時計のホイールのように出ます）
+  if (shiftUsesRange(me.store)) {
+    card.appendChild(rangeRow(dateStr, mine[0] || null));
+    card.appendChild(dayNote(dateStr));
+    return card;
+  }
 
   // 枠は4つ（立ち上げ・F・ランチ・ディナー）あるので、日付の下に1行使って並べます。
   // 日付と同じ行に押し込むと、iPhoneではボタンが小さくなりすぎて押しまちがえます
@@ -545,19 +644,7 @@ function dayCard(dateStr) {
     card.appendChild(row);
   });
 
-  // その日の連絡。枠の下に置いて、日ごとに書けるようにしています
-  const note = document.createElement('input');
-  note.type = 'text';
-  note.className = 'day__note';
-  note.maxLength = 120;
-  note.placeholder = '連絡（あれば）';
-  note.value = notes[dateStr] || '';
-  note.addEventListener('input', () => {
-    const v = note.value.trim();
-    if (v) notes[dateStr] = v;
-    else delete notes[dateStr];
-  });
-  card.appendChild(note);
+  card.appendChild(dayNote(dateStr));
 
   return card;
 }
@@ -642,6 +729,14 @@ function renderDone() {
     const body = document.createElement('span');
     body.className = 'done-row__body';
     const marks = (picked[s] || []).map((e) => {
+      // ★時刻を入れる店舗は、枠の名前を出しません（選んでいないので）。
+      //   出した時間帯をそのまま返します
+      if (shiftUsesRange(me.store)) {
+        const from = String(e.t || '');
+        if (!from) return '';
+        const to = String(e.e || '');
+        return shiftTimeText(from) + (to ? `〜${shiftTimeText(to)}` : '〜');
+      }
       const slot = getShiftSlot(me.store, e.s);
       if (!slot) return '';
       // ★F は時刻を出しません。何時からになるかはお店が決めるので、

@@ -1265,7 +1265,7 @@ async function onCashFile(e) {
     //   途中でアプリを閉じられても、戻ってきたら続きからやり直せるようにします
     cashJobSave({ kind: 'read', store: state.storeId, date: dateStr, image: dataUrl,
       at: new Date().toISOString() });
-    await cashReadPhoto(dataUrl, dateStr);
+    await cashReadPhoto(dataUrl, dateStr, file);
   } catch (err) {
     setCashMsg(String(err && err.message || err), 'warn');
     showCashPhoto();
@@ -1283,8 +1283,13 @@ async function onCashFile(e) {
  *  ★onCashFile からも、続きからやり直すとき（cashResume）からも呼びます。
  *    最後まで行けたら控えを消します。途中で切れたら控えが残るので、
  *    次にアプリを開いたときに、もう一度ここへ入ります。
+ *
+ *  ★file は「いま撮った写真そのもの」です。読めなかったときに、
+ *    もっときれいな画質で送り直すのに使います。
+ *    続きからやり直すとき（cashResume）は、控えに小さくした写真しか
+ *    残っていません。そのときは file が空で呼ばれ、送り直しはしません。
  */
-async function cashReadPhoto(dataUrl, dateStr) {
+async function cashReadPhoto(dataUrl, dateStr, file) {
   cashEdit.busy = true;
   el.cashTake.classList.add('is-busy');
   try {
@@ -1309,7 +1314,11 @@ async function cashReadPhoto(dataUrl, dateStr) {
 
     // ★小さくして送ったせいで読み取れなかったのかもしれません。
     //   そのときだけ、元の画質でもう一度送り直します（ふだんは1回で終わります）
-    if (!res.ocrError && got.how === 'ng') {
+    // ★file が無いのは、続きからやり直しているときです。控えには小さくした
+    //   写真しか残っていないので、送り直しても同じ結果にしかなりません。
+    //   ここで file を見ずに送り直そうとして、画面に
+    //   「file is not defined」と出していました（2026-09-05 に直しました）
+    if (file && !res.ocrError && got.how === 'ng') {
       setCashWait('もう一度、きれいな写真で読み取っています…');
       const big = await cashShrink(file, CASH_PHOTO_Q_RETRY);
       const res2 = await Sync.ask('journal', {
@@ -6191,7 +6200,11 @@ function shiftWishInto(wishes, dateStr, slotId) {
   wishes.forEach((w) => {
     (w.days[dateStr] || []).forEach((e) => {
       if (!e || shiftSlotFor(e.s) !== slotId) return;
-      out.push({ name: w.name, t: e.t || '', s: e.s, full: e.s === SHIFT_FULL_ID });
+      // e … 退勤時刻（時刻を入れる店舗だけ入っています）
+      out.push({
+        name: w.name, t: e.t || '', e: e.e || '', s: e.s,
+        full: e.s === SHIFT_FULL_ID,
+      });
     });
   });
   return out;
@@ -6342,6 +6355,8 @@ function shiftTake() {
           t: w.t || shiftDefaultTime(state.storeId, w.s),
           p: ShiftStaff.laneOf(state.storeId, w.name) || SHIFT_LANES[0].id,
         };
+        // ★退勤時刻（時刻を入れる店舗だけ）。出してもらったものをそのまま入れます
+        if (w.e) entry.e = w.e;
         if (w.full || (slot.id === 'open' && pairFull.has(w.name))) entry.f = true;
         day[slot.id].push(entry);
         added += 1;
@@ -6646,7 +6661,10 @@ function shiftGridBlock(rec, wishes, days) {
     }
 
     td.appendChild(shiftMemoTagBox(dateStr, input));
-    td.appendChild(shiftPattyBox(shiftDayOf(rec, dateStr), dateStr));
+    // ★パティを使わない店舗（popo）では、ボタンごと出しません
+    if (shiftHasPatty(state.storeId)) {
+      td.appendChild(shiftPattyBox(shiftDayOf(rec, dateStr), dateStr));
+    }
     memo.appendChild(td);
   });
   table.appendChild(memo);
@@ -6671,16 +6689,20 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
     chip.dataset.i = i;
     chip.dataset.n = e.n;
     chip.addEventListener('pointerdown', (ev) => startShiftDrag(ev, chip));
-    chip.className = 'shift-chip' + (e.f ? ' is-full' : '') + (e.early ? ' is-early' : '');
+    // ★F かどうかは shiftIsFull にまかせます。時刻を入れる店舗（popo）では
+    //   入っている時刻から毎回決まるので、時刻を直せば塗りも変わります
+    const 通し = shiftIsFull(state.storeId, e);
+    chip.className = 'shift-chip' + (通し ? ' is-full' : '') + (e.early ? ' is-early' : '');
     chip.textContent = shiftNameText(state.storeId, slot.id, e);
-    // ★通しの人は名前のうしろに F。塗りだけだと、ぱっと見て分かりません
-    if (e.f) {
+    // ★通しの人は名前のうしろに F。塗りだけだと、ぱっと見て分かりません。
+    //   popo は「字は出さなくていい」とのことなので、塗りだけです
+    if (通し && shiftShowsFullMark(state.storeId)) {
       const mark = document.createElement('b');
       mark.className = 'chip-f';
       mark.textContent = 'F';
       chip.appendChild(mark);
     }
-    const note = [e.f ? 'F（ランチからディナーまで通し）' : '', e.early ? '早上がり' : ''].filter(Boolean);
+    const note = [通し ? (shiftUsesRange(state.storeId) ? '通し（ランチからディナーまで）' : 'F（ランチからディナーまで通し）') : '', e.early ? '早上がり' : ''].filter(Boolean);
     if (note.length) chip.title = note.join('・');
     chip.addEventListener('click', () => {
       if (shiftDrag.justMoved) return;   // 動かした直後は、開かない
@@ -6733,7 +6755,7 @@ function shiftCell(rec, wishes, day, dateStr, slot, lane, first) {
 function shiftMemoTagBox(dateStr, input) {
   const box = document.createElement('div');
   box.className = 'memo-tags';
-  SHIFT_MEMO_TAGS.forEach((tag) => {
+  shiftMemoTagsOf(state.storeId).forEach((tag) => {
     const b = document.createElement('button');
     b.type = 'button';
     const on = shiftMemoHas(input.value, tag);
@@ -6958,6 +6980,63 @@ function renderKeepScroll() {
   if (window.scrollY !== y) window.scrollTo(0, y);
 }
 
+/**
+ * 退勤時刻を選ぶところ
+ *
+ * ★時刻を入れる店舗（popo）だけに出します。
+ * ★入れ物は index.html ではなく、ここで作って差し込みます。
+ *   index.html は本部のファイルなので、部署からは触りません。
+ * ★出勤より前の時刻は出しません（10:00出勤で9:00退勤は作れません）。
+ */
+function renderShiftEndTimes(使うか, dateStr, slotId, index, entry, 選べる時刻) {
+  let box = document.getElementById('shiftPickEndField');
+  if (!box) {
+    if (!使うか) return;
+    box = document.createElement('div');
+    box.id = 'shiftPickEndField';
+    box.className = 'field';
+    const cap = document.createElement('span');
+    cap.className = 'field__label';
+    cap.textContent = '退勤時刻';
+    const seg = document.createElement('div');
+    seg.className = 'seg seg--wrap';
+    seg.id = 'shiftPickEnds';
+    box.append(cap, seg);
+    // 出勤時刻のすぐ下に置きます
+    el.shiftPickTimeField.parentNode.insertBefore(box, el.shiftPickTimeField.nextSibling);
+  }
+  box.classList.toggle('is-hidden', !使うか);
+  if (!使うか) return;
+
+  const seg = document.getElementById('shiftPickEnds');
+  seg.innerHTML = '';
+  const 出勤 = Number(entry ? entry.t : shiftPickAt.time);
+  const いま = String((entry ? entry.e : shiftPickAt.end) || '');
+
+  選べる時刻.forEach((t) => {
+    // 出勤より前は出しません
+    if (isFinite(出勤) && Number(t) <= 出勤) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seg__btn' + (いま === t ? ' is-on' : '');
+    b.textContent = shiftTimeText(t);
+    b.addEventListener('click', () => {
+      if (entry) {
+        const now = shiftDayOf(shiftRec(), dateStr);
+        now[slotId][index] = { ...now[slotId][index], e: t };
+        now[slotId] = shiftSort(now[slotId]);
+        saveShiftDay(dateStr, now);
+        closeShiftPick();
+        renderKeepScroll();
+      } else {
+        shiftPickAt.end = t;
+        renderShiftPick();
+      }
+    });
+    seg.appendChild(b);
+  });
+}
+
 /** 名前を、別のマスへ移します */
 function moveShiftChip(from, to) {
   if (from.date === to.date && from.slot === to.slot && from.lane === to.lane) return;
@@ -6996,7 +7075,7 @@ function moveShiftChip(from, to) {
 /* -------- 人を選ぶ・直す -------- */
 
 function openShiftPick(dateStr, slotId, laneId, index) {
-  shiftPickAt = { dateStr, slotId, laneId, index, time: '', full: undefined };
+  shiftPickAt = { dateStr, slotId, laneId, index, time: '', end: '', full: undefined };
   const slot = getShiftSlot(state.storeId, slotId);
   const lane = SHIFT_LANES.find((l) => l.id === laneId) || SHIFT_LANES[0];
   const [, m, d] = dateStr.split('-').map(Number);
@@ -7021,14 +7100,19 @@ function renderShiftPick() {
   const day = shiftDayOf(rec, dateStr);
   const entry = index === null ? null : day[slotId][index];
 
-  /* 開始時刻 */
+  /* 出勤時刻 */
+  // ★時刻を入れる店舗（popo）では、枠ごとの時刻ではなく
+  //   「選べる時刻を全部」から選びます。枠は出勤時刻で決まるためです
+  const 時刻で入れる = shiftUsesRange(state.storeId);
+  const 選べる時刻 = 時刻で入れる ? shiftRangeTimes(state.storeId) : slot.times;
   el.shiftPickTimes.innerHTML = '';
-  el.shiftPickTimeField.classList.toggle('is-hidden', !slot.times.length);
+  el.shiftPickTimeField.classList.toggle('is-hidden', !選べる時刻.length);
   el.shiftPickTimeLabel.textContent = entry
-    ? '開始時刻（押すと変わります）'
-    : '開始時刻（選ばなければ、その人の希望どおりに入ります）';
-  if (slot.times.length) {
-    slot.times.forEach((t) => {
+    ? (時刻で入れる ? '出勤時刻（押すと変わります）' : '開始時刻（押すと変わります）')
+    : (時刻で入れる ? '出勤時刻（選ばなければ、その人の希望どおりに入ります）'
+      : '開始時刻（選ばなければ、その人の希望どおりに入ります）');
+  if (選べる時刻.length) {
+    選べる時刻.forEach((t) => {
       const b = document.createElement('button');
       b.type = 'button';
       // ★「足す」ときは、押されるまでどれも光らせません。
@@ -7040,8 +7124,15 @@ function renderShiftPick() {
       b.addEventListener('click', () => {
         if (entry) {
           const now = shiftDayOf(shiftRec(), dateStr);
-          now[slotId][index] = { ...now[slotId][index], t };
-          now[slotId] = shiftSort(now[slotId]);
+          const 直した = { ...now[slotId][index], t };
+          // ★時刻を入れる店舗では、出勤時刻を変えたら入る行も変わります
+          //   （10:30 は立ち上げ、11:00 はランチ…）。同じ行に置いたままだと
+          //   「ランチの行に18時の人がいる」ことになって読みまちがえます
+          const 行き先 = 時刻で入れる ? shiftSlotByTime(t) : slotId;
+          now[slotId].splice(index, 1);
+          now[行き先].push(直した);
+          now[行き先] = shiftSort(now[行き先]);
+          if (行き先 !== slotId) now[slotId] = shiftSort(now[slotId]);
           saveShiftDay(dateStr, now);
           closeShiftPick();
           renderKeepScroll();
@@ -7054,6 +7145,10 @@ function renderShiftPick() {
     });
   }
 
+  /* 退勤時刻（時刻を入れる店舗だけ） */
+  renderShiftEndTimes(時刻で入れる, dateStr, slotId, index, entry, 選べる時刻);
+
+  /* --- ここまで --- */
   /* 持ち場（キッチン／ホール） */
   el.shiftPickLanes.innerHTML = '';
   const nowLane = entry ? shiftLaneOf(entry) : shiftPickAt.laneId;
@@ -7073,7 +7168,9 @@ function renderShiftPick() {
 
   /* 通し（F）。ランチと立ち上げの枠で出します。
      ★立ち上げから通しで入る人がいるので、立ち上げでも選べるようにしてあります */
-  const canFull = slotId === 'lunch' || slotId === 'open';
+  // ★時刻を入れる店舗（popo）では、Fは出勤・退勤から毎回決まります。
+  //   手で切り替えるものではないので、この欄は出しません
+  const canFull = !時刻で入れる && (slotId === 'lunch' || slotId === 'open');
   el.shiftPickFullField.classList.toggle('is-hidden', !canFull);
   if (canFull) {
     el.shiftPickFullLabel.textContent = slotId === 'open'
@@ -7126,7 +7223,8 @@ function renderShiftPick() {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'doer-btn' + (isWish ? ' is-wish' : '') + (isWish && item.full ? ' is-full' : '');
-        const when = isWish && item.t ? `（${shiftTimeText(item.t)}）` : '';
+        const when = isWish && item.t
+          ? `（${shiftTimeText(item.t)}${item.e ? '〜' + shiftTimeText(item.e) : ''}）` : '';
         b.textContent = (isWish && item.full ? 'F ' : '') + name + when;
         b.addEventListener('click', () => {
           const now = shiftDayOf(shiftRec(), dateStr);
@@ -7135,9 +7233,14 @@ function renderShiftPick() {
           const full = shiftPickAt.full !== undefined ? shiftPickAt.full : !!(isWish && item.full);
           const add = { n: name, t, p: shiftPickAt.laneId };
           if (slotId === 'lunch' && full) add.f = true;
-          now[slotId].push(add);
-          now[slotId] = shiftSort(now[slotId]);
-          shiftFillShort(now, slotId, shiftPickAt.laneId);
+          // ★退勤時刻。押した選び → その人の希望、の順です
+          const 退勤 = shiftPickAt.end || (isWish && item.e) || '';
+          if (退勤) add.e = 退勤;
+          // ★出勤時刻で入る行が決まる店舗では、押した行ではなく時刻で決めます
+          const 行き先 = shiftUsesRange(state.storeId) ? shiftSlotByTime(t) : slotId;
+          now[行き先].push(add);
+          now[行き先] = shiftSort(now[行き先]);
+          shiftFillShort(now, 行き先, shiftPickAt.laneId);
           saveShiftDay(dateStr, now);
           closeShiftPick();
           renderKeepScroll();
@@ -7502,7 +7605,7 @@ function shiftSheetModel() {
             .map((e) => ({
               text: shiftNameText(state.storeId, slot.id, e),
               parts: shiftNameParts(state.storeId, slot.id, e),
-              full: !!e.f, early: !!e.early,
+              full: shiftIsFull(state.storeId, e), early: !!e.early,
             })),
         }));
       }),
