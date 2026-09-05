@@ -7569,13 +7569,13 @@ function openShiftWishes() {
  */
 
 /** 印刷やPDFに出す、表の中身 */
-function shiftSheetModel() {
+function shiftSheetModel(pageIndex) {
   const rec = shiftRec();
   const store = getStore(state.storeId);
   const days = shiftDays(state.y, state.m, shiftHalf);
   const blocks = [];
 
-  const per = shiftPrintCols(days.length);
+  const per = shiftPrintCols(days.length, state.storeId);
   for (let from = 0; from < days.length; from += per) {
     const part = days.slice(from, from + per);
     const head = part.map((s) => {
@@ -7615,24 +7615,62 @@ function shiftSheetModel() {
     blocks.push({ head, rows, memo });
   }
 
+  // ★1枚分だけを返します。2枚に分ける店舗（popo）は、
+  //   前の段2つが1枚目、あとの2つが2枚目です
+  const 枚数 = shiftPrintPages(state.storeId);
+  const 段の数 = Math.ceil(blocks.length / 枚数);
+  const 何枚目 = Number(pageIndex) > 0 ? Number(pageIndex) : 0;
+  const この枚 = 枚数 > 1
+    ? blocks.slice(何枚目 * 段の数, (何枚目 + 1) * 段の数)
+    : blocks;
+
+  const 見出し = `${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト表`;
   return {
-    title: `${shiftRangeLabel(state.y, state.m, shiftHalf)} ${store.name} シフト表`,
+    // ★2枚に分けるときは「（1/2）」を付けます。どちらが先か分からないと、
+    //   貼るときに前後が入れかわります
+    title: 枚数 > 1 ? `${見出し}（${何枚目 + 1}/${枚数}）` : 見出し,
     // ★枠は店舗ごとに違います。絵を描くところは店舗を知らないので、ここで渡します
     slots: shiftSlotsOf(state.storeId),
-    blocks,
+    blocks: この枚,
   };
+}
+
+/** その店舗のシフト表を、1枚ずつのモデルにして返します */
+function shiftSheetPages() {
+  const 枚数 = shiftPrintPages(state.storeId);
+  const out = [];
+  for (let i = 0; i < 枚数; i += 1) out.push(shiftSheetModel(i));
+  return out;
 }
 
 /* -------- 画面に出す表 -------- */
 function renderShiftSheet() {
-  const model = shiftSheetModel();
-  el.shiftSheetTitle.textContent = model.title;
+  const pages = shiftSheetPages();
+  el.shiftSheetTitle.textContent = pages[0].title;
   el.shiftSheet.innerHTML = '';
-  // 列の幅は「一番多い日数」でそろえます。後ろの段が少ない半月でも、
-  // 前の段と同じ幅にしておくと、続きの表として読めます
-  const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
-  const size = shiftSheetMetrics(model, perDay);
-  model.blocks.forEach((b) => el.shiftSheet.appendChild(shiftSheetTable(b, perDay, size)));
+
+  pages.forEach((model, i) => {
+    // 2枚に分ける店舗（popo）は、2枚目の上に見出しを出します。
+    // どこからが2枚目か、画面でも分かるようにするためです
+    if (i > 0) {
+      const cap = document.createElement('p');
+      cap.className = 'shift-sheet__page';
+      cap.textContent = model.title;
+      // ★見た目は css を足さずに、ここで持たせます（css/style.css は本部のもの）
+      cap.style.cssText = 'margin:14px 0 6px;font-weight:700;text-align:center;'
+        + 'font-size:13px;' + cap.style.cssText;
+      // ★紙では、ここで改ページします。指定は css/style.css（本部のファイル）に
+      //   足さず、ここで直に入れます
+      cap.style.breakBefore = 'page';
+      cap.style.pageBreakBefore = 'always';   // 古いブラウザ向け
+      el.shiftSheet.appendChild(cap);
+    }
+    // 列の幅は「一番多い日数」でそろえます。後ろの段が少ない半月でも、
+    // 前の段と同じ幅にしておくと、続きの表として読めます
+    const perDay = model.blocks.reduce((n, b) => Math.max(n, b.head.length), 1);
+    const size = shiftSheetMetrics(model, perDay);
+    model.blocks.forEach((b) => el.shiftSheet.appendChild(shiftSheetTable(b, perDay, size)));
+  });
 }
 
 function shiftSheetTable(block, perDay, size) {
@@ -7979,13 +8017,38 @@ async function saveShiftFile(kind) {
   const type = isPdf ? 'application/pdf' : 'image/jpeg';
 
   const make = async () => {
-    const canvas = document.createElement('canvas');
-    drawShiftSheet(canvas, shiftSheetModel());
+    // ★2枚に分ける店舗（popo）は、1枚ずつ描きます
+    const pages = shiftSheetPages();
+    const canvases = pages.map((model) => {
+      const c = document.createElement('canvas');
+      drawShiftSheet(c, model);
+      return c;
+    });
     // ★細い線と小さい字がつぶれないよう、高めにします（0.92だと字のふちがにじみます）
-    const jpeg = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.95));
-    if (!jpeg) return null;
-    if (!isPdf) return jpeg;
-    return makePdf(new Uint8Array(await jpeg.arrayBuffer()), canvas.width, canvas.height);
+    const 焼く = (c) => new Promise((r) => c.toBlob(r, 'image/jpeg', 0.95));
+
+    if (isPdf) {
+      const jpegs = [];
+      for (const c of canvases) {
+        const one = await 焼く(c);
+        if (!one) return null;
+        jpegs.push(new Uint8Array(await one.arrayBuffer()));
+      }
+      return makePdf(jpegs, canvases[0].width, canvases[0].height);
+    }
+
+    // 画像は1つのファイルにしたいので、2枚目を下につなげます
+    // （LINEに送るときに2つに分かれていると、片方だけ見て終わることがあります）
+    if (canvases.length === 1) return 焼く(canvases[0]);
+    const 縦 = document.createElement('canvas');
+    縦.width = canvases[0].width;
+    縦.height = canvases.reduce((h, c) => h + c.height, 0);
+    const cx = 縦.getContext('2d');
+    cx.fillStyle = '#ffffff';
+    cx.fillRect(0, 0, 縦.width, 縦.height);
+    let y = 0;
+    canvases.forEach((c) => { cx.drawImage(c, 0, y); y += c.height; });
+    return 焼く(縦);
   };
 
   if (window.showSaveFilePicker) {

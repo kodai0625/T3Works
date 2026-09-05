@@ -2735,9 +2735,32 @@ const SHIFT_PRINT_ROWS = 2;
     縦書きにしたので、1文字分の幅で足ります */
 const SHIFT_SHEET_LABEL_MM = 5;
 
-/** その半月を何段かに分けたときの、1段分の日数 */
-function shiftPrintCols(dayCount) {
-  return Math.ceil(dayCount / SHIFT_PRINT_ROWS);
+/**
+ * 印刷を何枚に分けるか（店舗ごと）
+ *
+ * ★popo は2枚です（2026-09-05に ko-dai の指示）。
+ *   popo は「10:00〜15:00」と時間帯まで書くので、1枚に16日を詰めると
+ *   名前が7.7ptまで小さくなります。2枚に分ければ1段が4日になり、
+ *   1マスの幅が倍（17.8mm → 35.6mm）になるので、**12ptまで戻せます**。
+ * ★増やすと紙は増えますが、字は大きくなります。
+ */
+const SHIFT_PRINT_PAGES_STORES = { popo: 2 };
+
+/** その店舗の枚数（書いていない店舗は1枚） */
+function shiftPrintPages(storeId) {
+  const n = SHIFT_PRINT_PAGES_STORES[storeId];
+  return n >= 1 ? n : 1;
+}
+
+/**
+ * その半月を何段かに分けたときの、1段分の日数
+ *
+ * ★店舗を渡すと、その店舗の枚数で割ります。渡さなければ1枚分です
+ *   （提出ページはアルバイトの端末で1枚に描くので、渡しません）。
+ */
+function shiftPrintCols(dayCount, storeId) {
+  const 段 = SHIFT_PRINT_ROWS * (storeId ? shiftPrintPages(storeId) : 1);
+  return Math.ceil(dayCount / 段);
 }
 
 /**

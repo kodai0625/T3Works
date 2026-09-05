@@ -562,7 +562,10 @@ function drawShiftSheet(canvas, model, scale) {
  *  作りながら位置を数えていけば、これだけで作れます。
  *  用紙はA4の横（842×595ポイント）です。
  */
-function makePdf(jpeg, w, h) {
+function makePdf(jpegs, w, h) {
+  // ★1枚だけ渡されたときも、これまでどおり動くようにします
+  const 紙 = Array.isArray(jpegs) ? jpegs : [jpegs];
+
   const enc = new TextEncoder();
   const parts = [];
   const offsets = [];
@@ -582,32 +585,48 @@ function makePdf(jpeg, w, h) {
   const dx = (PW - dw) / 2;
   const dy = (PH - dh) / 2;
 
+  // 番号の割り当て。1=目次、2=ページの束、そのあと1枚につき3つずつ使います
+  //   3+i*3 … ページ  4+i*3 … 絵  5+i*3 … 置き方
+  const ページ番号 = (i) => 3 + i * 3;
+  const 絵番号 = (i) => 4 + i * 3;
+  const 置き方番号 = (i) => 5 + i * 3;
+
   putText('%PDF-1.4\n');
 
   mark();
   putText('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
-  mark();
-  putText('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
-  mark();
-  putText(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}]`
-    + ` /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`);
 
   mark();
-  putText(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h}`
-    + ` /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode`
-    + ` /Length ${jpeg.length} >>\nstream\n`);
-  put(jpeg);
-  putText('\nendstream\nendobj\n');
+  const kids = 紙.map((_, i) => `${ページ番号(i)} 0 R`).join(' ');
+  putText(`2 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${紙.length} >>\nendobj\n`);
 
   const content = `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${dx.toFixed(2)} ${dy.toFixed(2)} cm /Im0 Do Q\n`;
-  mark();
-  putText(`5 0 obj\n<< /Length ${enc.encode(content).length} >>\nstream\n${content}endstream\nendobj\n`);
+
+  紙.forEach((jpeg, i) => {
+    mark();
+    putText(`${ページ番号(i)} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}]`
+      + ` /Resources << /XObject << /Im0 ${絵番号(i)} 0 R >> >>`
+      + ` /Contents ${置き方番号(i)} 0 R >>\nendobj\n`);
+
+    mark();
+    putText(`${絵番号(i)} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h}`
+      + ` /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode`
+      + ` /Length ${jpeg.length} >>\nstream\n`);
+    put(jpeg);
+    putText('\nendstream\nendobj\n');
+
+    mark();
+    putText(`${置き方番号(i)} 0 obj\n<< /Length ${enc.encode(content).length} >>`
+      + `\nstream\n${content}endstream\nendobj\n`);
+  });
 
   const xref = len;
-  let table = 'xref\n0 6\n0000000000 65535 f \n';
+  const 数 = offsets.length + 1;
+  let table = `xref\n0 ${数}\n0000000000 65535 f \n`;
   offsets.forEach((o) => { table += String(o).padStart(10, '0') + ' 00000 n \n'; });
   putText(table);
-  putText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  putText(`trailer\n<< /Size ${数} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
 
   return new Blob(parts, { type: 'application/pdf' });
 }
+
