@@ -1364,15 +1364,25 @@ function journalCandidates(lines, field, pairs) {
       }
       return cashMarkedOf(line);
     };
+    // ★窓の中の「¥や単位のついた数」は、全部を候補にします。
+    //   1つずれて出ることがあるためです。実際にこうなりました：
+    //     掛売 / 0件 / お預かり現金 / ¥0 / ¥93,830 / おつり / ¥27,450
+    //   （¥0 は掛売の金額で、お預かりは その次）
+    //   目印の無い数字は最後の手だてなので、1つだけ・見つからなかったときだけ見ます
     const scan = (from, to, step) => {
-      for (let pass = 0; pass < 2; pass++) {
-        for (let j = from; step > 0 ? j <= to : j >= to; j += step) {
-          if (j !== i && journalIsLabel(lines[j])) break;
-          const v = pass === 0 ? sure1(lines[j]) : cashBareOf(lines[j]);
-          if (v !== null) return v;
-        }
+      const got = [];
+      for (let j = from; step > 0 ? j <= to : j >= to; j += step) {
+        if (j !== i && journalIsLabel(lines[j])) break;
+        const v = sure1(lines[j]);
+        if (v !== null && got.indexOf(v) < 0) got.push(v);
       }
-      return null;
+      if (got.length) return got;
+      for (let j = from; step > 0 ? j <= to : j >= to; j += step) {
+        if (j !== i && journalIsLabel(lines[j])) break;
+        const v = cashBareOf(lines[j]);
+        if (v !== null) return [v];
+      }
+      return [];
     };
 
     // ① その行と、下の行
@@ -1400,13 +1410,14 @@ function journalCandidates(lines, field, pairs) {
 
     const out = [];
     const push = (v) => { if (v !== null && out.indexOf(v) < 0) out.push(v); };
-    push(down); push(paired);
-    if (!anchored) push(up);
+    down.forEach(push);
+    push(paired);
+    if (!anchored) up.forEach(push);
     // ★下の行から取れなかったときは、当てにならないので「読めず」も候補に入れます。
     //   実際に「ポイント」で、上にあったクレジットの金額を拾ってしまいました
-    if (down === null && out.length) out.push(null);
+    if (!down.length && out.length) out.push(null);
     // 「N件」があるのに金額が読めなかったときは、素直に「読めず」にします
-    if (anchored && down === null) return [];
+    if (anchored && !down.length) return [];
     return out;
   }
   return [];
